@@ -7,17 +7,48 @@ import RecomendationPage from "./pages/recommendationPage/RecomendationPage";
 import AboutPage from "./pages/aboutPage/AboutPage";
 import ResultsPage from "./pages/resultsPage/ResultsPage";
 import ProductDetailPage from "./pages/productDetailPage/ProductDetailPage";
-import StatusBar from "./components/StatusBar/StatusBar";
-import NavBar from "./components/NavBar/NavBar";
+import Sidebar from "./components/Sidebar/Sidebar";
+import ProfilePage from "./pages/profilePage/ProfilePage";
+import StatusPage from "./pages/statusPage/StatusPage";
 import LoginPage from "./pages/auth/LoginPage";
 import { useAuth } from "./context/AuthContext";
 import { logoutUser, fetchPosts, fetchOpenAIAnalysis, fetchAllProducts } from "./api/api";
 import Notification from "./components/Notification/Notification";
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
+import Background from "./components/Background/Background";
+
+// Helper functions for home page
+const getTimeOfDay = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
+};
+
+const getUserName = (user) => {
+  console.log('[APP] getUserName called with user:', {
+    hasUser: !!user,
+    preferred_name: user?.preferred_name,
+    full_name: user?.full_name,
+    username: user?.username
+  });
+  
+  if (!user) {
+    console.log('[APP] No user, returning "User"');
+    return "User";
+  }
+  
+  // Priority: preferred_name > full_name > username > "User"
+  const name = user.preferred_name || user.full_name || user.username || "User";
+  console.log('[APP] Returning name:', name);
+  return name;
+};
 
 function App() {
   const [activePage, setActivePage] = useState("home");
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const { isAuthenticated, isLoading, login, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { isAuthenticated, isLoading, login, logout, user } = useAuth();
 
   // Periodic API polling for debugging - logs posts and analysis data
   useEffect(() => {
@@ -123,117 +154,8 @@ function App() {
       case "home":
         return (
           <div className="home-container">
-            <div className="welcome-header">
-              <h1>Product Painpoint Analyzer</h1>
-              <p className="tagline">
-                Discover user pain points and generate actionable
-                recommendations
-              </p>
-            </div>
-
-            <div className="features-grid">
-              <div className="feature-card">
-                <div className="feature-icon">🔍</div>
-                <h3>Scrape & Analysis</h3>
-                <p>
-                  Configure scraping jobs to collect Reddit posts about your products.
-                  Set target products, subreddits, and time ranges. Analysis runs automatically.
-                </p>
-                <button
-                  className="feature-button"
-                  onClick={() => setActivePage("scrapepage")}
-                >
-                  Go to Scrape & Analysis
-                </button>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">📋</div>
-                <h3>View Results</h3>
-                <p>
-                  Browse all analyzed products in one place. Click any product to view
-                  its posts, pain point analysis, and AI-generated recommendations.
-                </p>
-                <button
-                  className="feature-button"
-                  onClick={() => setActivePage("results")}
-                >
-                  View Results
-                </button>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">ℹ️</div>
-                <h3>Learn More</h3>
-                <p>
-                  Discover how the platform works, its technology stack, and the
-                  advanced NLP pipeline that powers the analysis.
-                </p>
-                <button
-                  className="feature-button"
-                  onClick={() => setActivePage("about")}
-                >
-                  About This App
-                </button>
-              </div>
-            </div>
-
-            <div className="usage-guide">
-              <h2>How to Use This App</h2>
-              <ol className="steps-list">
-                <li>
-                  <span className="step-number">1</span>
-                  <div className="step-content">
-                    <h4>Scrape & Analyze Products</h4>
-                    <p>
-                      Go to <strong>Scrape & Analysis</strong> to configure and run scraping jobs.
-                      Select your target products, choose subreddits (or use the random generator),
-                      set time ranges and limits. The system automatically analyzes posts using
-                      advanced NLP with 94% sentiment accuracy, generates OpenAI analysis, and
-                      creates product recommendations - all in one automated flow.
-                    </p>
-                  </div>
-                </li>
-                <li>
-                  <span className="step-number">2</span>
-                  <div className="step-content">
-                    <h4>View All Results</h4>
-                    <p>
-                      Navigate to <strong>Results</strong> to see all products that have been analyzed.
-                      Use the search bar to quickly find specific products. Each product card shows
-                      what data is available (Posts, Analysis, Recommendations).
-                    </p>
-                  </div>
-                </li>
-                <li>
-                  <span className="step-number">3</span>
-                  <div className="step-content">
-                    <h4>Explore Product Details</h4>
-                    <p>
-                      Click any product from the Results page to open its detail view. Here you can
-                      navigate between three tabs: <strong>Posts</strong> (all collected Reddit posts),
-                      <strong>Analysis</strong> (pain points with severity and sentiment), and
-                      <strong>Recommendations</strong> (AI-generated solutions).
-                    </p>
-                  </div>
-                </li>
-                <li>
-                  <span className="step-number">4</span>
-                  <div className="step-content">
-                    <h4>Take Action</h4>
-                    <p>
-                      Use the insights from analysis and recommendations to prioritize product improvements.
-                      All data is shared across users, so your team can collaborate on the same insights.
-                    </p>
-                  </div>
-                </li>
-              </ol>
-            </div>
-
-            <div className="app-footer">
-              <p>
-                Need help? Check the documentation or contact the administrator.
-              </p>
+            <div className="home-header">
+              <h1>Good {getTimeOfDay()}, {getUserName(user)}</h1>
             </div>
           </div>
         );
@@ -257,6 +179,10 @@ function App() {
         );
       case "about":
         return <AboutPage />;
+      case "profile":
+        return <ProfilePage />;
+      case "status":
+        return <StatusPage />;
       default:
         return (
           <div>
@@ -269,17 +195,20 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Use the Navbar component */}
-      <NavBar
+      <Background />
+      {/* Sidebar Navigation */}
+      <Sidebar
         activePage={activePage}
         setActivePage={setActivePage}
         handleLogout={handleLogout}
+        onCollapseChange={setSidebarCollapsed}
       />
 
       {/* Main Content */}
-      <div className="main-content" data-testid="main-content">
-        <StatusBar />
-        {renderContent()}
+      <div className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`} data-testid="main-content">
+        <ErrorBoundary>
+          {renderContent()}
+        </ErrorBoundary>
         <Notification />
       </div>
     </div>

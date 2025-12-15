@@ -1,13 +1,35 @@
 // components/Navbar.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { fetchUserProfile } from "../../api/api";
+import UserProfile from "../UserProfile/UserProfile";
 import "./navBar.scss";
 
 const Navbar = ({ activePage, setActivePage, handleLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [userCredits, setUserCredits] = useState(null);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  const loadUserCredits = async () => {
+    try {
+      const response = await fetchUserProfile();
+      if (response.status === 'success') {
+        setUserCredits(response.user.credits);
+      }
+    } catch (err) {
+      console.error('Failed to load user credits:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadUserCredits();
+    // Refresh credits every 30 seconds
+    const interval = setInterval(loadUserCredits, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
@@ -46,7 +68,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
               </svg>
             )}
           </button>
-          {!isCollapsed && <span className="app-name">Product Painpoint</span>}
+          {!isCollapsed && <span className="app-name">INSIGHT</span>}
         </div>
       </div>
 
@@ -63,10 +85,10 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
           <li
             className={activePage === "scrapepage" || activePage === "analysisPage" ? "active" : ""}
             onClick={() => setActivePage("scrapepage")}
-            title="Scrape & Analysis"
+            title="Find Insights"
           >
             <span className="menu-icon">🔍</span>
-            {!isCollapsed && <span className="menu-text">Scrape & Analysis</span>}
+            {!isCollapsed && <span className="menu-text">Find Insights</span>}
           </li>
           <li
             className={activePage === "results" || activePage === "productDetail" ? "active" : ""}
@@ -84,6 +106,23 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
             <span className="menu-icon">ℹ️</span>
             {!isCollapsed && <span className="menu-text">About</span>}
           </li>
+          {/* User Profile and Credits */}
+          <li 
+            className="profile-item" 
+            onClick={() => setShowProfile(true)} 
+            title="User Profile"
+          >
+            <span className="menu-icon">👤</span>
+            {!isCollapsed && (
+              <div className="profile-info">
+                <span className="menu-text">Profile</span>
+                {userCredits !== null && (
+                  <span className="credits-badge">{userCredits} credits</span>
+                )}
+              </div>
+            )}
+          </li>
+          
           {/* Logout button at the bottom of sidebar */}
           <li className="logout-item" onClick={handleLogout} title="Logout">
             <span className="menu-icon">🚪</span>
@@ -91,6 +130,11 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
           </li>
         </ul>
       </nav>
+      
+      <UserProfile 
+        isVisible={showProfile} 
+        onClose={() => setShowProfile(false)} 
+      />
     </div>
   );
 };

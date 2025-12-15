@@ -3,7 +3,8 @@ import logging
 import time
 from datetime import datetime
 from models import RedditPost
-from app import data_store
+# Don't import data_store here to avoid circular imports
+# Access it when needed
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class RedditScraper:
         ]
         # Available time filters
         self.time_filters = {
+            "hour": "past hour",
             "day": "past 24 hours",
             "week": "past week",
             "month": "past month",
@@ -78,9 +80,13 @@ class RedditScraper:
             
         logger.info(f"Searching Reddit for '{query}' in {subreddits}")
         
-        # Track which subreddits have been scraped
-        for subreddit in subreddits:
-            data_store.subreddits_scraped.add(subreddit)
+        # Track which subreddits have been scraped (lazy import to avoid circular dependencies)
+        try:
+            from app import data_store as ds
+            for subreddit in subreddits:
+                ds.subreddits_scraped.add(subreddit)
+        except (ImportError, AttributeError):
+            pass  # Skip if data_store not available
             
         # Create subreddit objects
         subreddit_objects = [self.reddit.subreddit(sub) for sub in subreddits]
@@ -104,9 +110,13 @@ class RedditScraper:
                     )
                     posts.append(post)
                     
-                    # Add to store
-                    if post.id not in [p.id for p in data_store.raw_posts]:
-                        data_store.raw_posts.append(post)
+                    # Add to store (lazy import to avoid circular dependencies)
+                    try:
+                        from app import data_store as ds
+                        if post.id not in [p.id for p in ds.raw_posts]:
+                            ds.raw_posts.append(post)
+                    except (ImportError, AttributeError):
+                        pass  # Skip if data_store not available
                         
                 # Apply rate limiting to avoid hitting the Reddit API too hard
                 time.sleep(2)
@@ -155,8 +165,12 @@ class RedditScraper:
             )
             all_posts.extend(posts)
             
-        # Update the timestamp for the last scrape
-        data_store.last_scrape_time = datetime.now()
+        # Update the timestamp for the last scrape (lazy import to avoid circular dependencies)
+        try:
+            from app import data_store as ds
+            ds.last_scrape_time = datetime.now()
+        except (ImportError, AttributeError):
+            pass  # Skip if data_store not available
         
         return all_posts
     
@@ -178,9 +192,19 @@ class RedditScraper:
                     time_filter=time_filter
                 )
                 print("🚀 ~ result:", result)  # This print statement could be part of the issue
-            data_store.scrape_in_progress = False  # Only set to False on success
+            # Lazy import to avoid circular dependencies
+            try:
+                from app import data_store as ds
+                ds.scrape_in_progress = False  # Only set to False on success
+            except (ImportError, AttributeError):
+                pass
             return result
         except Exception as e:
             logger.error(f"Error during scraping: {str(e)}")
-            data_store.scrape_in_progress = False  # Also set to False on exception
+            # Lazy import to avoid circular dependencies
+            try:
+                from app import data_store as ds
+                ds.scrape_in_progress = False  # Also set to False on exception
+            except (ImportError, AttributeError):
+                pass
             raise

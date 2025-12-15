@@ -1,0 +1,32 @@
+@use "../../styles/variables" as *;
+
+.status-page {
+  padding: $spacing-xl;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .status-page-header {
+    margin-bottom: $spacing-xl;
+
+    h1 {
+      font-size: $font-size-3xl;
+      font-weight: $font-weight-semibold;
+      color: $text-primary;
+      margin: 0 0 $spacing-sm 0;
+    }
+
+    .status-page-subtitle {
+      font-size: $font-size-base;
+      color: $text-secondary;
+      margin: 0;
+    }
+  }
+
+  .status-page-content {
+    background: $bg-card;
+    border-radius: $border-radius-lg;
+    padding: $spacing-xl;
+    box-shadow: $shadow-md;
+  }
+}
+

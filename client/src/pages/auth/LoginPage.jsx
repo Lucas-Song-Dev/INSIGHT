@@ -13,25 +13,53 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('[LOGIN PAGE] ========== LOGIN FORM SUBMITTED ==========');
+    console.log('[LOGIN PAGE] Username:', username);
+    console.log('[LOGIN PAGE] Has password:', !!password);
     setError("");
     setIsLoading(true);
 
     try {
+      console.log('[LOGIN PAGE] Step 1: Calling loginUser API...');
       const response = await loginUser({ username, password });
+      console.log('[LOGIN PAGE] Step 2: Login API response received:', {
+        status: response.status,
+        message: response.message,
+        hasUser: !!response.user
+      });
 
       if (response.status === "success") {
+        console.log('[LOGIN PAGE] Step 3: Login API returned success');
+        console.log('[LOGIN PAGE] Step 4: Calling onLoginSuccess callback to update auth state...');
         // Call the onLoginSuccess callback to update auth state
-        onLoginSuccess();
+        await onLoginSuccess();
+        console.log('[LOGIN PAGE] Step 5: onLoginSuccess callback completed');
+        console.log('[LOGIN PAGE] ========== LOGIN FLOW COMPLETE ==========');
       } else {
+        console.warn('[LOGIN PAGE] Login API returned non-success status:', response.status);
+        console.warn('[LOGIN PAGE] Error message:', response.message);
         setError(response.message || "Login failed");
+        console.log('[LOGIN PAGE] ========== LOGIN FAILED ==========');
       }
     } catch (err) {
+      console.error('[LOGIN PAGE] ========== LOGIN ERROR ==========');
+      console.error('[LOGIN PAGE] Error type:', err.constructor.name);
+      console.error('[LOGIN PAGE] Error message:', err.message);
+      console.error('[LOGIN PAGE] Error details:', {
+        message: err.message,
+        responseStatus: err.response?.status,
+        responseData: err.response?.data,
+        hasResponse: !!err.response,
+        stack: err.stack?.split('\n').slice(0, 5).join('\n')
+      });
       setError(
         err.message ||
         err.response?.data?.message ||
         "Authentication failed. Please check your credentials."
       );
+      console.log('[LOGIN PAGE] ========== LOGIN ERROR HANDLED ==========');
     } finally {
+      console.log('[LOGIN PAGE] Setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -56,14 +84,14 @@ const LoginPage = ({ onLoginSuccess }) => {
         />
       ) : (
         <div className="login-card">
-          <h2>Product Painpoint Login</h2>
+          <h2>INSIGHT Login</h2>
           <p className="login-description">
             Enter your credentials to access the dashboard
           </p>
 
           {error && <div className="error-message">{error}</div>}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
               <label htmlFor="username">Username</label>
               <input
@@ -91,17 +119,18 @@ const LoginPage = ({ onLoginSuccess }) => {
             <button type="submit" className="login-button" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Log In"}
             </button>
+            
+            <div className="register-prompt">
+              <p>Don't have an account?</p>
+              <button
+                type="button"
+                className="register-link"
+                onClick={() => setShowRegister(true)}
+              >
+                Create Account
+              </button>
+            </div>
           </form>
-
-          <div className="register-prompt">
-            <p>Don't have an account?</p>
-            <button
-              className="register-link"
-              onClick={() => setShowRegister(true)}
-            >
-              Create Account
-            </button>
-          </div>
         </div>
       )}
     </div>

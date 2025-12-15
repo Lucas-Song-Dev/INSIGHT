@@ -1,0 +1,212 @@
+2025-12-13 13:58:20,844 - ERROR - Failed to connect to MongoDB: localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 693de15ec6579223e8422c8a, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+2025-12-13 13:58:20,862 - ERROR - Cannot update metadata: Database connection not established
+2025-12-13 13:58:21,209 - INFO - Claude client initialized successfully
+2025-12-13 13:58:21,461 - INFO - Claude client initialized successfully
+2025-12-13 13:58:21,467 - INFO - App initialized successfully
+2025-12-13 13:58:21,491 - WARNING - Authentication failed for /api/scrape: No token provided
+2025-12-13 13:58:21,526 - WARNING - Authentication failed for /api/scrape: No token provided
+2025-12-13 13:58:22,145 - WARNING - Authentication failed for /api/posts: No token provided
+2025-12-13 13:58:22,152 - WARNING - Authentication failed for /api/posts: No token provided
+2025-12-13 13:58:22,441 - WARNING - Authentication failed for /api/status: No token provided
+2025-12-13 13:58:22,449 - WARNING - Authentication failed for /api/status: No token provided
+2025-12-13 13:58:22,465 - WARNING - Authentication failed for /api/run-analysis: No token provided
+2025-12-13 13:58:22,469 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:22,475 - WARNING - Authentication failed for /api/run-analysis: No token provided
+2025-12-13 13:58:22,722 - WARNING - Authentication failed for /api/all-products: No token provided
+2025-12-13 13:58:22,727 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:22,731 - WARNING - Authentication failed for /api/all-products: No token provided
+2025-12-13 13:58:22,748 - WARNING - Authentication failed for /api/recommendations: No token provided
+2025-12-13 13:58:22,985 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 13:58:22,990 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:22,995 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 13:58:23,009 - WARNING - Authentication failed for /api/claude-analysis: No token provided
+2025-12-13 13:58:23,013 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,017 - WARNING - Authentication failed for /api/claude-analysis: No token provided
+2025-12-13 13:58:23,036 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,042 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,065 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,075 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,078 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,087 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,090 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,098 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,100 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,117 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,119 - WARNING - Rate limit exceeded for 127.0.0.1
+2025-12-13 13:58:23,138 - WARNING - Anthropic API key not found. API key must be provided with each request.
+2025-12-13 13:58:23,144 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,148 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,395 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,397 - ERROR - No API key provided to initialize Claude client
+2025-12-13 13:58:23,402 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,405 - INFO - Requesting subreddit suggestions from Claude for: Python
+2025-12-13 13:58:23,406 - INFO - Claude suggested 2 subreddits and 2 queries
+2025-12-13 13:58:23,411 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,413 - INFO - Requesting subreddit suggestions from Claude for: Python
+2025-12-13 13:58:23,414 - ERROR - Error getting subreddit suggestions from Claude: API Error
+2025-12-13 13:58:23,419 - WARNING - Anthropic API key not found. API key must be provided with each request.
+2025-12-13 13:58:23,420 - ERROR - Claude API key not configured. Cannot suggest subreddits.
+2025-12-13 13:58:23,426 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,428 - INFO - Sending request to Claude to analyze pain points for Test Product
+2025-12-13 13:58:23,429 - INFO - Successfully analyzed common pain points for Test Product
+2025-12-13 13:58:23,687 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,692 - WARNING - Anthropic API key not found. API key must be provided with each request.
+2025-12-13 13:58:23,694 - ERROR - Claude API key not configured. Cannot analyze common pain points.
+2025-12-13 13:58:23,699 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,701 - INFO - Sending request to Claude to generate recommendations for Test Product
+2025-12-13 13:58:23,702 - INFO - Successfully generated recommendations for Test Product
+2025-12-13 13:58:23,951 - INFO - Claude client initialized successfully
+2025-12-13 13:58:23,960 - INFO - Connected to MongoDB successfully
+2025-12-13 13:58:23,964 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2153077935056'>
+2025-12-13 13:58:23,966 - INFO - Loaded 0 pain points from database
+2025-12-13 13:58:23,970 - INFO - Connected to MongoDB successfully
+2025-12-13 13:58:23,974 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2153078678992'>
+2025-12-13 13:58:23,976 - INFO - Loaded 0 pain points from database
+2025-12-13 13:58:23,980 - ERROR - Failed to connect to MongoDB: Connection failed
+2025-12-13 13:58:23,985 - INFO - Connected to MongoDB successfully
+2025-12-13 13:58:23,989 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2153078578320'>
+2025-12-13 13:58:23,992 - INFO - Loaded 0 pain points from database
+2025-12-13 13:58:23,998 - INFO - Connected to MongoDB successfully
+2025-12-13 13:58:24,001 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2153079291408'>
+2025-12-13 13:58:24,003 - INFO - Loaded 0 pain points from database
+2025-12-13 13:58:24,013 - INFO - Connected to MongoDB successfully
+2025-12-13 13:58:24,016 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2153077950736'>
+2025-12-13 13:58:24,018 - INFO - Loaded 0 pain points from database
+2025-12-13 13:58:24,021 - INFO - Saved OpenAI analysis for test_product
+2025-12-13 13:58:24,026 - INFO - Connected to MongoDB successfully
+2025-12-13 13:58:24,029 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2153079938512'>
+2025-12-13 13:58:24,032 - INFO - Loaded 0 pain points from database
+2025-12-13 13:58:24,034 - INFO - Updated metadata: {'last_updated': datetime.datetime(2025, 12, 13, 21, 58, 24, 34871), 'scrape_in_progress': True, 'products': ['test_product']}
+2025-12-13 13:58:54,375 - ERROR - Failed to connect to MongoDB: localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 693de180c6579223e8422c8b, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+2025-12-13 13:58:54,480 - INFO - Starting advanced NLP analysis of 3 posts
+2025-12-13 13:58:54,486 - INFO - Analysis complete: 44 words processed
+2025-12-13 13:58:54,487 - INFO - Sentiment distribution: {'positive': 2, 'negative': 1, 'neutral': 0}
+2025-12-13 13:58:54,537 - INFO - Starting advanced NLP analysis of 3 posts
+2025-12-13 13:58:54,541 - INFO - Analysis complete: 44 words processed
+2025-12-13 13:58:54,542 - INFO - Sentiment distribution: {'positive': 2, 'negative': 1, 'neutral': 0}
+2025-12-13 13:58:54,565 - INFO - Starting advanced NLP analysis of 100 posts
+2025-12-13 13:58:57,803 - INFO - Analysis complete: 100500 words processed
+2025-12-13 13:58:57,805 - INFO - Sentiment distribution: {'positive': 0, 'negative': 1, 'neutral': 99}
+2025-12-13 13:58:57,813 - ERROR - Reddit API credentials missing
+2025-12-13 13:58:57,817 - ERROR - Error initializing Reddit client: Error
+2025-12-13 13:58:57,822 - INFO - Searching Reddit for 'test query' in ['test']
+2025-12-13 13:58:59,825 - INFO - Found 1 posts for query 'test query'
+2025-12-13 13:58:59,829 - INFO - Searching Reddit for 'test query' in ['test']
+2025-12-13 13:58:59,831 - ERROR - Error searching subreddit <MagicMock name='Reddit().subreddit()' id='2153080587920'>: API Error
+2025-12-13 13:58:59,832 - INFO - Found 0 posts for query 'test query'
+2025-12-13 13:58:59,836 - INFO - Scraping mentions of test_product for time period: past month
+2025-12-13 13:58:59,838 - INFO - Searching in subreddits: ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 13:58:59,839 - INFO - Searching Reddit for 'test_product' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 13:59:23,848 - INFO - Found 12 posts for query 'test_product'
+2025-12-13 13:59:23,849 - INFO - Searching Reddit for 'test_product issue' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 13:59:47,857 - INFO - Found 12 posts for query 'test_product issue'
+2025-12-13 13:59:47,858 - INFO - Searching Reddit for 'test_product problem' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 14:00:11,865 - INFO - Found 12 posts for query 'test_product problem'
+2025-12-13 14:00:11,866 - INFO - Searching Reddit for 'test_product bug' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 14:00:35,874 - INFO - Found 12 posts for query 'test_product bug'
+2025-12-13 14:00:35,876 - INFO - Searching Reddit for 'test_product feature request' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 14:00:59,884 - INFO - Found 12 posts for query 'test_product feature request'
+2025-12-13 15:07:58,641 - ERROR - Failed to connect to MongoDB: localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 693df1b09e757af2164b08fe, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+2025-12-13 15:07:58,652 - ERROR - Cannot update metadata: Database connection not established
+2025-12-13 15:07:59,248 - INFO - Claude client initialized successfully
+2025-12-13 15:07:59,698 - INFO - Claude client initialized successfully
+2025-12-13 15:07:59,709 - INFO - App initialized successfully
+2025-12-13 15:07:59,721 - WARNING - Authentication failed for /api/scrape: No token provided
+2025-12-13 15:07:59,736 - WARNING - Authentication failed for /api/scrape: No token provided
+2025-12-13 15:08:00,560 - WARNING - Authentication failed for /api/posts: No token provided
+2025-12-13 15:08:00,568 - WARNING - Authentication failed for /api/posts: No token provided
+2025-12-13 15:08:00,865 - WARNING - Authentication failed for /api/status: No token provided
+2025-12-13 15:08:00,872 - WARNING - Authentication failed for /api/status: No token provided
+2025-12-13 15:08:00,888 - WARNING - Authentication failed for /api/run-analysis: No token provided
+2025-12-13 15:08:00,895 - WARNING - Authentication failed for /api/run-analysis: No token provided
+2025-12-13 15:08:01,224 - WARNING - Authentication failed for /api/all-products: No token provided
+2025-12-13 15:08:01,232 - WARNING - Authentication failed for /api/all-products: No token provided
+2025-12-13 15:08:01,250 - WARNING - Authentication failed for /api/recommendations: No token provided
+2025-12-13 15:08:01,526 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,533 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,549 - WARNING - Authentication failed for /api/claude-analysis: No token provided
+2025-12-13 15:08:01,556 - WARNING - Authentication failed for /api/claude-analysis: No token provided
+2025-12-13 15:08:01,577 - ERROR - Login error: 415 Unsupported Media Type: Did not attempt to load JSON data because the request Content-Type was not 'application/json'.
+2025-12-13 15:08:01,585 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,595 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,598 - WARNING - Authentication failed for /api/posts: No token provided
+2025-12-13 15:08:01,600 - WARNING - Authentication failed for /api/recommendations: No token provided
+2025-12-13 15:08:01,602 - WARNING - Authentication failed for /api/status: No token provided
+2025-12-13 15:08:01,639 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,651 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,664 - WARNING - Authentication failed for /api/pain-points: No token provided
+2025-12-13 15:08:01,666 - WARNING - Authentication failed for /api/posts: No token provided
+2025-12-13 15:08:01,669 - WARNING - Authentication failed for /api/status: No token provided
+2025-12-13 15:08:01,673 - WARNING - Anthropic API key not found. API key must be provided with each request.
+2025-12-13 15:08:01,679 - INFO - Claude client initialized successfully
+2025-12-13 15:08:01,684 - INFO - Claude client initialized successfully
+2025-12-13 15:08:01,940 - INFO - Claude client initialized successfully
+2025-12-13 15:08:01,942 - ERROR - No API key provided to initialize Claude client
+2025-12-13 15:08:01,949 - INFO - Claude client initialized successfully
+2025-12-13 15:08:01,950 - INFO - Requesting subreddit suggestions from Claude for: Python
+2025-12-13 15:08:01,952 - INFO - Claude suggested 2 subreddits and 2 queries
+2025-12-13 15:08:01,956 - INFO - Claude client initialized successfully
+2025-12-13 15:08:01,959 - INFO - Requesting subreddit suggestions from Claude for: Python
+2025-12-13 15:08:01,961 - ERROR - Error getting subreddit suggestions from Claude: API Error
+2025-12-13 15:08:01,966 - WARNING - Anthropic API key not found. API key must be provided with each request.
+2025-12-13 15:08:01,967 - ERROR - Claude API key not configured. Cannot suggest subreddits.
+2025-12-13 15:08:01,971 - INFO - Claude client initialized successfully
+2025-12-13 15:08:01,973 - INFO - Sending request to Claude to analyze pain points for Test Product
+2025-12-13 15:08:01,975 - INFO - Successfully analyzed common pain points for Test Product
+2025-12-13 15:08:02,239 - INFO - Claude client initialized successfully
+2025-12-13 15:08:02,245 - WARNING - Anthropic API key not found. API key must be provided with each request.
+2025-12-13 15:08:02,247 - ERROR - Claude API key not configured. Cannot analyze common pain points.
+2025-12-13 15:08:02,251 - INFO - Claude client initialized successfully
+2025-12-13 15:08:02,253 - INFO - Sending request to Claude to generate recommendations for Test Product
+2025-12-13 15:08:02,255 - INFO - Successfully generated recommendations for Test Product
+2025-12-13 15:08:02,515 - INFO - Claude client initialized successfully
+2025-12-13 15:08:02,525 - INFO - Connected to MongoDB successfully
+2025-12-13 15:08:02,529 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2485105315792'>
+2025-12-13 15:08:02,532 - INFO - Loaded 0 pain points from database
+2025-12-13 15:08:02,538 - INFO - Connected to MongoDB successfully
+2025-12-13 15:08:02,544 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2485105323472'>
+2025-12-13 15:08:02,547 - INFO - Loaded 0 pain points from database
+2025-12-13 15:08:02,552 - ERROR - Failed to connect to MongoDB: Connection failed
+2025-12-13 15:08:02,557 - INFO - Connected to MongoDB successfully
+2025-12-13 15:08:02,560 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2485102302480'>
+2025-12-13 15:08:02,563 - INFO - Loaded 0 pain points from database
+2025-12-13 15:08:02,572 - INFO - Connected to MongoDB successfully
+2025-12-13 15:08:02,576 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2485103702992'>
+2025-12-13 15:08:02,579 - INFO - Loaded 0 pain points from database
+2025-12-13 15:08:02,590 - INFO - Connected to MongoDB successfully
+2025-12-13 15:08:02,593 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2485105389328'>
+2025-12-13 15:08:02,596 - INFO - Loaded 0 pain points from database
+2025-12-13 15:08:02,601 - INFO - Saved OpenAI analysis for test_product
+2025-12-13 15:08:02,607 - INFO - Connected to MongoDB successfully
+2025-12-13 15:08:02,611 - INFO - Loaded metadata, scrape_in_progress: <MagicMock name='MongoClient().reddit_scraper.metadata.find_one().get()' id='2485102667920'>
+2025-12-13 15:08:02,614 - INFO - Loaded 0 pain points from database
+2025-12-13 15:08:02,618 - INFO - Updated metadata: {'last_updated': datetime.datetime(2025, 12, 13, 23, 8, 2, 617757), 'scrape_in_progress': True, 'products': ['test_product']}
+2025-12-13 15:08:33,022 - ERROR - Failed to connect to MongoDB: localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 693df1d29e757af2164b08ff, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+2025-12-13 15:08:33,102 - INFO - Starting advanced NLP analysis of 3 posts
+2025-12-13 15:08:33,108 - INFO - Analysis complete: 44 words processed
+2025-12-13 15:08:33,109 - INFO - Sentiment distribution: {'positive': 2, 'negative': 1, 'neutral': 0}
+2025-12-13 15:08:33,168 - INFO - Starting advanced NLP analysis of 3 posts
+2025-12-13 15:08:33,171 - INFO - Analysis complete: 44 words processed
+2025-12-13 15:08:33,172 - INFO - Sentiment distribution: {'positive': 2, 'negative': 1, 'neutral': 0}
+2025-12-13 15:08:33,201 - INFO - Starting advanced NLP analysis of 100 posts
+2025-12-13 15:08:37,164 - INFO - Analysis complete: 100500 words processed
+2025-12-13 15:08:37,166 - INFO - Sentiment distribution: {'positive': 0, 'negative': 1, 'neutral': 99}
+2025-12-13 15:08:37,173 - ERROR - Reddit API credentials missing
+2025-12-13 15:08:37,180 - ERROR - Error initializing Reddit client: Error
+2025-12-13 15:08:37,186 - INFO - Searching Reddit for 'test query' in ['test']
+2025-12-13 15:08:39,188 - INFO - Found 1 posts for query 'test query'
+2025-12-13 15:08:39,193 - INFO - Searching Reddit for 'test query' in ['test']
+2025-12-13 15:08:39,195 - ERROR - Error searching subreddit <MagicMock name='Reddit().subreddit()' id='2485106411152'>: API Error
+2025-12-13 15:08:39,197 - INFO - Found 0 posts for query 'test query'
+2025-12-13 15:08:39,203 - INFO - Scraping mentions of test_product for time period: past month
+2025-12-13 15:08:39,204 - INFO - Searching in subreddits: ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 15:08:39,206 - INFO - Searching Reddit for 'test_product' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 15:09:03,213 - INFO - Found 12 posts for query 'test_product'
+2025-12-13 15:09:03,215 - INFO - Searching Reddit for 'test_product issue' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 15:09:27,224 - INFO - Found 12 posts for query 'test_product issue'
+2025-12-13 15:09:27,226 - INFO - Searching Reddit for 'test_product problem' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 15:09:51,233 - INFO - Found 12 posts for query 'test_product problem'
+2025-12-13 15:09:51,235 - INFO - Searching Reddit for 'test_product bug' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 15:10:15,241 - INFO - Found 12 posts for query 'test_product bug'
+2025-12-13 15:10:15,242 - INFO - Searching Reddit for 'test_product feature request' in ['programming', 'webdev', 'learnprogramming', 'coding', 'javascript', 'python', 'reactjs', 'vscode', 'IDE', 'developers', 'replit', 'cursor_editor']
+2025-12-13 15:10:39,250 - INFO - Found 12 posts for query 'test_product feature request'

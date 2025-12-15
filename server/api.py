@@ -68,14 +68,25 @@ class Register(Resource):
         - username (str): Username
         - password (str): Password
         - email (str): Email (optional)
+        - full_name (str): Full name (required)
+        - preferred_name (str): Preferred name (required)
+        - birthday (str): Birthday in YYYY-MM-DD format (required)
         
         Returns:
             JSON response confirming registration
         """
+        logger.info("[REGISTER] ========== REGISTRATION REQUEST RECEIVED ==========")
         data = request.get_json() or {}
+        logger.info(f"[REGISTER] Request data keys: {list(data.keys())}")
+        
         username = sanitize_input(data.get('username', ''))
         password = data.get('password', '')
         email = sanitize_input(data.get('email', '')) if data.get('email') else None
+        full_name = sanitize_input(data.get('full_name', '')) if data.get('full_name') else None
+        preferred_name = sanitize_input(data.get('preferred_name', '')) if data.get('preferred_name') else None
+        birthday = data.get('birthday', '') if data.get('birthday') else None
+        
+        logger.info(f"[REGISTER] Extracted fields - username: {username}, has_password: {bool(password)}, email: {email}, full_name: {full_name}, preferred_name: {preferred_name}, birthday: {birthday}")
         
         # Validate input with security rules
         validation_rules = {
@@ -97,96 +108,177 @@ class Register(Resource):
                 'required': False,
                 'max_len': 255,
                 'pattern': r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' if email else None
+            },
+            'full_name': {
+                'type': str,
+                'required': True,
+                'min_len': 1,
+                'max_len': 100
+            },
+            'preferred_name': {
+                'type': str,
+                'required': True,
+                'min_len': 1,
+                'max_len': 50
+            },
+            'birthday': {
+                'type': str,
+                'required': True,
+                'pattern': r'^\d{4}-\d{2}-\d{2}$'  # YYYY-MM-DD format
             }
         }
         
-        is_valid, errors = validate_input({'username': username, 'password': password, 'email': email}, validation_rules)
+        # Validate required fields
+        validation_data = {
+            'username': username,
+            'password': password,
+            'email': email,
+            'full_name': full_name,
+            'preferred_name': preferred_name,
+            'birthday': birthday
+        }
+        
+        logger.info("[REGISTER] Step 1: Validating input fields...")
+        is_valid, errors = validate_input(validation_data, validation_rules)
         if not is_valid:
+            logger.warning(f"[REGISTER] Validation failed: {errors}")
             return {"status": "error", "message": "; ".join(errors)}, 400
         
+        logger.info("[REGISTER] Step 2: Input validation passed")
+        
         # Validate password strength
+        logger.info("[REGISTER] Step 3: Validating password strength...")
         is_strong, pwd_error = validate_password_strength(password)
         if not is_strong:
+            logger.warning(f"[REGISTER] Password strength validation failed: {pwd_error}")
             return {"status": "error", "message": pwd_error}, 400
+        
+        logger.info("[REGISTER] Step 4: Password strength validation passed")
+        
+        # Validate birthday format
+        if birthday:
+            try:
+                from datetime import datetime as dt
+                dt.strptime(birthday, '%Y-%m-%d')
+                logger.info(f"[REGISTER] Birthday format valid: {birthday}")
+            except ValueError:
+                logger.warning(f"[REGISTER] Invalid birthday format: {birthday}")
+                return {"status": "error", "message": "Invalid birthday format. Use YYYY-MM-DD"}, 400
         
         # Check if username already exists in MongoDB
         if data_store.db is not None:
+            logger.info("[REGISTER] Step 5: Checking if username already exists...")
             # Check if user already exists
             existing_user = data_store.db.users.find_one({"username": username})
             if existing_user:
+                logger.warning(f"[REGISTER] Username already exists: {username}")
                 return {"status": "error", "message": "Username already exists"}, 409
             
+            logger.info("[REGISTER] Step 6: Username is available, hashing password...")
             # Hash password using bcrypt
             salt = bcrypt.gensalt()
             hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
             
+            logger.info("[REGISTER] Step 7: Creating user document...")
             # Create user document
             user = {
                 "username": username,
                 "password": hashed_password.decode('utf-8'),  # Store as string
                 "email": email,
+                "full_name": full_name,
+                "preferred_name": preferred_name,
+                "birthday": birthday,
+                "credits": 5,  # Default credits for new users
                 "created_at": datetime.utcnow(),
                 "last_login": None
             }
             
+            logger.info(f"[REGISTER] Step 8: User document created with fields: {list(user.keys())}")
+            logger.info(f"[REGISTER] User data (excluding password): username={username}, email={email}, full_name={full_name}, preferred_name={preferred_name}, birthday={birthday}")
+            
             # Insert into database
             try:
-                data_store.db.users.insert_one(user)
+                logger.info("[REGISTER] Step 9: Inserting user into database...")
+                result = data_store.db.users.insert_one(user)
+                logger.info(f"[REGISTER] Step 10: User inserted successfully with ID: {result.inserted_id}")
+                logger.info("[REGISTER] ========== REGISTRATION SUCCESS ==========")
                 return {"status": "success", "message": "User registered successfully"}, 201
             except Exception as e:
-                logger.error(f"Error creating user: {str(e)}")
+                logger.error(f"[REGISTER] ========== REGISTRATION ERROR ==========")
+                logger.error(f"[REGISTER] Error creating user: {str(e)}", exc_info=True)
                 return {"status": "error", "message": "Failed to create user"}, 500
         else:
+            logger.error("[REGISTER] ========== REGISTRATION ERROR ==========")
+            logger.error("[REGISTER] Database not available")
             return {"status": "error", "message": "Database not available"}, 500
 
 # JWT Authentication helper
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        print(f"\n[TOKEN_CHECK] Checking authentication for {f.__name__}")
-        print(f"[TOKEN_CHECK] Path: {request.path}")
-        print(f"[TOKEN_CHECK] Cookies: {list(request.cookies.keys())}")
+        logger.info(f"[TOKEN_CHECK] ========== TOKEN CHECK START ==========")
+        logger.info(f"[TOKEN_CHECK] Function: {f.__name__}")
+        logger.info(f"[TOKEN_CHECK] Path: {request.path}")
+        logger.info(f"[TOKEN_CHECK] Method: {request.method}")
+        logger.info(f"[TOKEN_CHECK] Args received: {len(args)} positional, {len(kwargs)} keyword")
+        logger.info(f"[TOKEN_CHECK] Args details: args={args}, kwargs={kwargs}")
+        logger.info(f"[TOKEN_CHECK] Cookies present: {list(request.cookies.keys())}")
+        
         token = None
         
         # Try to get token from cookies first
         token = request.cookies.get('access_token')
-        print(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
+        logger.info(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
+        if token:
+            logger.info(f"[TOKEN_CHECK] Token length: {len(token)} characters")
         
         # If not in cookies, check Authorization header
         if not token:
             auth_header = request.headers.get('Authorization')
-            print(f"[TOKEN_CHECK] Authorization header: {auth_header[:50] if auth_header else 'None'}...")
-            if auth_header and auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1]
-                print(f"[TOKEN_CHECK] Token from header: Found")
+            logger.info(f"[TOKEN_CHECK] Authorization header: {'Present' if auth_header else 'Not present'}")
+            if auth_header:
+                logger.info(f"[TOKEN_CHECK] Authorization header preview: {auth_header[:50]}...")
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(' ')[1]
+                    logger.info(f"[TOKEN_CHECK] Token extracted from header: Found (length: {len(token)})")
         
         if not token:
-            print(f"[TOKEN_CHECK] ERROR: No token found - returning 401")
-            logger.warning(f"Authentication failed for {request.path}: No token provided")
+            logger.warning(f"[TOKEN_CHECK] ERROR: No token found - returning 401")
+            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
             return {"status": "error", "message": "Authentication token is missing"}, 401
         
         try:
-            print(f"[TOKEN_CHECK] Decoding token...")
+            logger.info(f"[TOKEN_CHECK] Decoding token...")
             # Decode the token
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
             current_user = payload
-            print(f"[TOKEN_CHECK] Token valid! User: {payload.get('username', 'unknown')}")
-            logger.info(f"Authentication successful for {request.path} - User: {payload.get('username', 'unknown')}")
+            username = payload.get('username', 'unknown')
+            logger.info(f"[TOKEN_CHECK] Token valid! User: {username}")
+            logger.info(f"[TOKEN_CHECK] Token payload: {payload}")
+            logger.info(f"[TOKEN_CHECK] Authentication successful for {request.path} - User: {username}")
         except jwt.ExpiredSignatureError:
-            print(f"[TOKEN_CHECK] ERROR: Token expired")
-            logger.warning(f"Authentication failed for {request.path}: Token expired")
+            logger.warning(f"[TOKEN_CHECK] ERROR: Token expired")
+            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
             return {"status": "error", "message": "Token has expired"}, 401
         except jwt.InvalidTokenError as e:
-            print(f"[TOKEN_CHECK] ERROR: Invalid token - {str(e)}")
-            logger.warning(f"Authentication failed for {request.path}: Invalid token - {str(e)}")
+            logger.warning(f"[TOKEN_CHECK] ERROR: Invalid token - {str(e)}")
+            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
             return {"status": "error", "message": "Invalid token"}, 401
         except Exception as e:
-            print(f"[TOKEN_CHECK] ERROR: Unexpected error - {str(e)}")
-            logger.error(f"Authentication error for {request.path}: {str(e)}", exc_info=True)
+            logger.error(f"[TOKEN_CHECK] ERROR: Unexpected error - {str(e)}", exc_info=True)
+            logger.error(f"[TOKEN_CHECK] ========== TOKEN CHECK ERROR ==========")
             return {"status": "error", "message": "Authentication error"}, 401
         
-        print(f"[TOKEN_CHECK] Calling {f.__name__} with user: {current_user}")
-        return f(current_user, *args, **kwargs)
+        # Preserve self (first argument) and pass current_user as second argument
+        # Flask-RESTful passes self as first arg, so we need to preserve it
+        logger.info(f"[TOKEN_CHECK] Calling {f.__name__} with self={args[0] if args else 'None'}, current_user={current_user}")
+        logger.info(f"[TOKEN_CHECK] ========== TOKEN CHECK SUCCESS ==========")
+        if args:
+            # Preserve self (first arg) and add current_user as second arg
+            return f(args[0], current_user, *args[1:], **kwargs)
+        else:
+            # No self (shouldn't happen with Resource methods, but handle it)
+            return f(current_user, **kwargs)
     
     return decorated
 class Login(Resource):
@@ -1319,4 +1411,172 @@ class RunAnalysis(Resource):
                 "status": "error",
                 "message": f"Error running analysis: {str(e)}"
             }, 500
+
+class HealthCheck(Resource):
+    """API endpoint for health check"""
+    def get(self):
+        """
+        Health check endpoint to verify API is running
+        
+        Returns:
+            JSON response with API status
+        """
+        return {
+            "status": "success",
+            "message": "API is running",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+# Alias for GetOpenAIAnalysis (backward compatibility)
+GetClaudeAnalysis = GetOpenAIAnalysis
+
+class GetUserProfile(Resource):
+    """API endpoint to get user profile"""
+    @token_required
+    def get(self, current_user):
+        """
+        Get current user's profile information
+        
+        Returns:
+            JSON response with user profile data
+        """
+        logger.info("[USER PROFILE] ========== GET USER PROFILE REQUEST ==========")
+        username = current_user.get('username')
+        logger.info(f"[USER PROFILE] Requested profile for username: {username}")
+        
+        if not username:
+            logger.warning("[USER PROFILE] No username in token - invalid token")
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        if data_store.db is not None:
+            try:
+                logger.info("[USER PROFILE] Step 1: Querying database for user...")
+                user = data_store.db.users.find_one({"username": username})
+                
+                if user:
+                    logger.info(f"[USER PROFILE] Step 2: User found in database")
+                    logger.info(f"[USER PROFILE] User fields in database: {list(user.keys())}")
+                    
+                    # Extract user data (excluding password)
+                    user_data = {
+                        "username": user.get("username"),
+                        "email": user.get("email"),
+                        "full_name": user.get("full_name"),
+                        "preferred_name": user.get("preferred_name"),
+                        "birthday": user.get("birthday"),
+                        "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+                        "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
+                        "credits": user.get("credits", 0)
+                    }
+                    
+                    logger.info(f"[USER PROFILE] Step 3: User data prepared:")
+                    logger.info(f"[USER PROFILE]   - username: {user_data.get('username')}")
+                    logger.info(f"[USER PROFILE]   - email: {user_data.get('email')}")
+                    logger.info(f"[USER PROFILE]   - full_name: {user_data.get('full_name')}")
+                    logger.info(f"[USER PROFILE]   - preferred_name: {user_data.get('preferred_name')}")
+                    logger.info(f"[USER PROFILE]   - birthday: {user_data.get('birthday')}")
+                    logger.info(f"[USER PROFILE]   - credits: {user_data.get('credits')}")
+                    logger.info(f"[USER PROFILE]   - created_at: {user_data.get('created_at')}")
+                    logger.info(f"[USER PROFILE]   - last_login: {user_data.get('last_login')}")
+                    logger.info("[USER PROFILE] ========== GET USER PROFILE SUCCESS ==========")
+                    
+                    return {
+                        "status": "success",
+                        "user": user_data
+                    }
+                else:
+                    logger.warning(f"[USER PROFILE] User not found in database: {username}")
+                    logger.error("[USER PROFILE] ========== GET USER PROFILE ERROR ==========")
+                    return {"status": "error", "message": "User not found"}, 404
+            except Exception as e:
+                logger.error("[USER PROFILE] ========== GET USER PROFILE ERROR ==========")
+                logger.error(f"[USER PROFILE] Error retrieving user profile: {str(e)}", exc_info=True)
+                return {"status": "error", "message": "Database error"}, 500
+        else:
+            logger.error("[USER PROFILE] ========== GET USER PROFILE ERROR ==========")
+            logger.error("[USER PROFILE] Database not available")
+            return {"status": "error", "message": "Database not available"}, 500
+
+class UpdateUserCredits(Resource):
+    """API endpoint to update user credits"""
+    @token_required
+    def post(self, current_user):
+        """
+        Update user credits
+        
+        POST parameters:
+        - credits (int): New credit amount (optional, for admin use)
+        - delta (int): Change in credits (add/subtract)
+        
+        Returns:
+            JSON response with updated credit amount
+        """
+        username = current_user.get('username')
+        if not username:
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        data = request.get_json() or {}
+        credits = data.get('credits')
+        delta = data.get('delta', 0)
+        
+        if data_store.db is not None:
+            try:
+                user = data_store.db.users.find_one({"username": username})
+                if not user:
+                    return {"status": "error", "message": "User not found"}, 404
+                
+                current_credits = user.get("credits", 0)
+                
+                if credits is not None:
+                    # Set absolute value (admin use)
+                    new_credits = int(credits)
+                else:
+                    # Apply delta
+                    new_credits = current_credits + int(delta)
+                
+                data_store.db.users.update_one(
+                    {"username": username},
+                    {"$set": {"credits": new_credits}}
+                )
+                
+                return {
+                    "status": "success",
+                    "message": "Credits updated",
+                    "credits": new_credits
+                }
+            except Exception as e:
+                logger.error(f"Error updating user credits: {str(e)}")
+                return {"status": "error", "message": "Database error"}, 500
+        else:
+            return {"status": "error", "message": "Database not available"}, 500
+
+class DeleteAccount(Resource):
+    """API endpoint to delete user account"""
+    @token_required
+    def delete(self, current_user):
+        """
+        Delete current user's account
+        
+        Returns:
+            JSON response confirming account deletion
+        """
+        username = current_user.get('username')
+        if not username:
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        if data_store.db is not None:
+            try:
+                result = data_store.db.users.delete_one({"username": username})
+                if result.deleted_count > 0:
+                    return {
+                        "status": "success",
+                        "message": "Account deleted successfully"
+                    }
+                else:
+                    return {"status": "error", "message": "User not found"}, 404
+            except Exception as e:
+                logger.error(f"Error deleting user account: {str(e)}")
+                return {"status": "error", "message": "Database error"}, 500
+        else:
+            return {"status": "error", "message": "Database not available"}, 500
 

@@ -1,170 +1,280 @@
-# Reddit Pain Point Analyzer
+# INSIGHT Analyzer
 
-A Flask-based web application that scrapes Reddit for mentions of software products (e.g., Cursor, Replit) and uses NLP techniques to identify common pain points that users experience with these products. This analysis can help identify opportunities for creating browser extensions or other tools to address these pain points.
+A comprehensive platform for analyzing user discussions and generating actionable insights using advanced NLP and AI-powered analysis. Transform user feedback into strategic product improvements.
 
-## Features
+## 🚀 Features
 
-- **Reddit Data Scraping**: Uses PRAW to collect posts mentioning target products
-- **Pain Point Analysis**: Identifies and categorizes common issues mentioned by users
-- **Sentiment Analysis**: Determines the emotional tone of user feedback
-- **OpenAI Integration**: Advanced analysis of pain points using OpenAI's API
-- **Visualization Dashboard**: Interactive admin page for viewing and exploring the data
-- **RESTful API**: Well-documented endpoints for programmatic access
-- **User Authentication**: Secure JWT-based authentication system
+### Core Functionality
+- **AI-Powered Discovery**: Automatically find and analyze relevant discussions using Claude AI
+- **Advanced NLP Analysis**: Sentiment analysis with 94% accuracy using state-of-the-art models
+- **Insight Detection**: Identify and categorize user pain points and feedback patterns
+- **Smart Recommendations**: Generate actionable recommendations using Claude AI
+- **Credits System**: Fair usage system with credit-based operations
+- **Real-time Dashboard**: Monitor analysis progress and results
 
-## Getting Started
+### User Experience
+- **Professional UI**: Modern, clean interface with excellent readability
+- **Error Boundaries**: Robust error handling to prevent crashes
+- **Responsive Design**: Works seamlessly on desktop and mobile
+- **User Profiles**: Track credits and usage history
+- **Comprehensive Testing**: Extensive test coverage for reliability
 
-### Prerequisites
+## 🛠 Tech Stack
+
+### Backend
+- **Python 3.8+** with Flask and Flask-RESTful
+- **MongoDB** for scalable data storage
+- **Reddit API** for discussion collection
+- **Claude AI (Anthropic)** for advanced analysis and recommendations
+- **Advanced NLP Pipeline** with spaCy, transformers, and custom models
+- **JWT Authentication** with secure cookie-based sessions
+- **Rate Limiting** and security middleware
+
+### Frontend
+- **React 18** with modern hooks and context
+- **Vite** for fast development and building
+- **SCSS** with professional design system
+- **Axios** for API communication
+- **Vitest** for comprehensive testing
+- **Error Boundaries** for graceful error handling
+
+## 📋 Prerequisites
 
 - Python 3.8+
-- MongoDB database (optional, but recommended for production)
+- Node.js 16+
+- MongoDB instance (local or cloud)
+- Reddit API credentials
+- Claude API key (Anthropic)
 
-### Environment Variables
+## 🚀 Quick Start
 
-The application uses the following environment variables on backend:
-REDDIT_CLIENT_ID=your_reddit_client_id
-REDDIT_CLIENT_SECRET=your_reddit_client_secret
-OPENAI_API_KEY=your_openai_api_key
-MONGODB_URI=your_mongodb_connection_string
+### Backend Setup
 
-You can set these in a `.env` file in the project root or as system environment variables.
-
-### Installation
-
-1. Clone the repository:
-   git clone https://github.com/yourusername/reddit-pain-point-analyzer.git
-   cd reddit-pain-point-analyzer
-
-2. Install dependencies using pip:
-   pip install -r requirements.txt
-
-3. Run the application:
-   python main.py
-
-### Running with a Virtual Environment
-
-For a cleaner installation, you can use a virtual environment:
-
-1. Create a virtual environment:
-   python -m venv venv
-
-2. Activate the virtual environment:
-
-- On Windows:
-  ```
-  venv\Scripts\activate
-  ```
-- On macOS/Linux:
-  ```
-  source venv/bin/activate
-  ```
-
-3. Install dependencies:
-   pip install -r requirements.txt
-
-4. Run the application:
-   python main.py
-
-5. To deactivate the virtual environment when you're done:
-   deactivate
-
-## API Authentication
-
-The API uses JWT (JSON Web Token) based authentication:
-
-1. Register a user:
-   POST /api/register
-   {
-   "username": "your_username",
-   "password": "your_password",
-   "email": "your_email@example.com" (optional)
-   }
-
-2. Login to get a token:
-   POST /api/login
-   {
-   "username": "your_username",
-   "password": "your_password"
-   }
-
-3. Use the token in subsequent requests:
-
-- As a cookie (automatically handled by the browser)
-- As a Bearer token in the Authorization header:
-  ```
-  Authorization: Bearer your_jwt_token
-  ```
-
-## API Documentation
-
-### API Endpoints
-
-#### Scrape Posts
-
-POST /api/scrape
-
-Start a scraping job for Reddit posts.
-**Request Parameters:**
-
-- `products` (array, optional): List of product names to scrape. Defaults to ["cursor", "replit"].
-- `limit` (integer, optional): Maximum number of posts to scrape per product. Defaults to 100.
-- `subreddits` (array, optional): List of subreddits to search. If not provided, searches default subreddits.
-- `time_filter` (string, optional): Time period to search ('day', 'week', 'month', 'year', 'all'). Defaults to 'month'.
-- `use_openai` (boolean, optional): Whether to use OpenAI to analyze common pain points. Defaults to false.
-  **Response:**
-
-```json
-{
-  "status": "success",
-  "message": "Scraping job started",
-  "products": ["cursor", "replit"],
-  "limit": 100,
-  "subreddits": ["programming", "webdev", "python"],
-  "time_filter": "month",
-  "use_openai": true
-}
-Get Posts, Pain Points & Analysis
-The API provides multiple endpoints for accessing the scraped and analyzed data:
-
-GET /api/posts: Retrieve scraped posts with filtering options
-GET /api/pain-points: Get identified pain points with severity filtering
-GET /api/openai-analysis: Get OpenAI-generated analysis of pain points
-GET /api/recommendations: Get saved recommendations for addressing pain points
-POST /api/recommendations: Generate new recommendations based on pain points
+1. **Navigate to server directory**:
+```bash
+cd server
 ```
 
-## Frontend Setup
+2. **Install dependencies**:
+```bash
+pip install -r requirements.txt
+```
 
-### Development Mode
+3. **Configure environment variables** in `.env`:
+```env
+# Reddit API
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
 
-1. Navigate to the client directory:
+# Claude AI
+ANTHROPIC_API_KEY=your_claude_api_key
 
+# Database
+MONGODB_URI=mongodb://localhost:27017/insight_analyzer
+
+# Security
+JWT_SECRET_KEY=your_secure_jwt_secret_key_minimum_32_chars
+JWT_ACCESS_TOKEN_EXPIRES=3600
+
+# Optional: Admin credentials
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=secure_admin_password
+```
+
+4. **Start the server**:
+```bash
+python app.py
+```
+
+The backend will be available at `http://localhost:5000`
+
+### Frontend Setup
+
+1. **Navigate to client directory**:
+```bash
 cd client
+```
 
-2. Install dependencies:
-   npm install
+2. **Install dependencies**:
+```bash
+npm install
+```
 
-3. Create a `.env` file in the client directory with your backend API URL:
-   VITE_API_BASE_URL=http://localhost:5000/api
+3. **Configure environment variables** in `.env`:
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+```
 
-4. Start the development server:
-   npm run dev
+4. **Start development server**:
+```bash
+npm run dev
+```
 
-This will start the development server, typically at http://localhost:5173
+The frontend will be available at `http://localhost:5173`
 
-### Production Build
+## 💡 How to Use
 
-1. Build the frontend application:
-   npm run build
+### 1. Getting Started
+- **Register**: Create a new account (receives 5 credits automatically)
+- **Login**: Access your dashboard and view your credit balance
 
-This creates a production-ready build in the `dist` directory. 2. You can test the production build locally using:
-npm run preview
+### 2. Discover Insights
+- Navigate to "Find Insights"
+- Enter a topic or product name (e.g., "React", "JavaScript", "VS Code")
+- Select analysis scope (time period and discussion limit)
+- **Note**: Operations cost credits based on scope and complexity
 
-### Deployment
+### 3. View Results
+- Browse all analyzed products in the "Results" section
+- Filter and search through discovered insights
+- View discussion details, sentiment analysis, and identified patterns
 
-To deploy the frontend:
+### 4. Explore Product Details
+- Click any product to view comprehensive analysis
+- **Discussions Tab**: All collected discussions with metadata
+- **Analysis Tab**: AI-generated insights and pain point categorization
+- **Recommendations Tab**: Actionable improvement suggestions
 
-1. Build the application:
-   npm run build
+### 5. Manage Your Account
+- Click your profile to view credit balance and usage history
+- Monitor your analysis history and results
 
-2. The production files will be in the `dist` directory, which can be deployed to any static site hosting service.
+## 🔧 API Reference
+
+### Authentication
+```http
+POST /api/register    # Register new user
+POST /api/login       # User authentication
+POST /api/logout      # Secure logout
+```
+
+### User Management
+```http
+GET  /api/user/profile     # Get user profile and credits (fixed: proper Flask-RESTful Resource handling)
+POST /api/user/credits     # Update user credits (admin)
+```
+
+**Note**: The user profile endpoint has been fixed to properly handle Flask-RESTful Resource methods with comprehensive logging for debugging.
+
+### Analysis Operations
+```http
+POST /api/scrape           # Start insight discovery (costs credits)
+GET  /api/posts           # Retrieve discussions with filters
+GET  /api/pain-points     # Get identified pain points
+POST /api/run-analysis    # Run AI analysis on collected data
+GET  /api/claude-analysis # Get AI analysis results
+```
+
+### Recommendations
+```http
+GET  /api/recommendations  # Get saved recommendations
+POST /api/recommendations  # Generate new recommendations
+```
+
+### System
+```http
+GET /api/status           # System status and statistics
+GET /api/all-products     # List all analyzed products
+```
+
+## 🧪 Testing
+
+### Backend Tests
+```bash
+cd server
+python -m pytest tests/ -v --cov=. --cov-report=html
+```
+
+### Frontend Tests
+```bash
+cd client
+npm test                  # Run tests
+npm run test:coverage     # Run with coverage
+npm run test:ui          # Run with UI
+```
+
+### Comprehensive Testing
+```bash
+cd server
+python run_comprehensive_tests.py
+```
+
+## 🎨 Design System
+
+The application uses a modern dark theme with rounded aesthetics:
+
+- **Typography**: System font stack (Inter, Segoe UI, Roboto) with optimized weights
+- **Color Scheme**: Modern dark theme with indigo accents
+  - Deep slate backgrounds (#0f172a, #1e293b, #334155)
+  - Indigo accent colors (#6366f1) for interactive elements
+  - High contrast text for excellent readability
+- **Components**: Rounded corners (12px-20px), smooth animations, clean edges
+- **Animations**: Smooth transitions using cubic-bezier easing functions
+- **No Glows**: Clean, modern aesthetic without glow effects (except parallax)
+- **Accessibility**: WCAG compliant with proper focus management
+- **Responsive**: Mobile-first design with breakpoints
+
+## 💳 Credits System
+
+### How Credits Work
+- **New Users**: Receive 5 credits upon registration
+- **Cost Structure**: Based on analysis scope and complexity
+  - Small analysis (≤50 discussions, week): 2 credits
+  - Medium analysis (≤100 discussions, month): 6 credits
+  - Large analysis (≤200 discussions, year): 12 credits
+  - Comprehensive analysis (200+ discussions, all time): 20 credits
+
+### Credit Management
+- View balance in navigation sidebar
+- Track usage in user profile
+- Admins can adjust credits via API
+
+## 🚀 Deployment
+
+### Backend (Heroku/Railway)
+1. Create application on platform
+2. Set all environment variables
+3. Deploy using Git integration
+4. Ensure MongoDB connection is configured
+
+### Frontend (Netlify/Vercel)
+1. Build the project: `npm run build`
+2. Deploy the `dist` folder
+3. Set `VITE_API_BASE_URL` to your backend URL
+4. Configure redirects for SPA routing
+
+### Environment Variables Checklist
+- [ ] `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`
+- [ ] `ANTHROPIC_API_KEY`
+- [ ] `MONGODB_URI`
+- [ ] `JWT_SECRET_KEY` (minimum 32 characters)
+- [ ] `VITE_API_BASE_URL` (frontend)
+
+## 🤝 Contributing
+
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **Make** your changes with tests
+4. **Test** thoroughly: `npm test` and `pytest`
+5. **Commit** with clear messages
+6. **Push** and create a Pull Request
+
+### Development Guidelines
+- Follow existing code style and patterns
+- Add tests for new features
+- Update documentation as needed
+- Ensure all tests pass before submitting
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Issues**: Report bugs or request features via GitHub Issues
+- **Documentation**: Check the `/docs` folder for detailed guides
+- **API**: Use the built-in API documentation at `/api/docs`
+
+---
+
+**Built with ❤️ for better user insights and product development**

@@ -1,39 +1,270 @@
 @use "sass:color";
 
-// Terminal/Hardware Theme Variables
-$terminal-bg: #000000;
-$terminal-bg-dark: #0a0a0a;
-$terminal-bg-darker: #050505;
-$terminal-panel: #1a1a1a;
-$terminal-border: #00ff00;
-$terminal-border-dim: #00cc00;
-$terminal-text: #00ff00;
-$terminal-text-bright: #00ff41;
-$terminal-text-dim: #00cc00;
-$terminal-text-muted: #008800;
-$terminal-error: #ff0000;
-$terminal-success: #00ff00;
-$terminal-warning: #ffff00;
+// Premium Light Theme - Claude Console Inspired
+// Lighter shades with premium feel, simple and clean
 
-// Text colors
-$dark-text: #00ff00;
-$medium-text: #00cc00;
-$light-text: #00ff41;
+// Primary accent (Matte gray - professional, muted)
+$primary-indigo: #6b7280; // Main matte gray
+$primary-indigo-dark: #4b5563; // Darker for hover
+$primary-indigo-light: #9ca3af; // Lighter gray
+$primary-indigo-lighter: #d1d5db;
+$primary-indigo-lightest: #e5e7eb;
+
+// Light background palette (Claude Console inspired - beige/cream)
+$bg-primary: #faf9f6;  // Main background (light beige)
+$bg-secondary: #f5f4f1;  // Secondary background
+$bg-tertiary: #f0efec;  // Card background
+$bg-hover: #ebeae7;  // Hover states
+$bg-active: #e6e5e2;  // Active states
+$bg-sidebar: #f7f6f3;  // Sidebar background (slightly different)
+$bg-card: #ffffff;  // Card background (white)
+
+// Text palette (dark on light)
+$text-primary: #1f2937;  // Primary text (dark grey)
+$text-secondary: #4b5563;  // Secondary text
+$text-tertiary: #6b7280;  // Tertiary text
+$text-muted: #9ca3af;  // Muted text
+$text-dim: #d1d5db;  // Very muted
+
+// Legacy dark theme variables (for compatibility)
+$dark-900: #0f172a;
+$dark-800: #1e293b;
+$dark-700: #334155;
+$dark-600: #475569;
+$dark-500: #64748b;
+$text-lightest: #1f2937;
+$text-light: #4b5563;
+$text-medium: #6b7280;
+$text-dim: #9ca3af;
+$text-dark: #9ca3af;
 
 // Accent colors
-$accent-color: #00ff00;
-$accent-glow: rgba(0, 255, 0, 0.3);
-$secondary-glow: rgba(0, 255, 0, 0.2);
+$accent-color: $primary-indigo;
+$accent-hover: $primary-indigo-dark;
+$accent-active: $primary-indigo-light;
 
-// UI elements
-$glass-bg: rgba(26, 26, 26, 0.95);
-$glass-border: rgba(0, 255, 0, 0.3);
-$glass-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
-$sidebar-dark: #0a0a0a;
-$secondary-color: #1a1a1a;
+// Text colors (for light theme)
+$dark-text: $text-primary;
+$medium-text: $text-secondary;
+$light-text: $text-tertiary;
+$muted-text: $text-muted;
 
-// Error/Success
-$error-color: #ff0000;
-$success-color: #00ff00;
+// UI elements (light theme)
+$glass-bg: rgba(255, 255, 255, 0.9);
+$glass-border: rgba(107, 114, 128, 0.15); // Matte gray border
+$glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+$sidebar-dark: $bg-sidebar;
+$secondary-color: $primary-indigo-light;
+$border-sidebar: rgba(0, 0, 0, 0.08);
+$border-hover: rgba(107, 114, 128, 0.2); // Matte gray hover
 
+// Error/Success/Warning (matte colors)
+$error-color: #dc2626; // Matte red
+$error-color-bright: #e53e3e; // Brighter error red
+$error-color-alert: #ff4444; // Alert red
+$success-color: #525252; // Matte gray (replacing green)
+$warning-color: #a16207; // Matte amber
+$warning-color-bright: #ed8936; // Brighter warning orange
+$info-color: $primary-indigo;
+
+// RGBA variants for matte colors (replacing all greens, blues, and yellows)
+// Matte gray rgba variants (replacing blue: rgba(74, 144, 226, ...) and indigo: rgba(99, 102, 241, ...))
+$matte-blue-10: rgba(107, 114, 128, 0.1); // Replacing rgba(74, 144, 226, 0.1) and rgba(99, 102, 241, 0.1)
+$matte-blue-15: rgba(107, 114, 128, 0.15); // Replacing rgba(99, 102, 241, 0.15)
+$matte-blue-20: rgba(107, 114, 128, 0.2); // Replacing rgba(74, 144, 226, 0.2) and rgba(99, 102, 241, 0.2)
+$matte-blue-30: rgba(107, 114, 128, 0.3); // Replacing rgba(74, 144, 226, 0.3)
+$matte-blue-40: rgba(107, 114, 128, 0.4); // Replacing rgba(74, 144, 226, 0.4)
+$matte-blue-50: rgba(107, 114, 128, 0.5); // Replacing rgba(74, 144, 226, 0.5)
+
+// Matte gray rgba variants (replacing green: rgba(0, 255, 0, ...))
+$matte-green-03: rgba(107, 114, 128, 0.03); // Replacing rgba(0, 255, 0, 0.03)
+$matte-green-10: rgba(107, 114, 128, 0.1); // Replacing rgba(0, 255, 0, 0.1)
+$matte-green-20: rgba(107, 114, 128, 0.2); // Replacing rgba(0, 255, 0, 0.2)
+$matte-green-30: rgba(107, 114, 128, 0.3); // Replacing rgba(0, 255, 0, 0.3)
+$matte-green-40: rgba(107, 114, 128, 0.4); // Replacing rgba(0, 255, 0, 0.4)
+$matte-green-50: rgba(107, 114, 128, 0.5); // Replacing rgba(0, 255, 0, 0.5)
+
+// Matte amber/warning rgba variants (replacing yellow: rgba(255, 255, 0, ...))
+$matte-yellow-10: rgba(161, 98, 7, 0.1); // Replacing rgba(255, 255, 0, 0.1)
+$matte-yellow-50: rgba(161, 98, 7, 0.5); // Replacing rgba(255, 255, 0, 0.5)
+
+// Additional gray shades for various uses
+$gray-777: #777777; // Medium gray
+$gray-ccc: #cccccc; // Light gray
+$gray-4a5568: #4a5568; // Dark gray
+$gray-2c3e50: #2c3e50; // Very dark gray
+$gray-718096: #718096; // Slate gray
+
+// Purple replacement (matte gray gradient)
+$purple-primary: #6b7280; // Replacing purple with matte gray
+$purple-secondary: #4b5563; // Replacing purple with darker matte gray
+$purple-light: #9ca3af; // Replacing light purple with light matte gray
+$purple-lighter: #d1d5db; // Replacing lighter purple with lighter matte gray
+
+// Borders (rounded aesthetics)
+$border-color: rgba(0, 0, 0, 0.1);
+$border-color-light: rgba(107, 114, 128, 0.15); // Matte gray border
+$border-radius: 8px;
+$border-radius-sm: 6px;
+$border-radius-lg: 12px;
+$border-radius-xl: 16px;
+
+// Shadows (light theme - subtle, clean edges)
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+// Typography
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+$font-size-xs: 12px;
+$font-size-sm: 14px;
+$font-size-base: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 20px;
+$font-size-2xl: 24px;
+$font-size-3xl: 30px;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-base: 1.5;
+$line-height-tight: 1.25;
+$line-height-relaxed: 1.75;
+
+// Smooth animations
 $transition-speed: 0.2s;
+$transition-speed-fast: 0.15s;
+$transition-speed-slow: 0.3s;
+$transition-ease: cubic-bezier(0.4, 0, 0.2, 1); // Material Design easing
+$transition-ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94); // Smooth ease
+
+// Standardized Component Sizes
+// Buttons and inputs should use these sizes for consistency
+
+// Button/Input Heights
+$input-height-sm: 36px;   // Small buttons/inputs
+$input-height-md: 44px;   // Medium buttons/inputs (default)
+$input-height-lg: 52px;   // Large buttons/inputs
+
+// Button/Input Padding
+$input-padding-x-sm: 12px;
+$input-padding-x-md: 16px;
+$input-padding-x-lg: 20px;
+
+$input-padding-y-sm: 8px;
+$input-padding-y-md: 12px;
+$input-padding-y-lg: 16px;
+
+// Font sizes for buttons/inputs
+$input-font-size-sm: 14px;
+$input-font-size-md: 16px;
+$input-font-size-lg: 18px;
+
+// Spacing System (consistent margins/padding)
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-2xl: 48px;
+$spacing-3xl: 64px;
+
+// Component spacing
+$component-gap-sm: $spacing-sm;   // 8px
+$component-gap-md: $spacing-md;    // 16px
+$component-gap-lg: $spacing-lg;    // 24px
+$component-gap-xl: $spacing-xl;   // 32px
+
+// Standardized Button Mixin
+@mixin button-base($size: 'md') {
+  font-family: $font-family;
+  font-weight: $font-weight-medium;
+  border: none;
+  border-radius: $border-radius;
+  cursor: pointer;
+  transition: all $transition-speed $transition-ease;
+  box-shadow: $shadow-sm;
+  
+  @if $size == 'sm' {
+    height: $input-height-sm;
+    padding: $input-padding-y-sm $input-padding-x-sm;
+    font-size: $input-font-size-sm;
+  } @else if $size == 'lg' {
+    height: $input-height-lg;
+    padding: $input-padding-y-lg $input-padding-x-lg;
+    font-size: $input-font-size-lg;
+  } @else {
+    height: $input-height-md;
+    padding: $input-padding-y-md $input-padding-x-md;
+    font-size: $input-font-size-md;
+  }
+  
+  &:hover:not(:disabled) {
+    transform: rotate(1deg);
+    box-shadow: $shadow-md;
+  }
+  
+  &:active:not(:disabled) {
+    transform: rotate(0deg);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $accent-color;
+  color: $text-lightest;
+  
+  &:hover:not(:disabled) {
+    background: $accent-hover;
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background: $bg-secondary;
+  color: $dark-text;
+  border: 1px solid $border-color;
+  
+  &:hover:not(:disabled) {
+    background: $bg-hover;
+    border-color: $accent-color;
+  }
+}
+
+// Backward compatibility aliases for old terminal theme variables
+$terminal-bg: $bg-secondary;
+$terminal-bg-dark: $bg-tertiary;
+$terminal-bg-darker: $dark-600;
+$terminal-panel: $bg-card;
+$terminal-border: $primary-indigo;
+$terminal-border-dim: $border-color;
+$terminal-text: $dark-text;
+$terminal-text-bright: $primary-indigo; // Now matte gray
+$terminal-text-dim: $medium-text;
+$terminal-text-muted: $muted-text;
+$terminal-error: $error-color;
+$terminal-success: $success-color;
+$terminal-warning: $warning-color;
+
+// Legacy aliases for blue theme (mapped to indigo)
+$primary-blue: $primary-indigo;
+$primary-blue-dark: $primary-indigo-dark;
+$primary-blue-light: $primary-indigo-light;
+$primary-blue-lighter: $primary-indigo-lighter;
+$primary-blue-lightest: $primary-indigo-lightest;
+$white: $text-lightest;
+$off-white: $dark-700;
+$light-gray: $dark-600;
+$medium-gray: $dark-500;
+$dark-gray: $dark-500;
+$text-dark: $text-lightest;
+$text-medium: $text-light;
+$text-light: $text-medium;

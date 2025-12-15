@@ -55,23 +55,36 @@ initialize_routes(api)
 if not validate_jwt_secret():
     logger.warning("JWT_SECRET_KEY validation failed - check your configuration")
 
-# Add request logging
+# Add request ID tracking
+import uuid
+from flask import g
+
+@app.before_request
+def add_request_id():
+    """Add unique request ID to all requests"""
+    g.request_id = str(uuid.uuid4())
+    logger.info(f"[{g.request_id}] {request.method} {request.path}")
+
 @app.before_request
 def log_request_info():
     """Log all incoming requests for debugging"""
-    print(f"\n[REQUEST] {request.method} {request.path}")
-    print(f"[REQUEST] Headers: {dict(request.headers)}")
+    request_id = getattr(g, 'request_id', 'N/A')
+    print(f"\n[REQUEST {request_id}] {request.method} {request.path}")
+    print(f"[REQUEST {request_id}] Headers: {dict(request.headers)}")
     if request.is_json:
-        print(f"[REQUEST] JSON Body: {request.get_json()}")
+        print(f"[REQUEST {request_id}] JSON Body: {request.get_json()}")
     elif request.form:
-        print(f"[REQUEST] Form Data: {dict(request.form)}")
+        print(f"[REQUEST {request_id}] Form Data: {dict(request.form)}")
     elif request.args:
-        print(f"[REQUEST] Query Params: {dict(request.args)}")
-    logger.debug(f"Request: {request.method} {request.path}")
+        print(f"[REQUEST {request_id}] Query Params: {dict(request.args)}")
+    logger.debug(f"[{request_id}] Request: {request.method} {request.path}")
 
-# Add security headers to all responses
+# Add security headers and request ID to all responses
 @app.after_request
 def add_security_headers(response):
+    # Add request ID to response headers
+    if hasattr(g, 'request_id'):
+        response.headers['X-Request-ID'] = g.request_id
     return secure_headers(response)
 
 logger.info("App initialized successfully")

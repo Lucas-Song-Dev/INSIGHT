@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template
 from flask_restful import Api
 from api import (
-    Register, Login, Logout, ScrapePosts, Recommendations,
+    HealthCheck, Register, Login, Logout, ScrapePosts, Recommendations,
     GetPainPoints, GetPosts, GetStatus, ResetScrapeStatus,
-    GetOpenAIAnalysis, GetAllProducts, RunAnalysis
+    GetClaudeAnalysis, GetAllProducts, RunAnalysis,
+    GetUserProfile, UpdateUserCredits, DeleteAccount
 )
 
 # Create blueprint for main routes
@@ -16,6 +17,7 @@ def index():
 
 def initialize_routes(api):
     """Initialize all API routes."""
+    api.add_resource(HealthCheck, '/api/health')
     api.add_resource(Register, '/api/register')
     api.add_resource(Login, '/api/login')
     api.add_resource(Logout, '/api/logout')
@@ -25,6 +27,9 @@ def initialize_routes(api):
     api.add_resource(GetPosts, '/api/posts')
     api.add_resource(GetStatus, '/api/status')
     api.add_resource(ResetScrapeStatus, '/api/reset-status')
-    api.add_resource(GetOpenAIAnalysis, '/api/openai-analysis')
+    api.add_resource(GetClaudeAnalysis, '/api/claude-analysis')
     api.add_resource(GetAllProducts, '/api/all-products')
     api.add_resource(RunAnalysis, '/api/run-analysis')
+    api.add_resource(GetUserProfile, '/api/user/profile')
+    api.add_resource(UpdateUserCredits, '/api/user/credits')
+    api.add_resource(DeleteAccount, '/api/user')

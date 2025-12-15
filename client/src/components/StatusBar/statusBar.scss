@@ -1,22 +1,22 @@
-// StatusBar.scss - Terminal Theme Version
+// StatusBar.scss - Professional Matte Gray Theme
 @use '../../styles/variables' as *;
 
 .status-bar {
-  background: $terminal-panel;
-  border-radius: 4px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-  border: 1px solid $terminal-border;
+  background: $bg-card;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-md;
+  border: 1px solid $border-color;
   margin-bottom: 25px;
   overflow: hidden;
-  transition: all 0.3s;
+  transition: all $transition-speed $transition-ease;
   
   &:hover {
-    box-shadow: 0 8px 30px rgba(0, 255, 0, 0.2);
-    border-color: $terminal-text-bright;
+    box-shadow: $shadow-lg;
+    border-color: $primary-blue;
   }
   
   &.scrape-active {
-    border-left: 4px solid $terminal-text-bright;
+    border-left: 4px solid $primary-blue;
     
     &::before {
       content: '';
@@ -25,7 +25,7 @@
       left: 0;
       right: 0;
       height: 3px;
-      background: linear-gradient(to right, transparent, $terminal-border, transparent);
+      background: linear-gradient(to right, transparent, $primary-blue, transparent);
       animation: shimmerStatus 3s infinite;
     }
     
@@ -42,13 +42,14 @@
   display: flex;
   align-items: center;
   padding: 18px 25px;
+  gap: 16px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all $transition-speed $transition-ease;
   position: relative;
-  background: $terminal-panel;
+  background: $bg-card;
   
   &:hover {
-    background: lighten($terminal-panel, 5%);
+    background: $bg-hover;
   }
   
   @media (max-width: 767px) {
@@ -61,8 +62,25 @@
 .status-indicator {
   display: flex;
   align-items: center;
-  font-weight: 500;
+  font-weight: $font-weight-medium;
   flex: 1;
+  
+  .status-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    color: currentColor;
+    
+    &.spinning {
+      animation: spin 1s linear infinite;
+    }
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
   
   .status-icon {
     margin-right: 12px;
@@ -79,8 +97,8 @@
   }
   
   .status-text {
-    color: $terminal-text;
-    font-size: 16px;
+    color: $dark-text;
+    font-size: $font-size-base;
   }
 }
 
@@ -96,7 +114,7 @@
 .status-quick-info {
   display: flex;
   gap: 20px;
-  color: $terminal-text-dim;
+  color: $text-medium;
   
   @media (max-width: 767px) {
     width: 100%;
@@ -109,46 +127,48 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: $terminal-bg-dark;
-  border: 1px solid $terminal-border-dim;
-  border-radius: 4px;
-  transition: all 0.3s;
+  background: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  transition: all $transition-speed $transition-ease;
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 255, 0, 0.2);
-    border-color: $terminal-border;
+    box-shadow: $shadow-sm;
+    border-color: $primary-blue;
   }
   
   .stat-label {
-    font-weight: 500;
-    color: $terminal-text;
-    font-size: 14px;
+    font-weight: $font-weight-medium;
+    color: $text-medium;
+    font-size: $font-size-sm;
   }
   
   .stat-value {
-    color: $terminal-text-bright;
-    font-weight: 600;
-    font-size: 14px;
+    color: $primary-blue;
+    font-weight: $font-weight-semibold;
+    font-size: $font-size-sm;
   }
 }
 
 .toggle-details-button {
-  background: $terminal-bg-dark;
-  border: 1px solid $terminal-border;
-  border-radius: 4px;
-  color: $terminal-text;
-  font-size: 14px;
-  padding: 5px 12px;
+  margin-left: auto;
+  padding: 8px 16px;
+  min-width: 120px;
+  background: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  color: $text-medium;
+  font-size: $font-size-sm;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all $transition-speed $transition-ease;
   
   &:hover {
-    background: lighten($terminal-bg-dark, 5%);
-    border-color: $terminal-text-bright;
-    color: $terminal-text-bright;
+    background: $bg-hover;
+    border-color: $primary-blue;
+    color: $primary-blue;
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 255, 0, 0.2);
+    box-shadow: $shadow-sm;
   }
   
   &:active {
@@ -158,8 +178,8 @@
 
 .status-details {
   padding: 5px 25px 25px;
-  border-top: 1px solid $terminal-border;
-  background: $terminal-bg-dark;
+  border-top: 1px solid $border-color;
+  background: $bg-secondary;
   animation: fadeIn 0.3s ease;
   
   @keyframes fadeIn {
@@ -168,10 +188,10 @@
   }
   
   h4 {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: $font-size-base;
+    font-weight: $font-weight-semibold;
     margin: 20px 0 12px;
-    color: $terminal-text;
+    color: $dark-text;
     position: relative;
     display: inline-block;
     
@@ -182,8 +202,8 @@
       left: 0;
       width: 30px;
       height: 2px;
-      background: $terminal-border;
-      transition: width 0.3s;
+      background: $primary-blue;
+      transition: width $transition-speed $transition-ease;
     }
     
     &:hover::after {
@@ -202,30 +222,30 @@
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: $border-radius;
+  font-size: $font-size-sm;
   gap: 8px;
-  transition: all 0.3s;
+  transition: all $transition-speed $transition-ease;
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: $shadow-sm;
   }
   
   &.status-connected {
-    background: rgba(0, 255, 0, 0.1);
-    color: $terminal-success;
-    border: 1px solid $terminal-border;
+    background: $primary-blue-lightest;
+    color: $success-color;
+    border: 1px solid $success-color;
   }
   
   &.status-error {
-    background: rgba(255, 0, 0, 0.1);
-    color: $terminal-error;
-    border: 1px solid $terminal-error;
+    background: rgba(239, 68, 68, 0.1);
+    color: $error-color;
+    border: 1px solid $error-color;
   }
   
   .api-name {
-    font-weight: 600;
+    font-weight: $font-weight-semibold;
   }
 }
 
@@ -240,27 +260,27 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: $terminal-bg-dark;
-  border: 1px solid $terminal-border-dim;
-  border-radius: 4px;
-  transition: all 0.3s;
+  background: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  transition: all $transition-speed $transition-ease;
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 255, 0, 0.2);
-    border-color: $terminal-border;
+    box-shadow: $shadow-sm;
+    border-color: $primary-blue;
   }
   
   .stat-label {
-    font-weight: 500;
-    color: $terminal-text;
-    font-size: 14px;
+    font-weight: $font-weight-medium;
+    color: $text-medium;
+    font-size: $font-size-sm;
   }
   
   .stat-value {
-    color: $terminal-text-bright;
-    font-weight: 600;
-    font-size: 16px;
+    color: $primary-blue;
+    font-weight: $font-weight-semibold;
+    font-size: $font-size-base;
   }
 }
 
@@ -270,19 +290,19 @@
   gap: 10px;
   
   .subreddit-tag {
-    background: $terminal-bg-dark;
-    color: $terminal-text;
+    background: $bg-secondary;
+    color: $text-medium;
     padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 13px;
-    transition: all 0.3s;
-    border: 1px solid $terminal-border-dim;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    transition: all $transition-speed $transition-ease;
+    border: 1px solid $border-color;
     
     &:hover {
-      background: lighten($terminal-bg-dark, 5%);
-      border-color: $terminal-border;
+      background: $bg-hover;
+      border-color: $primary-blue;
       transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 255, 0, 0.2);
+      box-shadow: $shadow-sm;
     }
   }
 }
@@ -294,21 +314,21 @@
 }
 
 .refresh-button {
-  background: $terminal-bg-dark;
-  border: 1px solid $terminal-border;
-  border-radius: 4px;
-  color: $terminal-text;
+  background: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  color: $text-medium;
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: $font-size-sm;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all $transition-speed $transition-ease;
   
   &:hover {
-    background: lighten($terminal-bg-dark, 5%);
-    border-color: $terminal-text-bright;
-    color: $terminal-text-bright;
+    background: $bg-hover;
+    border-color: $primary-blue;
+    color: $primary-blue;
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 255, 0, 0.2);
+    box-shadow: $shadow-sm;
   }
   
   &:active {
@@ -326,9 +346,9 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: $terminal-text-dim;
+  color: $text-light;
   font-style: italic;
-  font-size: 15px;
+  font-size: $font-size-sm;
 }
 
 .loading-animation {
@@ -341,7 +361,7 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background-color: $terminal-text-bright;
+    background-color: $primary-blue;
     animation: bounce 1.5s infinite ease-in-out;
     
     &:nth-child(1) {
@@ -375,10 +395,10 @@
   align-items: center;
   gap: 12px;
   padding: 15px 20px;
-  background: rgba(255, 0, 0, 0.1);
-  border-radius: 4px;
-  border: 1px solid $terminal-error;
-  color: $terminal-error;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: $border-radius;
+  border: 1px solid $error-color;
+  color: $error-color;
   
   .error-icon {
     font-size: 18px;
@@ -386,21 +406,21 @@
   
   .retry-button {
     margin-left: auto;
-    background: $terminal-bg-dark;
-    border: 1px solid $terminal-error;
-    color: $terminal-error;
+    background: $bg-secondary;
+    border: 1px solid $error-color;
+    color: $error-color;
     padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 13px;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all $transition-speed $transition-ease;
     
     &:hover {
-      background: rgba(255, 0, 0, 0.2);
-      border-color: $terminal-text-bright;
-      color: $terminal-text-bright;
+      background: rgba(239, 68, 68, 0.2);
+      border-color: $primary-blue;
+      color: $primary-blue;
       transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(255, 0, 0, 0.3);
+      box-shadow: $shadow-sm;
     }
     
     &:active {

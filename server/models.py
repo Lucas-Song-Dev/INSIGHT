@@ -48,3 +48,33 @@ class PainPoint:
             "product": self.product,
             "severity": self.severity
         }
+
+class User:
+    """Model for user data with credits system"""
+    def __init__(self, username, email=None, credits=5):
+        self.username = username
+        self.email = email
+        self.credits = credits
+        self.created_at = None
+        self.last_login = None
+        
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "username": self.username,
+            "email": self.email,
+            "credits": self.credits,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None
+        }
+        
+    def deduct_credits(self, amount):
+        """Deduct credits from user account"""
+        if self.credits >= amount:
+            self.credits -= amount
+            return True
+        return False
+        
+    def add_credits(self, amount):
+        """Add credits to user account"""
+        self.credits += amount

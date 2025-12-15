@@ -1,6 +1,7 @@
 // StatusBar.jsx
 import { useEffect, useState } from "react";
 import { fetchStatus } from "@/api/api.js";
+import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import "./statusBar.scss";
 
 const StatusBar = () => {
@@ -105,7 +106,7 @@ const StatusBar = () => {
     return (
       <div className="status-bar status-error">
         <div className="status-error-content">
-          <span className="error-icon">⚠️</span>
+          <span className="error-icon">!</span>
           <span>{error}</span>
           <button onClick={getStatus} className="retry-button">
             Retry
@@ -127,13 +128,13 @@ const StatusBar = () => {
         <div className="status-indicator">
           {status.scrape_in_progress ? (
             <>
-              <span className="status-icon spinning">🔄</span>
-              <span className="status-text">Scrape in progress...</span>
+              <Loader2 className="status-icon spinning" size={20} />
+              <span className="status-text">Discovering insights...</span>
             </>
           ) : (
             <>
-              <span className="status-icon">✅</span>
-              <span className="status-text">Scraper ready</span>
+              <CheckCircle2 className="status-icon" size={20} />
+              <span className="status-text">Ready</span>
             </>
           )}
         </div>
@@ -148,7 +149,7 @@ const StatusBar = () => {
             <span className="stat-value">{status.pain_points_count}</span>
           </div>
           <div className="status-stat">
-            <span className="stat-label">Last Scrape:</span>
+            <span className="stat-label">Last Discovery:</span>
             <span className="stat-value">
               {formatTime(status.last_scrape_time)}
             </span>
@@ -170,16 +171,16 @@ const StatusBar = () => {
                   status.apis.reddit
                 )}`}
               >
-                <span className="api-name">Reddit API:</span>
+                <span className="api-name">Data Source:</span>
                 <span className="api-state">{status.apis.reddit}</span>
               </div>
               <div
                 className={`api-status ${getApiStatusClass(
-                  status.apis.openai
+                  status.apis.claude || status.apis.openai
                 )}`}
               >
-                <span className="api-name">OpenAI API:</span>
-                <span className="api-state">{status.apis.openai}</span>
+                <span className="api-name">AI Analysis:</span>
+                <span className="api-state">{status.apis.claude || status.apis.openai}</span>
               </div>
             </div>
           </div>
@@ -202,9 +203,9 @@ const StatusBar = () => {
                 <span className="stat-value">{status.pain_points_count}</span>
               </div>
               <div className="status-stat-detailed">
-                <span className="stat-label">OpenAI Analyses:</span>
+                <span className="stat-label">AI Analyses:</span>
                 <span className="stat-value">
-                  {status.openai_analyses_count}
+                  {status.claude_analyses_count || status.openai_analyses_count || 0}
                 </span>
               </div>
             </div>
@@ -212,11 +213,11 @@ const StatusBar = () => {
 
           {status.subreddits_scraped && status.subreddits_scraped.length > 0 && (
             <div className="status-section">
-              <h4>Subreddits Scraped</h4>
+              <h4>Sources Analyzed</h4>
               <div className="subreddit-tags">
                 {status.subreddits_scraped.map((subreddit, index) => (
                   <span key={index} className="subreddit-tag">
-                    r/{subreddit}
+                    {subreddit}
                   </span>
                 ))}
               </div>
@@ -225,6 +226,7 @@ const StatusBar = () => {
 
           <div className="status-actions">
             <button onClick={getStatus} className="refresh-button">
+              <RefreshCw size={16} className={loading ? "spinning" : ""} />
               {loading ? "Refreshing..." : "Refresh Status"}
             </button>
           </div>

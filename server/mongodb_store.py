@@ -15,6 +15,7 @@ class MongoDBStore:
         self.client = None
         self.db = None
         self.scrape_in_progress = False
+        self.user_scraping_jobs = {}  # Track active scraping jobs per user: {username: thread_id}
         self.pain_points = {}
         self.raw_posts = []
         self.analyzed_posts = []
@@ -39,7 +40,49 @@ class MongoDBStore:
             # Load current metadata if available
             self._load_metadata()
             self.load_pain_points()
+            # Create database indexes for performance
+            self.create_indexes()
             return True
+        except ConnectionFailure as e:
+            logger.error(f"Failed to connect to MongoDB: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Error connecting to MongoDB: {str(e)}")
+            return False
+    
+    def create_indexes(self):
+        """Create database indexes for performance"""
+        if self.db is None:
+            logger.warning("Cannot create indexes: Database connection not established")
+            return
+        
+        try:
+            # Create indexes on posts collection
+            self.db.posts.create_index("created_utc")
+            self.db.posts.create_index("score")
+            self.db.posts.create_index("subreddit")
+            self.db.posts.create_index("products")
+            self.db.posts.create_index("sentiment")
+            self.db.posts.create_index([("products", 1), ("score", -1)])
+            
+            # Create indexes on pain_points collection
+            self.db.pain_points.create_index("product")
+            self.db.pain_points.create_index("severity")
+            self.db.pain_points.create_index([("product", 1), ("severity", -1)])
+            
+            # Create indexes on users collection
+            self.db.users.create_index("username", unique=True)
+            self.db.users.create_index("email")
+            
+            # Create indexes on openai_analysis collection
+            self.db.openai_analysis.create_index("product")
+            
+            # Create indexes on recommendations collection
+            self.db.recommendations.create_index("product")
+            
+            logger.info("Database indexes created successfully")
+        except Exception as e:
+            logger.error(f"Error creating indexes: {str(e)}")
         except ConnectionFailure as e:
             logger.error(f"Failed to connect to MongoDB: {str(e)}")
             return False

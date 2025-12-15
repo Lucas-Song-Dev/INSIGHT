@@ -223,9 +223,9 @@
 
 // Clear Filters Button
 .clear-button {
-  background: rgba(229, 62, 62, 0.1);
-  color: #e53e3e;
-  border: 1px solid rgba(229, 62, 62, 0.2);
+  background: rgba(220, 38, 38, 0.1); // Using error-color
+  color: $error-color-bright;
+  border: 1px solid rgba(220, 38, 38, 0.2); // Using error-color
   border-radius: 4px;
   padding: 8px 16px;
   font-size: 14px;
@@ -234,9 +234,9 @@
   transition: all 0.3s;
   
   &:hover {
-    background: rgba(229, 62, 62, 0.2);
+    background: rgba(220, 38, 38, 0.2); // Using error-color
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(229, 62, 62, 0.15);
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.15); // Using error-color
   }
   
   &:active {
@@ -247,7 +247,7 @@
 // Results Metadata
 .results-meta {
   font-size: 14px;
-  color: #4a5568;
+  color: $gray-4a5568;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 4px;
   padding: 8px 16px;
@@ -257,12 +257,12 @@
   
   .results-count {
     font-weight: 600;
-    color: #2c3e50;
+    color: $gray-2c3e50;
   }
   
   .filtered-note {
     margin-left: 6px;
-    color: #718096;
+    color: $gray-718096;
     font-style: italic;
   }
 }
@@ -279,7 +279,7 @@
   
   .view-toggle-label {
     font-size: 14px;
-    color: #4a5568;
+    color: $gray-4a5568;
     margin-right: 5px;
   }
   
@@ -297,7 +297,7 @@
     
     .icon {
       font-size: 16px;
-      color: #4a5568;
+      color: $gray-4a5568;
     }
     
     &:hover {
@@ -306,10 +306,10 @@
     }
     
     &.active {
-      background: rgba(74, 144, 226, 0.2);
+      background: $matte-blue-20;
       
       .icon {
-        color: #4a90e2;
+        color: $primary-indigo; // Matte gray
       }
     }
   }
@@ -356,8 +356,8 @@
       &:focus {
         outline: none;
         border-color: $accent-color;
-        box-shadow: 0 0 0 4px $accent-glow;
-        background: rgba(255, 255, 255, 0.95);
+        box-shadow: $shadow-md;
+        background: $bg-hover;
       }
     }
     
@@ -366,7 +366,7 @@
       left: 20px;
       top: 50%;
       transform: translateY(-50%);
-      color: #777;
+      color: $gray-777;
       font-size: 18px;
       transition: all 0.3s;
     }
@@ -406,8 +406,8 @@
         &:focus {
           outline: none;
           border-color: $accent-color;
-          box-shadow: 0 0 0 4px $accent-glow;
-          background: rgba(255, 255, 255, 0.95);
+          box-shadow: $shadow-md;
+          background: $bg-hover;
         }
       }
       
@@ -430,7 +430,7 @@
     align-items: center;
     
     .fetch-button {
-      background: linear-gradient(135deg, #4a90e2, #36f);
+      background: linear-gradient(135deg, $primary-indigo, $primary-indigo-dark); // Matte gray gradient
       color: white;
       border: none;
       border-radius: 4px;
@@ -439,11 +439,11 @@
       font-weight: 500;
       cursor: pointer;
       transition: all 0.3s;
-      box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+      box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3); // Matte gray shadow
       
       &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+        box-shadow: 0 8px 20px rgba(107, 114, 128, 0.4); // Matte gray shadow
       }
       
       &:active {
@@ -452,11 +452,12 @@
       
       &:focus {
         outline: none;
-        box-shadow: 0 0 0 3px $accent-glow, 0 4px 15px rgba(74, 144, 226, 0.3);
+        box-shadow: $shadow-lg;
+        border-color: $accent-color;
       }
       
       &:disabled {
-        background: linear-gradient(135deg, #a0b8dd, #b8c4e2);
+        background: linear-gradient(135deg, $primary-indigo-lighter, $primary-indigo-lightest); // Matte gray gradient
         cursor: not-allowed;
         box-shadow: none;
         transform: none;
@@ -506,7 +507,7 @@
     margin-top: -20px;
     margin-left: -20px;
     border-radius: 50%;
-    border: 3px solid rgba(74, 144, 226, 0.2);
+    border: 3px solid $matte-blue-20;
     border-top-color: $accent-color;
     animation: spinner 1s linear infinite;
   }
@@ -580,7 +581,7 @@
   }
   
   .post-score {
-    background: rgba(74, 144, 226, 0.1);
+    background: $matte-blue-10;
     color: $accent-color;
     padding: 5px 12px;
     border-radius: 4px;
@@ -588,10 +589,10 @@
     font-weight: 500;
     margin-left: 15px;
     transition: all 0.3s;
-    border: 1px solid rgba(74, 144, 226, 0.2);
+    border: 1px solid $matte-blue-20;
     
     &:hover {
-      background: rgba(74, 144, 226, 0.2);
+      background: $matte-blue-20;
       transform: scale(1.05);
     }
   }
@@ -626,7 +627,7 @@
   
   .separator {
     margin: 0 8px;
-    color: #ccc;
+    color: $gray-ccc;
   }
   
   .post-body {
@@ -652,11 +653,11 @@
     border-radius: 4px;
     transition: all 0.3s;
     background: linear-gradient(135deg, $accent-color, color.adjust($accent-color, $lightness: -10%));
-    box-shadow: 0 4px 10px rgba(74, 144, 226, 0.2);
+    box-shadow: 0 4px 10px $matte-blue-20;
     
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(74, 144, 226, 0.3);
+      box-shadow: 0 6px 15px $matte-blue-30;
     }
     
     &:active {
@@ -682,21 +683,21 @@
   }
   
   .product-tag {
-    background: rgba(49, 130, 206, 0.1);
-    color: #3182ce;
-    border: 1px solid rgba(49, 130, 206, 0.2);
+    background: rgba(107, 114, 128, 0.1); // Matte gray
+    color: #6b7280; // Matte gray
+    border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   .topic-tag {
-    background: rgba(72, 187, 120, 0.1);
-    color: #48bb78;
-    border: 1px solid rgba(72, 187, 120, 0.2);
+    background: rgba(107, 114, 128, 0.1); // Matte gray (replacing green)
+    color: #6b7280; // Matte gray
+    border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   .pain-point-tag {
-    background: rgba(237, 137, 54, 0.1);
-    color: #ed8936;
-    border: 1px solid rgba(237, 137, 54, 0.2);
+    background: rgba(161, 98, 7, 0.1); // Using warning-color
+    color: $warning-color-bright;
+    border: 1px solid rgba(161, 98, 7, 0.2); // Using warning-color
   }
 }
 

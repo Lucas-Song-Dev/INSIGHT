@@ -12,7 +12,14 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from collections import Counter
 from models import PainPoint
-from app import data_store
+
+# Lazy import to avoid circular dependencies
+def _get_data_store():
+    try:
+        from app import data_store
+        return data_store
+    except ImportError:
+        return None
 
 
 logger = logging.getLogger(__name__)
@@ -198,9 +205,13 @@ class NLPAnalyzer:
         logger.info(f"Finalized pain point map: {len(pain_point_map)} unique pain points")
         
         # Add to data store
-        data_store.pain_points = pain_point_map
-        data_store.analyzed_posts = posts
-        logger.info("Data store updated with pain points")
+        ds = _get_data_store()
+        if ds:
+            ds.pain_points = pain_point_map
+            ds.analyzed_posts = posts
+            logger.info("Data store updated with pain points")
+        else:
+            logger.warning("Data store not available for updating pain points")
 
         return pain_point_map
 

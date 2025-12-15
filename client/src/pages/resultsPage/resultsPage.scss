@@ -1,9 +1,10 @@
 @use "../../styles/variables" as *;
 
 .results-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 25px;
+  width: 100%;
+  padding: $spacing-xl;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .search-section {
@@ -27,8 +28,8 @@
     &:focus {
       outline: none;
       border-color: $terminal-text-bright;
-      box-shadow: 0 0 0 4px rgba(0, 255, 0, 0.2);
-      background: lighten($terminal-bg-dark, 5%);
+      box-shadow: 0 0 0 4px $matte-green-20;
+      background: color.adjust($terminal-bg-dark, $lightness: 5%);
     }
   }
   
@@ -86,8 +87,8 @@
   &:hover {
     transform: translateY(-5px);
     border-color: $terminal-text-bright;
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
-    background: lighten($terminal-panel, 5%);
+    box-shadow: 0 0 15px $matte-green-30;
+    background: color.adjust($terminal-panel, $lightness: 5%);
   }
   
   h3 {
@@ -120,14 +121,14 @@
     font-size: 12px;
     
     &.success {
-      background: rgba(0, 255, 0, 0.1);
-      border-color: rgba(0, 255, 0, 0.5);
+      background: $matte-green-10;
+      border-color: $matte-green-50;
       color: $terminal-text-bright;
     }
     
     &.pending {
-      background: rgba(255, 255, 0, 0.1);
-      border-color: rgba(255, 255, 0, 0.5);
+      background: $matte-yellow-10;
+      border-color: $matte-yellow-50;
       color: $terminal-text-dim;
     }
   }

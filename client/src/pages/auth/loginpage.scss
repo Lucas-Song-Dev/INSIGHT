@@ -6,245 +6,169 @@
   align-items: center;
   min-height: 100vh;
   width: 100vw;
-  padding: 20px;
-  background: $terminal-bg;
-  background-attachment: fixed;
+  padding: $spacing-xl;
+  background: $bg-primary;
   position: relative;
-  overflow: hidden;
-  font-family: 'Courier New', 'Consolas', 'Monaco', 'Menlo', monospace;
-  
-  // Terminal scanline effect
-  &::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 255, 0, 0.03) 2px,
-      rgba(0, 255, 0, 0.03) 4px
-    );
-    opacity: 0.5;
-    z-index: 0;
-    animation: scanline 8s linear infinite;
-    pointer-events: none;
-  }
-  
-  @keyframes scanline {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(100px); }
-  }
+  font-family: $font-family;
 }
 
 .login-card {
   width: 100%;
-  max-width: 400px;
-  padding: 30px;
-  background: $terminal-panel;
-  border: 1px solid $terminal-border;
-  transition: all 0.2s;
+  max-width: 420px;
+  padding: $spacing-3xl;
+  background: $bg-card;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-lg;
   position: relative;
-  overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
   z-index: 1;
   
-  // Terminal corner brackets
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    width: 15px;
-    height: 15px;
-    border: 1px solid $terminal-border;
-  }
-  
-  &::before {
-    top: -1px;
-    left: -1px;
-    border-right: none;
-    border-bottom: none;
-  }
-  
-  &::after {
-    bottom: -1px;
-    right: -1px;
-    border-left: none;
-    border-top: none;
-  }
-  
-  &:hover {
-    border-color: $terminal-text-bright;
-    box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
-  }
-  
-  // Top border indicator
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: $terminal-border;
-    box-shadow: 0 0 10px $terminal-border;
-  }
-
   h2 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: $terminal-text;
+    margin: 0 0 $spacing-md 0;
+    color: $text-primary;
     text-align: center;
-    font-size: 28px;
-    font-weight: 600;
-    position: relative;
-    display: inline-block;
-    width: 100%;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    text-shadow: 0 0 10px $terminal-border;
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: -8px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 60px;
-      height: 2px;
-      background: $terminal-border;
-      box-shadow: 0 0 5px $terminal-border;
-    }
+    font-size: $font-size-2xl;
+    font-weight: $font-weight-semibold;
+    letter-spacing: -0.5px;
   }
 
   .login-description {
-    margin-bottom: 25px;
+    margin: 0 0 $spacing-xl 0;
     text-align: center;
-    color: $terminal-text-dim;
-    font-size: 16px;
-    font-family: 'Courier New', monospace;
+    color: $text-secondary;
+    font-size: $font-size-base;
+    line-height: $line-height-relaxed;
   }
 
   .error-message {
-    margin-bottom: 20px;
-    padding: 12px 15px;
-    background: rgba(255, 0, 0, 0.1);
-    color: $terminal-error;
-    border: 1px solid $terminal-error;
-    font-size: 14px;
-    border-left: 3px solid $terminal-error;
-    font-family: 'Courier New', monospace;
-    box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
-    animation: blink 1s step-end infinite;
+    margin-bottom: $spacing-lg;
+    padding: $spacing-md;
+    background: rgba($error-color, 0.1);
+    color: $error-color;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    line-height: $line-height-base;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
     
-    @keyframes blink {
-      0%, 50% { opacity: 1; }
-      51%, 100% { opacity: 0.7; }
+    .register-prompt {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: $spacing-sm;
+      margin-top: $spacing-md;
+      padding-top: $spacing-lg;
+      border-top: 1px solid $border-color;
+      text-align: center;
+      color: $text-secondary;
+      
+      p {
+        margin: 0;
+        font-size: $font-size-sm;
+      }
     }
   }
 
   .form-group {
-    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
 
     label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      color: $terminal-text;
-      font-size: 15px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-family: 'Courier New', monospace;
+      font-weight: $font-weight-medium;
+      color: $text-primary;
+      font-size: $font-size-sm;
     }
 
     input {
-      width: calc(100% - 25px);
-      padding: 12px 15px;
-      background: $terminal-bg-dark;
-      border: 1px solid $terminal-border;
-      font-size: 15px;
-      color: $terminal-text;
-      box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
-      transition: all 0.2s;
-      font-family: 'Courier New', monospace;
+      width: 100%;
+      height: $input-height-md;
+      padding: $input-padding-y-md $input-padding-x-md;
+      background: $bg-primary;
+      border: none;
+      border-radius: $border-radius;
+      font-size: $input-font-size-md;
+      color: $text-primary;
+      box-shadow: $shadow-sm;
+      transition: all $transition-speed $transition-ease;
+      font-family: $font-family;
       
       &::placeholder {
-        color: $terminal-text-muted;
+        color: $text-muted;
       }
       
       &:focus {
         outline: none;
-        border-color: $terminal-text-bright;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
-        background: $terminal-bg;
+        background: $bg-hover;
+        box-shadow: $shadow-md;
       }
     }
   }
 
   .login-button {
     width: 100%;
-    padding: 14px;
-    background: $terminal-bg-dark;
-    color: $terminal-text;
-    border: 1px solid $terminal-border;
-    font-size: 16px;
-    font-weight: 500;
+    height: $input-height-md;
+    padding: $input-padding-y-md $input-padding-x-md;
+    background: $primary-indigo;
+    color: $text-lightest;
+    border: none;
+    border-radius: $border-radius;
+    font-size: $input-font-size-md;
+    font-weight: $font-weight-medium;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    font-family: 'Courier New', monospace;
+    transition: all $transition-speed $transition-ease;
+    box-shadow: $shadow-sm;
+    font-family: $font-family;
+    margin-top: $spacing-sm;
     
     &:hover:not(:disabled) {
-      background: $terminal-panel;
-      border-color: $terminal-text-bright;
-      color: $terminal-text-bright;
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+      background: $primary-indigo-dark;
+      box-shadow: $shadow-md;
+      transform: translateY(-1px);
     }
     
     &:active:not(:disabled) {
-      background: $terminal-bg;
-      box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3);
+      transform: translateY(0);
+      box-shadow: $shadow-sm;
     }
     
     &:disabled {
-      background: $terminal-bg-darker;
-      border-color: $terminal-text-muted;
-      color: $terminal-text-muted;
+      background: $text-muted;
+      color: $text-lightest;
       cursor: not-allowed;
-      box-shadow: none;
+      opacity: 0.6;
+      transform: none;
     }
   }
   
   .register-prompt {
-    margin-top: 20px;
+    margin-top: $spacing-lg;
     text-align: center;
-    color: $terminal-text-dim;
-    font-family: 'Courier New', monospace;
+    color: $text-secondary;
     
     p {
-      margin-bottom: 10px;
+      margin-bottom: $spacing-sm;
+      font-size: $font-size-sm;
     }
     
     .register-link {
       background: transparent;
-      border: 1px solid $terminal-border;
-      color: $terminal-text;
-      padding: 8px 16px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-family: 'Courier New', monospace;
-      transition: all 0.2s;
+      border: none;
+      color: $primary-indigo;
+      padding: $spacing-xs $spacing-sm;
+      font-size: $font-size-sm;
+      font-weight: $font-weight-medium;
+      cursor: pointer;
+      transition: all $transition-speed $transition-ease;
+      text-decoration: underline;
+      text-underline-offset: 4px;
       
       &:hover {
-        background: $terminal-panel;
-        border-color: $terminal-text-bright;
-        color: $terminal-text-bright;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        color: $primary-indigo-dark;
+        text-decoration: none;
       }
     }
   }
@@ -252,15 +176,19 @@
 
 // Media query for smaller screens
 @media (max-width: 480px) {
+  .login-container {
+    padding: $spacing-lg;
+  }
+  
   .login-card {
-    padding: 25px 20px;
+    padding: $spacing-xl;
     
     h2 {
-      font-size: 24px;
+      font-size: $font-size-xl;
     }
     
     .login-description {
-      font-size: 14px;
+      font-size: $font-size-sm;
     }
   }
 }
