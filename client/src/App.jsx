@@ -33,6 +33,7 @@ const getUserName = (user) => {
 function App() {
   const [activePage, setActivePage] = useState("home");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { isAuthenticated, isLoading, login, logout, user } = useAuth();
 
   // Periodic API polling for debugging - logs posts and analysis data
@@ -177,8 +178,6 @@ function App() {
         );
     }
   };
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <div className="app-container">

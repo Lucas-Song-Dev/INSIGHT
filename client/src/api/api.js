@@ -72,6 +72,7 @@ export const fetchPosts = async (filters = {}) => {
     const res = await axios.get(`${API_BASE}/posts`, {
       params: filters,
       signal: abortController.signal,
+      withCredentials: true, // Important for cookies to be sent
     });
     return res.data;
   } catch (err) {
@@ -120,12 +121,66 @@ export const registerUser = async (userData) => {
  * }} credentials
  */
 export const loginUser = async (credentials) => {
+  console.log('[API] ========== LOGIN USER API CALL ==========');
+  console.log('[API] Username:', credentials.username);
+  console.log('[API] Has password:', !!credentials.password);
+  console.log('[API] API Base URL:', API_BASE);
+  console.log('[API] Login endpoint:', `${API_BASE}/login`);
+  console.log('[API] Cookies before request:', document.cookie || 'No cookies found');
+  
   try {
+    console.log('[API] Step 1: Sending POST request to login endpoint...');
+    console.log('[API] Request config:', {
+      url: `${API_BASE}/login`,
+      method: 'POST',
+      withCredentials: true,
+      hasCredentials: !!credentials
+    });
+    
     const res = await axios.post(`${API_BASE}/login`, credentials, {
       withCredentials: true, // Important for cookies to be received
     });
+    
+    console.log('[API] Step 2: Login response received');
+    console.log('[API] Response status:', res.status, res.statusText);
+    console.log('[API] Response headers:', {
+      'set-cookie': res.headers['set-cookie'] ? 'Present (cookies should be set)' : 'Not present',
+      'content-type': res.headers['content-type']
+    });
+    console.log('[API] Response data:', { 
+      status: res.data?.status,
+      message: res.data?.message,
+      hasUser: !!res.data?.user,
+      username: res.data?.user?.username
+    });
+    
+    // Note: httpOnly cookies won't appear in document.cookie
+    console.log('[API] Step 3: Checking cookies after response (httpOnly cookies not visible):', document.cookie || 'No cookies found');
+    console.log('[API] Note: httpOnly cookies are set by the browser and sent automatically with subsequent requests');
+    console.log('[API] ========== LOGIN USER API SUCCESS ==========');
+    
     return res.data;
   } catch (err) {
+    console.error('[API] ========== LOGIN USER API ERROR ==========');
+    console.error('[API] Error type:', err.constructor.name);
+    console.error('[API] Error message:', err.message);
+    console.error('[API] Error details:', {
+      message: err.message,
+      responseStatus: err.response?.status,
+      responseStatusText: err.response?.statusText,
+      responseData: err.response?.data,
+      hasResponse: !!err.response,
+      requestUrl: err.config?.url,
+      requestMethod: err.config?.method
+    });
+    
+    if (err.response) {
+      console.error('[API] Response headers:', err.response.headers);
+      console.error('[API] Response data:', err.response.data);
+    }
+    
+    console.error('[API] ========== LOGIN USER API ERROR END ==========');
+    
     // Return error response data if available, otherwise throw
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Login failed");
@@ -321,18 +376,35 @@ export const runAnalysis = async ({ product }) => {
  * Get status/connection info
  */
 export const fetchStatus = async () => {
+  console.log('[AUTH] fetchStatus called');
+  console.log('[AUTH] Current cookies:', document.cookie || 'No cookies found');
   try {
     const abortController = createAbortController();
+    console.log('[AUTH] Sending status request to:', `${API_BASE}/status`);
     const res = await axios.get(`${API_BASE}/status`, {
       signal: abortController.signal,
+      withCredentials: true, // Important for cookies to be sent
+    });
+    console.log('[AUTH] Status response received:', { 
+      status: res.status,
+      hasData: !!res.data,
+      responseStatus: res.data?.status
     });
     return res.data;
   } catch (err) {
+    console.error('[AUTH] fetchStatus error:', {
+      message: err.message,
+      responseStatus: err.response?.status,
+      responseData: err.response?.data,
+      hasResponse: !!err.response,
+      cookies: document.cookie || 'No cookies found'
+    });
     if (isCancelledError(err)) {
       throw new Error("Request cancelled");
     }
     // Don't throw for 401/403 - let AuthContext handle it
     if (err.response?.status === 401 || err.response?.status === 403) {
+      console.log('[AUTH] Status check returned 401/403 - user not authenticated');
       throw err;
     }
     if (err.response?.data) {
@@ -346,18 +418,80 @@ export const fetchStatus = async () => {
  * Get current user's profile information including credits
  */
 export const fetchUserProfile = async () => {
+  console.log('[API] ========== FETCH USER PROFILE API CALL ==========');
+  console.log('[API] API Base URL:', API_BASE);
+  console.log('[API] Profile endpoint:', `${API_BASE}/user/profile`);
+  console.log('[API] Cookies (httpOnly not visible):', document.cookie || 'No cookies found');
+  console.log('[API] Note: httpOnly cookies are sent automatically with withCredentials: true');
+  
   try {
     const abortController = createAbortController();
+    console.log('[API] Step 1: Sending GET request to profile endpoint...');
+    console.log('[API] Request config:', {
+      url: `${API_BASE}/user/profile`,
+      method: 'GET',
+      withCredentials: true,
+      hasSignal: !!abortController.signal
+    });
+    
     const res = await axios.get(`${API_BASE}/user/profile`, {
       signal: abortController.signal,
+      withCredentials: true, // Important for cookies to be sent
     });
+    
+    console.log('[API] Step 2: Profile response received');
+    console.log('[API] Response status:', res.status, res.statusText);
+    console.log('[API] Response data:', { 
+      status: res.data?.status,
+      hasUser: !!res.data?.user,
+      username: res.data?.user?.username,
+      email: res.data?.user?.email,
+      credits: res.data?.user?.credits
+    });
+    console.log('[API] ========== FETCH USER PROFILE API SUCCESS ==========');
+    
     return res.data;
   } catch (err) {
+    console.error('[API] ========== FETCH USER PROFILE API ERROR ==========');
+    console.error('[API] Error type:', err.constructor.name);
+    console.error('[API] Error message:', err.message);
+    console.error('[API] Error details:', {
+      message: err.message,
+      responseStatus: err.response?.status,
+      responseStatusText: err.response?.statusText,
+      responseData: err.response?.data,
+      hasResponse: !!err.response,
+      requestUrl: err.config?.url,
+      requestMethod: err.config?.method,
+      cookies: document.cookie || 'No cookies found'
+    });
+    
+    if (err.response) {
+      console.error('[API] Response headers:', {
+        'content-type': err.response.headers['content-type'],
+        'www-authenticate': err.response.headers['www-authenticate']
+      });
+      console.error('[API] Response data:', err.response.data);
+      
+      // Special handling for 401 errors
+      if (err.response.status === 401) {
+        console.error('[API] 401 UNAUTHORIZED - Possible causes:');
+        console.error('[API]   1. Cookie not set by server during login');
+        console.error('[API]   2. Cookie not being sent with request (CORS issue?)');
+        console.error('[API]   3. Cookie expired or invalid');
+        console.error('[API]   4. Server not reading cookie correctly');
+      }
+    }
+    
+    console.error('[API] ========== FETCH USER PROFILE API ERROR END ==========');
+    
     if (isCancelledError(err)) {
       throw new Error("Request cancelled");
     }
     if (err.response?.data) {
-      throw new Error(err.response.data.message || "Failed to fetch user profile");
+      const errorMessage = err.response.data.message || "Failed to fetch user profile";
+      console.error('[API] Profile fetch failed with message:', errorMessage);
+      throw new Error(errorMessage);
     }
     throw err;
   }
