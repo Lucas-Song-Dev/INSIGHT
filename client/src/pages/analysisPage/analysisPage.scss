@@ -663,9 +663,9 @@
   }
   
   &.severity-low {
-    background-color: rgba(56, 161, 105, 0.1);
-    color: #38a169;
-    border: 1px solid rgba(56, 161, 105, 0.2);
+    background-color: rgba(107, 114, 128, 0.1); // Matte gray (replacing green)
+    color: #6b7280; // Matte gray
+    border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   &.severity-unknown {
@@ -781,7 +781,7 @@
   }
   
   &:disabled {
-    background: linear-gradient(135deg, #a0b8dd, #b8c4e2);
+    background: linear-gradient(135deg, #d1d5db, #e5e7eb); // Matte gray gradient
     cursor: not-allowed;
     box-shadow: none;
   }

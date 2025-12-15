@@ -1320,3 +1320,140 @@ class RunAnalysis(Resource):
                 "message": f"Error running analysis: {str(e)}"
             }, 500
 
+class HealthCheck(Resource):
+    """API endpoint for health check"""
+    def get(self):
+        """
+        Health check endpoint to verify API is running
+        
+        Returns:
+            JSON response with API status
+        """
+        return {
+            "status": "success",
+            "message": "API is running",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+# Alias for GetOpenAIAnalysis (backward compatibility)
+GetClaudeAnalysis = GetOpenAIAnalysis
+
+class GetUserProfile(Resource):
+    """API endpoint to get user profile"""
+    @token_required
+    def get(self, current_user):
+        """
+        Get current user's profile information
+        
+        Returns:
+            JSON response with user profile data
+        """
+        username = current_user.get('username')
+        if not username:
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        if data_store.db is not None:
+            try:
+                user = data_store.db.users.find_one({"username": username})
+                if user:
+                    return {
+                        "status": "success",
+                        "user": {
+                            "username": user.get("username"),
+                            "email": user.get("email"),
+                            "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+                            "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
+                            "credits": user.get("credits", 0)
+                        }
+                    }
+                else:
+                    return {"status": "error", "message": "User not found"}, 404
+            except Exception as e:
+                logger.error(f"Error retrieving user profile: {str(e)}")
+                return {"status": "error", "message": "Database error"}, 500
+        else:
+            return {"status": "error", "message": "Database not available"}, 500
+
+class UpdateUserCredits(Resource):
+    """API endpoint to update user credits"""
+    @token_required
+    def post(self, current_user):
+        """
+        Update user credits
+        
+        POST parameters:
+        - credits (int): New credit amount (optional, for admin use)
+        - delta (int): Change in credits (add/subtract)
+        
+        Returns:
+            JSON response with updated credit amount
+        """
+        username = current_user.get('username')
+        if not username:
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        data = request.get_json() or {}
+        credits = data.get('credits')
+        delta = data.get('delta', 0)
+        
+        if data_store.db is not None:
+            try:
+                user = data_store.db.users.find_one({"username": username})
+                if not user:
+                    return {"status": "error", "message": "User not found"}, 404
+                
+                current_credits = user.get("credits", 0)
+                
+                if credits is not None:
+                    # Set absolute value (admin use)
+                    new_credits = int(credits)
+                else:
+                    # Apply delta
+                    new_credits = current_credits + int(delta)
+                
+                data_store.db.users.update_one(
+                    {"username": username},
+                    {"$set": {"credits": new_credits}}
+                )
+                
+                return {
+                    "status": "success",
+                    "message": "Credits updated",
+                    "credits": new_credits
+                }
+            except Exception as e:
+                logger.error(f"Error updating user credits: {str(e)}")
+                return {"status": "error", "message": "Database error"}, 500
+        else:
+            return {"status": "error", "message": "Database not available"}, 500
+
+class DeleteAccount(Resource):
+    """API endpoint to delete user account"""
+    @token_required
+    def delete(self, current_user):
+        """
+        Delete current user's account
+        
+        Returns:
+            JSON response confirming account deletion
+        """
+        username = current_user.get('username')
+        if not username:
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        if data_store.db is not None:
+            try:
+                result = data_store.db.users.delete_one({"username": username})
+                if result.deleted_count > 0:
+                    return {
+                        "status": "success",
+                        "message": "Account deleted successfully"
+                    }
+                else:
+                    return {"status": "error", "message": "User not found"}, 404
+            except Exception as e:
+                logger.error(f"Error deleting user account: {str(e)}")
+                return {"status": "error", "message": "Database error"}, 500
+        else:
+            return {"status": "error", "message": "Database not available"}, 500
+

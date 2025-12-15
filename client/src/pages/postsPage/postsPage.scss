@@ -309,7 +309,7 @@
       background: rgba(74, 144, 226, 0.2);
       
       .icon {
-        color: #4a90e2;
+        color: #6b7280; // Matte gray
       }
     }
   }
@@ -430,7 +430,7 @@
     align-items: center;
     
     .fetch-button {
-      background: linear-gradient(135deg, #4a90e2, #36f);
+      background: linear-gradient(135deg, #6b7280, #4b5563); // Matte gray gradient
       color: white;
       border: none;
       border-radius: 4px;
@@ -439,11 +439,11 @@
       font-weight: 500;
       cursor: pointer;
       transition: all 0.3s;
-      box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+      box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3); // Matte gray shadow
       
       &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+        box-shadow: 0 8px 20px rgba(107, 114, 128, 0.4); // Matte gray shadow
       }
       
       &:active {
@@ -457,7 +457,7 @@
       }
       
       &:disabled {
-        background: linear-gradient(135deg, #a0b8dd, #b8c4e2);
+        background: linear-gradient(135deg, #d1d5db, #e5e7eb); // Matte gray gradient
         cursor: not-allowed;
         box-shadow: none;
         transform: none;
@@ -683,15 +683,15 @@
   }
   
   .product-tag {
-    background: rgba(49, 130, 206, 0.1);
-    color: #3182ce;
-    border: 1px solid rgba(49, 130, 206, 0.2);
+    background: rgba(107, 114, 128, 0.1); // Matte gray
+    color: #6b7280; // Matte gray
+    border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   .topic-tag {
-    background: rgba(72, 187, 120, 0.1);
-    color: #48bb78;
-    border: 1px solid rgba(72, 187, 120, 0.2);
+    background: rgba(107, 114, 128, 0.1); // Matte gray (replacing green)
+    color: #6b7280; // Matte gray
+    border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   .pain-point-tag {
