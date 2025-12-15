@@ -26,8 +26,22 @@ const getTimeOfDay = () => {
 };
 
 const getUserName = (user) => {
-  if (!user) return "User";
-  return user.username || "User";
+  console.log('[APP] getUserName called with user:', {
+    hasUser: !!user,
+    preferred_name: user?.preferred_name,
+    full_name: user?.full_name,
+    username: user?.username
+  });
+  
+  if (!user) {
+    console.log('[APP] No user, returning "User"');
+    return "User";
+  }
+  
+  // Priority: preferred_name > full_name > username > "User"
+  const name = user.preferred_name || user.full_name || user.username || "User";
+  console.log('[APP] Returning name:', name);
+  return name;
 };
 
 function App() {

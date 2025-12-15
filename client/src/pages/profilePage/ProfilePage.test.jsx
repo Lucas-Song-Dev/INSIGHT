@@ -36,6 +36,9 @@ describe('ProfilePage', () => {
       user: {
         username: 'testuser',
         email: 'test@example.com',
+        full_name: 'Test User Full Name',
+        preferred_name: 'Test Preferred Name',
+        birthday: '1990-01-01',
         credits: 10,
         created_at: '2024-01-01T00:00:00Z',
         last_login: '2024-01-15T12:00:00Z',
@@ -50,7 +53,44 @@ describe('ProfilePage', () => {
     render(<ProfilePage />);
 
     await waitFor(() => {
-      expect(screen.getByText('testuser')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test User Full Name')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test Preferred Name')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('test@example.com')).toBeInTheDocument();
+      expect(screen.getByText('10 credits available')).toBeInTheDocument();
+    });
+  });
+
+  it('should display full_name, preferred_name, and birthday fields', async () => {
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/what should we call you/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/birthday/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test User Full Name')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test Preferred Name')).toBeInTheDocument();
+    });
+  });
+
+  it('should handle missing optional fields gracefully', async () => {
+    api.fetchUserProfile.mockResolvedValueOnce({
+      status: 'success',
+      user: {
+        username: 'testuser',
+        email: null,
+        full_name: null,
+        preferred_name: null,
+        birthday: null,
+        credits: 10,
+        created_at: '2024-01-01T00:00:00Z',
+        last_login: null,
+      },
+    });
+
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('testuser')).toBeInTheDocument();
       expect(screen.getByText('10 credits available')).toBeInTheDocument();
     });
   });

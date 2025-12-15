@@ -15,50 +15,142 @@ const ProfilePage = () => {
   const { logout } = useAuth();
 
   useEffect(() => {
+    console.log('[PROFILE PAGE] ========== COMPONENT MOUNTED ==========');
+    console.log('[PROFILE PAGE] useEffect triggered - loading profile on mount');
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
+    console.log('[PROFILE PAGE] ========== LOAD PROFILE CALLED ==========');
+    console.log('[PROFILE PAGE] Step 1: Setting loading state to true');
     setLoading(true);
     setError(null);
+    
     try {
+      console.log('[PROFILE PAGE] Step 2: Calling fetchUserProfile API...');
       const response = await fetchUserProfile();
+      console.log('[PROFILE PAGE] Step 3: API response received:', {
+        status: response?.status,
+        hasUser: !!response?.user,
+        username: response?.user?.username,
+        fullName: response?.user?.full_name,
+        preferredName: response?.user?.preferred_name,
+        birthday: response?.user?.birthday,
+        email: response?.user?.email,
+        credits: response?.user?.credits
+      });
+      
       if (response.status === 'success') {
+        console.log('[PROFILE PAGE] Step 4: Profile fetch successful, setting profile state');
+        console.log('[PROFILE PAGE] User data:', {
+          username: response.user?.username,
+          full_name: response.user?.full_name,
+          preferred_name: response.user?.preferred_name,
+          birthday: response.user?.birthday,
+          email: response.user?.email,
+          credits: response.user?.credits,
+          created_at: response.user?.created_at,
+          last_login: response.user?.last_login
+        });
         setProfile(response.user);
+        console.log('[PROFILE PAGE] ========== LOAD PROFILE SUCCESS ==========');
       } else {
-        setError(response.message || 'Failed to load profile');
+        console.warn('[PROFILE PAGE] Profile fetch returned non-success status:', response.status);
+        console.warn('[PROFILE PAGE] Error message:', response.message);
+        const errorMessage = response.message || 'Failed to load profile';
+        console.warn('[PROFILE PAGE] Setting error:', errorMessage);
+        setError(errorMessage);
+        console.log('[PROFILE PAGE] ========== LOAD PROFILE FAILED ==========');
       }
     } catch (err) {
-      setError(err.message || 'Failed to load profile');
+      console.error('[PROFILE PAGE] ========== LOAD PROFILE ERROR ==========');
+      console.error('[PROFILE PAGE] Error type:', err.constructor.name);
+      console.error('[PROFILE PAGE] Error message:', err.message);
+      console.error('[PROFILE PAGE] Error details:', {
+        message: err.message,
+        responseStatus: err.response?.status,
+        responseStatusText: err.response?.statusText,
+        responseData: err.response?.data,
+        hasResponse: !!err.response,
+        stack: err.stack?.split('\n').slice(0, 5).join('\n')
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to load profile';
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        errorMessage = 'Authentication required. Please log in again.';
+        console.error('[PROFILE PAGE] Authentication error - user may need to re-login');
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+        console.error('[PROFILE PAGE] Server error occurred');
+      } else if (err.message?.includes('Network Error') || err.message?.includes('CORS')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+        console.error('[PROFILE PAGE] Network/CORS error - check server connection');
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      console.error('[PROFILE PAGE] Setting error message:', errorMessage);
+      setError(errorMessage);
+      console.error('[PROFILE PAGE] ========== LOAD PROFILE ERROR HANDLED ==========');
     } finally {
+      console.log('[PROFILE PAGE] Step 5: Setting loading state to false');
       setLoading(false);
     }
   };
 
   const handleDeleteAccount = async () => {
+    console.log('[PROFILE PAGE] ========== DELETE ACCOUNT CALLED ==========');
+    console.log('[PROFILE PAGE] Step 1: Setting deleting state to true');
     setDeleting(true);
+    
     try {
+      console.log('[PROFILE PAGE] Step 2: Calling deleteAccount API...');
       const response = await deleteAccount();
+      console.log('[PROFILE PAGE] Step 3: Delete account response:', {
+        status: response?.status,
+        message: response?.message
+      });
+      
       if (response.status === 'success') {
+        console.log('[PROFILE PAGE] Step 4: Account deletion successful');
         showNotification('Account deleted successfully', 'success');
+        
         // Logout user and redirect to login
+        console.log('[PROFILE PAGE] Step 5: Logging out user...');
         try {
           await logoutUser();
+          console.log('[PROFILE PAGE] Logout successful');
         } catch (err) {
           // Even if logout fails, we should still clear local state
-          console.error('Logout error:', err);
+          console.error('[PROFILE PAGE] Logout error (non-critical):', err);
         }
+        
+        console.log('[PROFILE PAGE] Step 6: Clearing auth state');
         logout();
+        console.log('[PROFILE PAGE] ========== DELETE ACCOUNT COMPLETE ==========');
         // Redirect will happen automatically via AuthContext
       } else {
+        console.warn('[PROFILE PAGE] Delete account returned non-success status:', response.status);
+        console.warn('[PROFILE PAGE] Error message:', response.message);
         showNotification(response.message || 'Failed to delete account', 'error');
         setDeleting(false);
         setShowDeleteConfirm(false);
+        console.log('[PROFILE PAGE] ========== DELETE ACCOUNT FAILED ==========');
       }
     } catch (err) {
+      console.error('[PROFILE PAGE] ========== DELETE ACCOUNT ERROR ==========');
+      console.error('[PROFILE PAGE] Error type:', err.constructor.name);
+      console.error('[PROFILE PAGE] Error message:', err.message);
+      console.error('[PROFILE PAGE] Error details:', {
+        message: err.message,
+        responseStatus: err.response?.status,
+        responseData: err.response?.data
+      });
       showNotification(err.message || 'Failed to delete account', 'error');
       setDeleting(false);
       setShowDeleteConfirm(false);
+      console.error('[PROFILE PAGE] ========== DELETE ACCOUNT ERROR HANDLED ==========');
     }
   };
 
@@ -98,7 +190,7 @@ const ProfilePage = () => {
             <label>Full Name</label>
             <input 
               type="text" 
-              value={profile.username}
+              value={profile.full_name || profile.username || 'Not set'}
               readOnly
               className="form-input"
             />
@@ -108,7 +200,7 @@ const ProfilePage = () => {
             <label>What should we call you?</label>
             <input 
               type="text" 
-              value={profile.username}
+              value={profile.preferred_name || profile.full_name || profile.username || 'Not set'}
               readOnly
               className="form-input"
             />
@@ -148,6 +240,18 @@ const ProfilePage = () => {
               className="form-input"
             />
           </div>
+
+          {profile.birthday && (
+            <div className="form-field">
+              <label>Birthday</label>
+              <input 
+                type="text" 
+                value={new Date(profile.birthday).toLocaleDateString()}
+                readOnly
+                className="form-input"
+              />
+            </div>
+          )}
 
           {profile.last_login && (
             <div className="form-field">

@@ -86,32 +86,94 @@ export const fetchPosts = async (filters = {}) => {
   }
 };
 
-/**
- * Register a new user
- * @param {{
- *   username: string,
- *   password: string,
- *   email?: string
- * }} userData
- */
-export const registerUser = async (userData) => {
-  try {
-    const abortController = createAbortController();
-    const res = await axios.post(`${API_BASE}/register`, userData, {
-      signal: abortController.signal,
-    });
-    return res.data;
-  } catch (err) {
-    if (isCancelledError(err)) {
-      throw new Error("Request cancelled");
-    }
-    // Return error response data if available, otherwise throw
-    if (err.response?.data) {
-      throw new Error(err.response.data.message || "Registration failed");
-    }
-    throw err;
-  }
-};
+ /**
+  * Register a new user
+  * @param {{
+  *   username: string,
+  *   password: string,
+  *   email?: string,
+  *   full_name?: string,
+  *   preferred_name?: string,
+  *   birthday?: string
+  * }} userData
+  */
+ export const registerUser = async (userData) => {
+   console.log('[API] ========== REGISTER USER API CALL ==========');
+   console.log('[API] Username:', userData.username);
+   console.log('[API] Has password:', !!userData.password);
+   console.log('[API] Full name:', userData.full_name || 'Not provided');
+   console.log('[API] Preferred name:', userData.preferred_name || 'Not provided');
+   console.log('[API] Birthday:', userData.birthday || 'Not provided');
+   console.log('[API] Email:', userData.email || 'Not provided');
+   console.log('[API] API Base URL:', API_BASE);
+   console.log('[API] Register endpoint:', `${API_BASE}/register`);
+   console.log('[API] Cookies before request:', document.cookie || 'No cookies found');
+   
+   try {
+     const abortController = createAbortController();
+     console.log('[API] Step 1: Sending POST request to register endpoint...');
+     console.log('[API] Request config:', {
+       url: `${API_BASE}/register`,
+       method: 'POST',
+       withCredentials: true,
+       hasUserData: !!userData
+     });
+     
+     const res = await axios.post(`${API_BASE}/register`, userData, {
+       signal: abortController.signal,
+       withCredentials: true, // Important for cookies to be received
+     });
+     
+     console.log('[API] Step 2: Registration response received');
+     console.log('[API] Response status:', res.status, res.statusText);
+     console.log('[API] Response headers:', {
+       'set-cookie': res.headers['set-cookie'] ? 'Present (cookies should be set)' : 'Not present',
+       'content-type': res.headers['content-type']
+     });
+     console.log('[API] Response data:', { 
+       status: res.data?.status,
+       message: res.data?.message,
+       hasUser: !!res.data?.user,
+       username: res.data?.user?.username
+     });
+     
+     // Note: httpOnly cookies won't appear in document.cookie
+     console.log('[API] Step 3: Checking cookies after response (httpOnly cookies not visible):', document.cookie || 'No cookies found');
+     console.log('[API] Note: httpOnly cookies are set by the browser and sent automatically with subsequent requests');
+     console.log('[API] ========== REGISTER USER API SUCCESS ==========');
+     
+     return res.data;
+   } catch (err) {
+     console.error('[API] ========== REGISTER USER API ERROR ==========');
+     console.error('[API] Error type:', err.constructor.name);
+     console.error('[API] Error message:', err.message);
+     console.error('[API] Error details:', {
+       message: err.message,
+       responseStatus: err.response?.status,
+       responseStatusText: err.response?.statusText,
+       responseData: err.response?.data,
+       hasResponse: !!err.response,
+       requestUrl: err.config?.url,
+       requestMethod: err.config?.method
+     });
+     
+     if (err.response) {
+       console.error('[API] Response headers:', err.response.headers);
+       console.error('[API] Response data:', err.response.data);
+     }
+     
+     console.error('[API] ========== REGISTER USER API ERROR END ==========');
+     
+     if (isCancelledError(err)) {
+       throw new Error("Request cancelled");
+     }
+     // Return error response data if available, otherwise throw
+     if (err.response?.data) {
+       throw new Error(err.response.data.message || "Registration failed");
+     }
+     throw err;
+   }
+ };
 
 /**
  * Login to the application
