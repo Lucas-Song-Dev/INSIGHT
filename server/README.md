@@ -40,8 +40,24 @@ source venv/bin/activate
 
 ### 2. Install Dependencies
 
+This project uses `uv` as the package manager. Install dependencies with:
+
 ```bash
-pip install -r requirements.txt
+uv sync
+```
+
+If you don't have uv installed:
+```bash
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+For development dependencies (including pytest):
+```bash
+uv sync --extra dev
 ```
 
 ### 3. Environment Configuration
@@ -164,8 +180,8 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
    - Select the `server` folder as the root
 
 2. **Configure Build Settings**
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Run Command:** `gunicorn app:app --bind 0.0.0.0:8080`
+   - **Build Command:** `uv sync`
+   - **Run Command:** `uv run gunicorn main:app --bind 0.0.0.0:$PORT`
    - **Environment Variables:** Add all variables from your `.env` file
 
 3. **Set Environment Variables**
@@ -204,11 +220,13 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
    cd RedditPainpoint/server
    ```
 
-5. **Set Up Virtual Environment**
+5. **Install Dependencies**
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+   # Install uv if not already installed
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Install project dependencies
+   uv sync
    ```
 
 6. **Create Environment File**
@@ -219,7 +237,7 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
 
 7. **Test Application**
    ```bash
-   gunicorn app:app --bind 0.0.0.0:5000
+   uv run gunicorn main:app --bind 0.0.0.0:5000
    # Test in another terminal: curl http://localhost:5000/api/status
    ```
 
@@ -238,7 +256,7 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
    User=root
    WorkingDirectory=/root/RedditPainpoint/server
    Environment="PATH=/root/RedditPainpoint/server/venv/bin"
-   ExecStart=/root/RedditPainpoint/server/venv/bin/gunicorn app:app --bind 127.0.0.1:5000 --workers 4
+   ExecStart=/root/.local/bin/uv run gunicorn main:app --bind 127.0.0.1:5000 --workers 4
    Restart=always
 
    [Install]
@@ -303,14 +321,21 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
 
    WORKDIR /app
 
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
+   # Install uv
+   COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+   # Copy dependency files
+   COPY pyproject.toml uv.lock ./
+
+   # Install dependencies
+   RUN uv sync --frozen
+
+   # Copy application code
    COPY . .
 
    EXPOSE 5000
 
-   CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "4"]
+   CMD ["uv", "run", "gunicorn", "main:app", "--bind", "0.0.0.0:5000", "--workers", "4"]
    ```
 
 2. **Build and Run**

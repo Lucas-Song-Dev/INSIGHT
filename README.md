@@ -55,9 +55,18 @@ A comprehensive platform for analyzing user discussions and generating actionabl
 cd server
 ```
 
-2. **Install dependencies**:
+2. **Install dependencies** (using uv):
 ```bash
-pip install -r requirements.txt
+uv sync
+```
+
+If you don't have uv installed, install it first:
+```bash
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 3. **Configure environment variables** in `.env`:
