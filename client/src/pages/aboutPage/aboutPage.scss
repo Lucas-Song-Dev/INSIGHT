@@ -36,7 +36,7 @@
   background: $terminal-panel;
   border: 1px solid $terminal-border;
   padding: 30px;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+  box-shadow: 0 0 10px $matte-green-10;
   
   h2 {
     font-size: 28px;
@@ -154,7 +154,7 @@
     font-weight: bold;
     color: $terminal-text;
     margin-right: 20px;
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 0 10px $matte-green-20;
   }
   
   .step-content {
@@ -200,7 +200,7 @@
   border: 1px solid $terminal-border;
   padding: 30px;
   text-align: center;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+  box-shadow: 0 0 10px $matte-green-10;
   
   .metric-value {
     font-size: 48px;
@@ -259,7 +259,7 @@
   
   &:hover {
     border-color: $terminal-text-bright;
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 0 15px $matte-green-20;
   }
   
   .workflow-icon {

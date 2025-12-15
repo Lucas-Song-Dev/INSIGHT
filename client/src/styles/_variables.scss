@@ -60,9 +60,46 @@ $border-hover: rgba(107, 114, 128, 0.2); // Matte gray hover
 
 // Error/Success/Warning (matte colors)
 $error-color: #dc2626; // Matte red
+$error-color-bright: #e53e3e; // Brighter error red
+$error-color-alert: #ff4444; // Alert red
 $success-color: #525252; // Matte gray (replacing green)
 $warning-color: #a16207; // Matte amber
+$warning-color-bright: #ed8936; // Brighter warning orange
 $info-color: $primary-indigo;
+
+// RGBA variants for matte colors (replacing all greens, blues, and yellows)
+// Matte gray rgba variants (replacing blue: rgba(74, 144, 226, ...) and indigo: rgba(99, 102, 241, ...))
+$matte-blue-10: rgba(107, 114, 128, 0.1); // Replacing rgba(74, 144, 226, 0.1) and rgba(99, 102, 241, 0.1)
+$matte-blue-15: rgba(107, 114, 128, 0.15); // Replacing rgba(99, 102, 241, 0.15)
+$matte-blue-20: rgba(107, 114, 128, 0.2); // Replacing rgba(74, 144, 226, 0.2) and rgba(99, 102, 241, 0.2)
+$matte-blue-30: rgba(107, 114, 128, 0.3); // Replacing rgba(74, 144, 226, 0.3)
+$matte-blue-40: rgba(107, 114, 128, 0.4); // Replacing rgba(74, 144, 226, 0.4)
+$matte-blue-50: rgba(107, 114, 128, 0.5); // Replacing rgba(74, 144, 226, 0.5)
+
+// Matte gray rgba variants (replacing green: rgba(0, 255, 0, ...))
+$matte-green-03: rgba(107, 114, 128, 0.03); // Replacing rgba(0, 255, 0, 0.03)
+$matte-green-10: rgba(107, 114, 128, 0.1); // Replacing rgba(0, 255, 0, 0.1)
+$matte-green-20: rgba(107, 114, 128, 0.2); // Replacing rgba(0, 255, 0, 0.2)
+$matte-green-30: rgba(107, 114, 128, 0.3); // Replacing rgba(0, 255, 0, 0.3)
+$matte-green-40: rgba(107, 114, 128, 0.4); // Replacing rgba(0, 255, 0, 0.4)
+$matte-green-50: rgba(107, 114, 128, 0.5); // Replacing rgba(0, 255, 0, 0.5)
+
+// Matte amber/warning rgba variants (replacing yellow: rgba(255, 255, 0, ...))
+$matte-yellow-10: rgba(161, 98, 7, 0.1); // Replacing rgba(255, 255, 0, 0.1)
+$matte-yellow-50: rgba(161, 98, 7, 0.5); // Replacing rgba(255, 255, 0, 0.5)
+
+// Additional gray shades for various uses
+$gray-777: #777777; // Medium gray
+$gray-ccc: #cccccc; // Light gray
+$gray-4a5568: #4a5568; // Dark gray
+$gray-2c3e50: #2c3e50; // Very dark gray
+$gray-718096: #718096; // Slate gray
+
+// Purple replacement (matte gray gradient)
+$purple-primary: #6b7280; // Replacing purple with matte gray
+$purple-secondary: #4b5563; // Replacing purple with darker matte gray
+$purple-light: #9ca3af; // Replacing light purple with light matte gray
+$purple-lighter: #d1d5db; // Replacing lighter purple with lighter matte gray
 
 // Borders (rounded aesthetics)
 $border-color: rgba(0, 0, 0, 0.1);

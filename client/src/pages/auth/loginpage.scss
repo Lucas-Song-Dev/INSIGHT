@@ -25,8 +25,8 @@
       0deg,
       transparent,
       transparent 2px,
-      rgba(0, 255, 0, 0.03) 2px,
-      rgba(0, 255, 0, 0.03) 4px
+      $matte-green-03 2px,
+      $matte-green-03 4px
     );
     opacity: 0.5;
     z-index: 0;
@@ -49,7 +49,7 @@
   transition: all 0.2s;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+  box-shadow: 0 0 20px $matte-green-20;
   z-index: 1;
   
   // Terminal corner brackets
@@ -78,7 +78,7 @@
   
   &:hover {
     border-color: $terminal-text-bright;
-    box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+    box-shadow: 0 0 30px $matte-green-30;
   }
   
   // Top border indicator
@@ -229,12 +229,12 @@
       background: $terminal-panel;
       border-color: $terminal-text-bright;
       color: $terminal-text-bright;
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+      box-shadow: 0 0 15px $matte-green-40;
     }
     
     &:active:not(:disabled) {
       background: $terminal-bg;
-      box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3);
+      box-shadow: inset 0 0 5px $matte-green-30;
     }
     
     &:disabled {
@@ -270,7 +270,7 @@
         background: $terminal-panel;
         border-color: $terminal-text-bright;
         color: $terminal-text-bright;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        box-shadow: 0 0 10px $matte-green-30;
       }
     }
   }

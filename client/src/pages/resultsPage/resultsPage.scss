@@ -28,7 +28,7 @@
     &:focus {
       outline: none;
       border-color: $terminal-text-bright;
-      box-shadow: 0 0 0 4px rgba(0, 255, 0, 0.2);
+      box-shadow: 0 0 0 4px $matte-green-20;
       background: color.adjust($terminal-bg-dark, $lightness: 5%);
     }
   }
@@ -87,7 +87,7 @@
   &:hover {
     transform: translateY(-5px);
     border-color: $terminal-text-bright;
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+    box-shadow: 0 0 15px $matte-green-30;
     background: color.adjust($terminal-panel, $lightness: 5%);
   }
   
@@ -121,14 +121,14 @@
     font-size: 12px;
     
     &.success {
-      background: rgba(0, 255, 0, 0.1);
-      border-color: rgba(0, 255, 0, 0.5);
+      background: $matte-green-10;
+      border-color: $matte-green-50;
       color: $terminal-text-bright;
     }
     
     &.pending {
-      background: rgba(255, 255, 0, 0.1);
-      border-color: rgba(255, 255, 0, 0.5);
+      background: $matte-yellow-10;
+      border-color: $matte-yellow-50;
       color: $terminal-text-dim;
     }
   }

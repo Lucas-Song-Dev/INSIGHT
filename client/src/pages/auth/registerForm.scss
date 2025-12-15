@@ -9,7 +9,7 @@
   transition: all 0.2s;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+  box-shadow: 0 0 20px $matte-green-20;
   font-family: 'Courier New', 'Consolas', 'Monaco', 'Menlo', monospace;
   
   // Terminal corner brackets
@@ -38,7 +38,7 @@
   
   &:hover {
     border-color: $terminal-text-bright;
-    box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+    box-shadow: 0 0 30px $matte-green-30;
   }
   
   // Top border indicator
@@ -119,7 +119,7 @@
       border: 1px solid $terminal-border;
       font-size: 15px;
       color: $terminal-text;
-      box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
+      box-shadow: 0 0 5px $matte-green-20;
       transition: all 0.2s;
       font-family: 'Courier New', monospace;
       
@@ -130,7 +130,7 @@
       &:focus {
         outline: none;
         border-color: $terminal-text-bright;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+        box-shadow: 0 0 10px $matte-green-40;
         background: $terminal-bg;
       }
     }
@@ -160,7 +160,7 @@
       background: $terminal-panel;
       border-color: $terminal-text-dim;
       color: $terminal-text;
-      box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+      box-shadow: 0 0 10px $matte-green-20;
       }
     }
 
@@ -174,7 +174,7 @@
       font-weight: 500;
       cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 0 5px $matte-green-20;
     text-transform: uppercase;
     letter-spacing: 2px;
     font-family: 'Courier New', monospace;
@@ -183,12 +183,12 @@
       background: $terminal-panel;
       border-color: $terminal-text-bright;
       color: $terminal-text-bright;
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+      box-shadow: 0 0 15px $matte-green-40;
       }
       
       &:active:not(:disabled) {
       background: $terminal-bg;
-      box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3);
+      box-shadow: inset 0 0 5px $matte-green-30;
       }
       
       &:disabled {

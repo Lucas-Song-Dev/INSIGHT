@@ -1,11 +1,14 @@
 import { expect, afterEach, vi, beforeEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
-import { toHaveNoViolations } from 'jest-axe';
 
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
-expect.extend(toHaveNoViolations);
+
+// Note: jest-axe accessibility matchers are commented out
+// If jest-axe is installed and needed, uncomment the following:
+// import { toHaveNoViolations } from 'jest-axe';
+// expect.extend(toHaveNoViolations);
 
 // Cleanup after each test case
 afterEach(() => {

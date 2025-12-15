@@ -56,13 +56,13 @@
     }
     
     &-success {
-      background-color: rgba(0, 255, 0, 0.1);
+      background-color: $matte-green-10;
       color: $terminal-success;
       border-color: $terminal-success;
     }
     
     &-warning {
-      background-color: rgba(255, 255, 0, 0.1);
+      background-color: $matte-yellow-10;
       color: $terminal-warning;
       border-color: $terminal-warning;
     }

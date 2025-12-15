@@ -22,7 +22,7 @@
   
   &:hover {
     transform: rotate(0.5deg);
-    box-shadow: 0 8px 30px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 8px 30px $matte-green-20;
     border-color: $terminal-text-bright;
   }
   
@@ -78,7 +78,7 @@
   transition: all $transition-speed;
   
   &:hover {
-    box-shadow: 0 8px 30px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 8px 30px $matte-green-20;
     border-color: $terminal-text-bright;
   }
   
@@ -123,7 +123,7 @@
     &:focus {
       outline: none;
       border-color: $terminal-text-bright;
-      box-shadow: 0 0 0 4px rgba(0, 255, 0, 0.2);
+      box-shadow: 0 0 0 4px $matte-green-20;
       background: color.adjust($terminal-bg-dark, $lightness: 5%);
     }
   }
@@ -180,7 +180,7 @@
     &:focus {
       outline: none;
       border-color: $terminal-text-bright;
-      box-shadow: 0 0 0 4px rgba(0, 255, 0, 0.2);
+      box-shadow: 0 0 0 4px $matte-green-20;
       background: color.adjust($terminal-bg-dark, $lightness: 5%);
     }
   }
@@ -190,7 +190,7 @@
     left: 20px;
     top: 50%;
     transform: translateY(-50%);
-    color: #777;
+    color: $gray-777;
     font-size: 18px;
     transition: all 0.3s;
   }
@@ -208,7 +208,7 @@
   
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 15px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 6px 15px $matte-green-20;
   }
   
   &:active {
@@ -263,7 +263,7 @@
       &:focus {
         outline: none;
         border-color: $terminal-text-bright;
-        box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+        box-shadow: 0 0 0 3px $matte-green-20;
         background: color.adjust($terminal-bg-dark, $lightness: 5%);
       }
     }
@@ -284,7 +284,7 @@
         border-color: $terminal-text-bright;
         color: $terminal-text-bright;
         transform: rotate(0.5deg);
-        box-shadow: 0 5px 15px rgba(0, 255, 0, 0.2);
+        box-shadow: 0 5px 15px $matte-green-20;
       }
       
       &:active {
@@ -423,7 +423,7 @@
   &:hover {
     transform: translateY(-5px);
     border-color: $terminal-text-bright;
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+    box-shadow: 0 0 15px $matte-green-30;
     background: color.adjust($terminal-panel, $lightness: 5%);
   }
   
@@ -470,7 +470,7 @@
   
   &:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 30px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 8px 30px $matte-green-20;
     border-color: $terminal-text-bright;
   }
 }
@@ -584,7 +584,7 @@
   
   &:hover {
     border-color: $terminal-border;
-    box-shadow: 0 4px 20px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 4px 20px $matte-green-20;
   }
   
   .pain-point-content {
@@ -651,26 +651,26 @@
   }
   
   &.severity-high {
-    background-color: rgba(229, 62, 62, 0.1);
-    color: #e53e3e;
-    border: 1px solid rgba(229, 62, 62, 0.2);
+    background-color: rgba(220, 38, 38, 0.1); // Using error-color
+    color: $error-color-bright;
+    border: 1px solid rgba(220, 38, 38, 0.2); // Using error-color
   }
   
   &.severity-medium {
-    background-color: rgba(237, 137, 54, 0.1);
-    color: #ed8936;
-    border: 1px solid rgba(237, 137, 54, 0.2);
+    background-color: rgba(161, 98, 7, 0.1); // Using warning-color
+    color: $warning-color-bright;
+    border: 1px solid rgba(161, 98, 7, 0.2); // Using warning-color
   }
   
   &.severity-low {
     background-color: rgba(107, 114, 128, 0.1); // Matte gray (replacing green)
-    color: #6b7280; // Matte gray
+    color: $primary-indigo; // Matte gray
     border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   &.severity-unknown {
     background-color: rgba(113, 128, 150, 0.1);
-    color: #718096;
+    color: $gray-718096;
     border: 1px solid rgba(113, 128, 150, 0.2);
   }
 }
@@ -689,7 +689,7 @@
   transition: all $transition-speed;
   
   &:hover {
-    box-shadow: 0 8px 30px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 8px 30px $matte-green-20;
     border-color: $terminal-text-bright;
   }
   
@@ -726,12 +726,12 @@
   font-size: 14px;
   display: flex;
   align-items: center;
-  box-shadow: 0 4px 10px rgba(74, 144, 226, 0.2);
+    box-shadow: 0 4px 10px $matte-blue-20;
   transition: all 0.25s;
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(74, 144, 226, 0.3);
+    box-shadow: 0 6px 15px $matte-blue-30;
   }
   
   span {
@@ -769,11 +769,11 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+  box-shadow: 0 4px 15px $matte-blue-30;
   
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+    box-shadow: 0 8px 20px $matte-blue-40;
   }
   
   &:active:not(:disabled) {
@@ -781,7 +781,7 @@
   }
   
   &:disabled {
-    background: linear-gradient(135deg, #d1d5db, #e5e7eb); // Matte gray gradient
+    background: linear-gradient(135deg, $primary-indigo-lighter, $primary-indigo-lightest); // Matte gray gradient
     cursor: not-allowed;
     box-shadow: none;
   }
@@ -808,7 +808,7 @@
     border-color: $terminal-text-bright;
     color: $terminal-text-bright;
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 255, 0, 0.2);
+    box-shadow: 0 4px 10px $matte-green-20;
   }
   
   &:active {

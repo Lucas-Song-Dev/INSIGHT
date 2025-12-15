@@ -164,7 +164,7 @@
     transition: all 0.2s;
     
     &:hover {
-      background: #4b5563; /* Matte gray (replacing blue) */
+      background: $primary-indigo-dark; /* Matte gray (replacing blue) */
     }
   }
 }
