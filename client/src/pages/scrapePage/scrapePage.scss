@@ -91,13 +91,14 @@
   -webkit-backdrop-filter: blur(5px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   padding: 25px;
-  transition: all $transition-speed;
+  transition: box-shadow $transition-speed, border-color $transition-speed;
   position: relative;
   overflow: hidden;
   
   &:hover {
-    transform: translateY(-5px);
+    // Use box-shadow only - no transform to avoid layout shifts and scrollbar flickering
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 255, 255, 0.5);
   }
   
   // Subtle gradient animation
@@ -115,12 +116,6 @@
   
   &:hover::before {
     opacity: 1;
-    animation: shimmer 3s infinite;
-  }
-  
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
   }
 }
 
@@ -173,11 +168,11 @@
   font-size: 14px;
   font-weight: 500;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s;
+  transition: box-shadow 0.3s;
   
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    // Use box-shadow only - no transform to avoid layout shifts
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
   }
 
   span {
@@ -210,12 +205,11 @@
   height: 24px;
   padding: 0;
   border-radius: 50%;
-  transition: all 0.3s;
+  transition: color 0.3s, background 0.3s;
   
   &:hover {
     color: white;
-    transform: rotate(90deg);
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -262,15 +256,15 @@
   border-radius: 0 12px 12px 0;
   cursor: pointer;
   font-weight: 500;
-  transition: all 0.3s;
+  transition: background 0.3s, filter 0.3s;
   
   &:hover {
     background: linear-gradient(135deg, color.adjust($accent-color, $lightness: 5%), $accent-color);
-    transform: translateX(2px);
+    filter: brightness(1.05);
   }
   
   &:active {
-    transform: translateX(0);
+    filter: brightness(0.95);
   }
 }
 
@@ -457,16 +451,17 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: box-shadow 0.3s, filter 0.3s;
   box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3); // Matte gray shadow
   
   &:hover:not(:disabled) {
-    transform: translateY(-2px);
+    // Use box-shadow only - no transform to avoid layout shifts
     box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4); // Matte gray shadow
+    filter: brightness(1.05);
   }
   
   &:active:not(:disabled) {
-    transform: translateY(1px);
+    filter: brightness(0.95);
   }
   
   &:disabled {
