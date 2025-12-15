@@ -56,14 +56,14 @@ const LoginPage = ({ onLoginSuccess }) => {
         />
       ) : (
         <div className="login-card">
-          <h2>Product Painpoint Login</h2>
+          <h2>INSIGHT Login</h2>
           <p className="login-description">
             Enter your credentials to access the dashboard
           </p>
 
           {error && <div className="error-message">{error}</div>}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
               <label htmlFor="username">Username</label>
               <input
@@ -91,17 +91,18 @@ const LoginPage = ({ onLoginSuccess }) => {
             <button type="submit" className="login-button" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Log In"}
             </button>
+            
+            <div className="register-prompt">
+              <p>Don't have an account?</p>
+              <button
+                type="button"
+                className="register-link"
+                onClick={() => setShowRegister(true)}
+              >
+                Create Account
+              </button>
+            </div>
           </form>
-
-          <div className="register-prompt">
-            <p>Don't have an account?</p>
-            <button
-              className="register-link"
-              onClick={() => setShowRegister(true)}
-            >
-              Create Account
-            </button>
-          </div>
         </div>
       )}
     </div>

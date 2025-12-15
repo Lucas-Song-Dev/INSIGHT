@@ -210,7 +210,12 @@ const AnalysisPage = ({ productData = null }) => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
             />
-            <div className="search-icon">🔍</div>
+            <div className="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -260,7 +265,7 @@ const AnalysisPage = ({ productData = null }) => {
   return (
     <div className="analysis-container">
       <PageHeader 
-        title={`Analysis: ${selectedProduct}`}
+        title={selectedProduct ? `Analysis: ${selectedProduct}` : "Analysis"}
         description="Detailed pain points and insights"
       />
 
@@ -283,9 +288,11 @@ const AnalysisPage = ({ productData = null }) => {
       </div>
 
       {/* Advanced Filters Button */}
-      <button className="toggle-filters-button" onClick={() => setShowFilters(!showFilters)}>
-        {showFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
-      </button>
+      <div className="filters-button-container">
+        <button className="toggle-filters-button" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
+        </button>
+      </div>
 
       {/* Advanced Filters */}
       {showFilters && (

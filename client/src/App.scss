@@ -1,464 +1,274 @@
 @use './styles/variables' as *;
 
-// Terminal/Hardware Theme Base Styles
+// Modern Dark Theme
 body {
-  background: $terminal-bg;
-  background-attachment: fixed;
+  background: $bg-primary;
   margin: 0;
-  overflow: hidden;
-  font-family: 'Courier New', 'Consolas', 'Monaco', 'Menlo', monospace;
+  font-family: $font-family;
+  color: $dark-text;
+  line-height: $line-height-base;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app-container {
   display: flex;
   min-height: 100vh;
   width: 100vw;
+  background: $bg-primary;
   position: relative;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  background: $terminal-bg;
 }
 
-.logo-container {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  padding: 25px 15px;
-  border-bottom: 1px solid $terminal-border;
-  margin-bottom: 25px;
-  position: relative;
-  overflow: hidden;
-  background: $terminal-bg-dark;
-  
-  // Terminal scanline effect
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 255, 0, 0.03) 2px,
-      rgba(0, 255, 0, 0.03) 4px
-    );
-    pointer-events: none;
-    animation: scanline 8s linear infinite;
-  }
-  
-  @keyframes scanline {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(100px); }
-  }
-}
-
-.logo {
-  height: 38px;
-  will-change: filter;
-  transition: filter $transition-speed;
-  position: relative;
-  z-index: 2;
-  filter: drop-shadow(0 0 3px $terminal-border);
-  
-  &:hover {
-    filter: drop-shadow(0 0 8px $terminal-text-bright);
-  }
-}
-
-.logo.react {
-  &:hover {
-    filter: drop-shadow(0 0 8px $terminal-text-bright);
-  }
-}
-
-// Terminal-style Main Content
 .main-content {
-  flex-grow: 1;
-  padding: 30px;
-  overflow-y: auto;
-  background: $terminal-bg;
-  position: relative;
-  transition: all $transition-speed;
-  height: 100vh;
-  border-left: 1px solid $terminal-border;
+  flex: 1;
+  margin-left: 240px; // Account for fixed sidebar
+  padding: $spacing-xl;
+  min-height: 100vh;
+  background: $bg-primary;
+  transition: margin-left $transition-speed $transition-ease;
+  overflow-x: hidden;
+  box-sizing: border-box;
   
-  // Terminal scanline overlay
-  &::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 280px;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 255, 0, 0.03) 2px,
-      rgba(0, 255, 0, 0.03) 4px
-    );
-    pointer-events: none;
-    z-index: 1;
-    animation: scanline 8s linear infinite;
+  // When sidebar is collapsed
+  &.sidebar-collapsed {
+    margin-left: 64px;
   }
   
-  &::-webkit-scrollbar {
-    width: 12px;
-    background: $terminal-bg-dark;
+  // Contain scrolling within page containers
+  > * {
+    max-width: 100%;
+    box-sizing: border-box;
   }
-  
-  &::-webkit-scrollbar-track {
-    background: $terminal-bg-dark;
-    border-left: 1px solid $terminal-border;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: $terminal-panel;
-    border: 1px solid $terminal-border;
-    
-    &:hover {
-      background: $terminal-bg-darker;
-      border-color: $terminal-text-bright;
+}
+
+// Home page styling
+.home-container {
+  width: 100%;
+  padding: $spacing-xl;
+
+  .home-header {
+    h1 {
+      font-size: $font-size-3xl;
+      font-weight: $font-weight-semibold;
+      color: $text-primary;
+      margin: 0;
+      padding: $spacing-lg 0;
     }
   }
 }
 
-// Terminal Loading Animation
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  width: 100vw;
-  font-size: 18px;
-  color: $terminal-text;
-  position: relative;
-  background: $terminal-bg;
-  font-family: 'Courier New', monospace;
-  
-  &::before {
-    content: 'LOADING...';
-    position: absolute;
-    animation: blink 1s step-end infinite;
-  }
-  
-  @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
-  }
-}
-
-/* Mobile Responsive */
-@media (max-width: 767px) {
-  .app-container {
-    flex-direction: column;
-    display: flex;
-    grid-template-columns: 1fr;
-  }
-  
-  .main-content::before {
-    left: 0;
-  }
-}
-
-// Home page styling - Terminal Theme
-.home-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  position: relative;
-  z-index: 2;
-}
-
 .welcome-header {
-  background: $terminal-panel;
-  border: 1px solid $terminal-border;
-  padding: 30px;
+  background: $bg-card;
+  border-radius: $border-radius-xl;
+  padding: 60px 40px;
   text-align: center;
-  margin-bottom: 40px;
-  position: relative;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+  margin-bottom: 60px;
+  box-shadow: $shadow-lg;
+  border: 1px solid $border-color;
+  transition: transform $transition-speed-slow $transition-ease-smooth, box-shadow $transition-speed-slow $transition-ease-smooth;
   
-  // Terminal top border indicator
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: $terminal-border;
-    box-shadow: 0 0 10px $terminal-border;
+  &:hover {
+    transform: rotate(0.5deg);
+    box-shadow: $shadow-xl;
   }
   
   h1 {
-    font-size: 36px;
-    font-weight: 700;
-    margin-bottom: 15px;
-    color: $terminal-text;
-    position: relative;
-    display: inline-block;
-    text-shadow: 0 0 10px $terminal-border;
-    letter-spacing: 2px;
+    font-size: 48px;
+    font-weight: $font-weight-bold;
+    margin-bottom: 20px;
+    color: $accent-color;
+    letter-spacing: -0.5px;
   }
   
   .tagline {
-    font-size: 18px;
-    color: $terminal-text-dim;
+    font-size: $font-size-lg;
+    color: $medium-text;
     max-width: 700px;
     margin: 0 auto;
-    font-family: 'Courier New', monospace;
+    line-height: $line-height-relaxed;
   }
 }
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 50px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  margin-bottom: 60px;
+  
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .feature-card {
-  background: $terminal-panel;
-  border: 1px solid $terminal-border;
-  padding: 25px;
-  transition: all 0.2s;
+  background: $bg-card;
+  border-radius: $border-radius-xl;
+  padding: 40px 30px;
+  transition: all $transition-speed-slow $transition-ease-smooth;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
-  position: relative;
-  
-  // Terminal corner indicators
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border: 1px solid $terminal-border;
-  }
-  
-  &::before {
-    top: -1px;
-    left: -1px;
-    border-right: none;
-    border-bottom: none;
-  }
-  
-  &::after {
-    bottom: -1px;
-    right: -1px;
-    border-left: none;
-    border-top: none;
-  }
+  box-shadow: $shadow-md;
+  border: 1px solid $border-color;
+  height: 100%;
   
   &:hover {
-    border-color: $terminal-text-bright;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    box-shadow: $shadow-xl;
+    border-color: $accent-color;
+    background: $bg-hover;
   }
   
   .feature-icon {
-    font-size: 40px;
-    margin-bottom: 15px;
-    filter: drop-shadow(0 0 5px $terminal-border);
+    font-size: 48px;
+    margin-bottom: 20px;
+    transition: transform $transition-speed-slow $transition-ease-smooth;
+  }
+  
+  &:hover .feature-icon {
+    transform: scale(1.1);
   }
   
   h3 {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: $terminal-text;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: $font-size-xl;
+    font-weight: $font-weight-semibold;
+    margin-bottom: 16px;
+    color: $dark-text;
   }
   
   p {
-    color: $terminal-text-dim;
+    color: $medium-text;
     margin: 0;
-    margin-bottom: 20px;
-    line-height: 1.6;
+    margin-bottom: 24px;
+    line-height: $line-height-relaxed;
     flex-grow: 1;
-    font-family: 'Courier New', monospace;
   }
   
   .feature-button {
-    background: $terminal-bg-dark;
-    color: $terminal-text;
-    border: 1px solid $terminal-border;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
+    background: $accent-color;
+    color: $text-lightest;
+    border: none;
+    border-radius: $border-radius-lg;
+    padding: 12px 24px;
+    font-size: $font-size-base;
+    font-weight: $font-weight-medium;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-family: 'Courier New', monospace;
+    transition: all $transition-speed $transition-ease;
+    box-shadow: $shadow-sm;
     
     &:hover {
-      background: $terminal-panel;
-      border-color: $terminal-text-bright;
-      color: $terminal-text-bright;
-      box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+      background: $accent-hover;
+      box-shadow: $shadow-md;
+      transform: translateY(-1px);
     }
     
     &:active {
-      background: $terminal-bg;
-      box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3);
+      transform: translateY(0);
     }
   }
 }
 
 .usage-guide {
-  background: $terminal-panel;
-  border: 1px solid $terminal-border;
-  padding: 30px;
+  background: $bg-card;
+  border-radius: $border-radius-xl;
+  padding: 40px;
   margin-bottom: 40px;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+  box-shadow: $shadow-md;
+  border: 1px solid $border-color;
   
   h2 {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 25px;
-    color: $terminal-text;
-    position: relative;
-    display: inline-block;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: -8px;
-      left: 0;
-      width: 40px;
-      height: 2px;
-      background: $terminal-border;
-      box-shadow: 0 0 5px $terminal-border;
-    }
+    font-size: $font-size-2xl;
+    font-weight: $font-weight-semibold;
+    margin-bottom: 30px;
+    color: $dark-text;
   }
-}
-
-h2 {
-  font-size: 28px;
-  font-weight: 600;
-  margin-bottom: 0px;
-  color: $terminal-text;
-  position: relative;
-  display: inline-block;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-p {
-  color: $terminal-text-dim;
-  font-size: 16px;
-  line-height: 1.6;
-  max-width: 80%;
-  margin: 0;
-  margin-bottom: 20px;
-  font-family: 'Courier New', monospace;
 }
 
 .steps-list {
   list-style: none;
   padding: 0;
   counter-reset: steps;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
   
   li {
     display: flex;
-    margin-bottom: 25px;
+    flex-direction: column;
     position: relative;
+    padding: 20px;
+    background: $bg-secondary;
+    border-radius: $border-radius;
+    border: 1px solid $border-color;
     
-    &:last-child {
-      margin-bottom: 0;
+    .step-number {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: $accent-color;
+      color: $text-lightest;
+      font-weight: $font-weight-semibold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      border-radius: 50%;
+      font-size: $font-size-base;
+      transition: all $transition-speed $transition-ease;
     }
     
-    &::after {
-      content: '';
-      position: absolute;
-      top: 40px;
-      left: 20px;
-      bottom: -20px;
-      width: 1px;
-      background: $terminal-border;
-      opacity: 0.3;
-      z-index: 0;
+    &:hover .step-number {
+      transform: scale(1.1);
+      background: $accent-hover;
     }
     
-    &:last-child::after {
-      display: none;
-    }
-  }
-  
-  .step-number {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    background: $terminal-bg-dark;
-    color: $terminal-text;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 20px;
-    border: 1px solid $terminal-border;
-    box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
-    z-index: 1;
-    font-family: 'Courier New', monospace;
-  }
-  
-  .step-content {
-    h4 {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: $terminal-text;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    
-    p {
-      color: $terminal-text-dim;
-      line-height: 1.6;
-      margin: 0;
+    .step-content {
+      h4 {
+        font-size: $font-size-lg;
+        font-weight: $font-weight-semibold;
+        margin-bottom: 12px;
+        color: $dark-text;
+      }
+      
+      p {
+        color: $text-medium;
+        line-height: $line-height-relaxed;
+        margin: 0;
+        font-size: $font-size-sm;
+      }
     }
   }
 }
 
 .app-footer {
   text-align: center;
-  color: $terminal-text-muted;
-  margin-top: 30px;
-  padding: 20px;
-  font-style: italic;
-  font-family: 'Courier New', monospace;
+  color: $muted-text;
+  margin-top: 60px;
+  padding: 30px;
+  font-size: $font-size-sm;
 }
 
-// Menu icons
-.menu-icon {
-  margin-right: 10px;
-  font-size: 18px;
-}
-
-// Mobile responsive
-@media (max-width: 767px) {
-  .features-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .steps-list li {
-    flex-direction: column;
-    
-    .step-number {
-      margin-bottom: 15px;
-    }
-  }
+// Loading state
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  font-size: $font-size-lg;
+  color: $medium-text;
+  background: $bg-primary;
 }

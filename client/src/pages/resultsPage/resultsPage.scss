@@ -1,9 +1,10 @@
 @use "../../styles/variables" as *;
 
 .results-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 25px;
+  width: 100%;
+  padding: $spacing-xl;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .search-section {
@@ -28,7 +29,7 @@
       outline: none;
       border-color: $terminal-text-bright;
       box-shadow: 0 0 0 4px rgba(0, 255, 0, 0.2);
-      background: lighten($terminal-bg-dark, 5%);
+      background: color.adjust($terminal-bg-dark, $lightness: 5%);
     }
   }
   
@@ -87,7 +88,7 @@
     transform: translateY(-5px);
     border-color: $terminal-text-bright;
     box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
-    background: lighten($terminal-panel, 5%);
+    background: color.adjust($terminal-panel, $lightness: 5%);
   }
   
   h3 {

@@ -146,12 +146,36 @@
     }
   }
 
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    
+    .register-prompt {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: $spacing-sm;
+      margin-top: $spacing-md;
+      padding-top: $spacing-md;
+      border-top: 1px solid $border-color;
+      text-align: center;
+      color: $terminal-text-dim;
+      font-family: 'Courier New', monospace;
+      
+      p {
+        margin: 0;
+        font-size: $font-size-sm;
+      }
+    }
+  }
+
   .form-group {
-    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
 
     label {
-      display: block;
-      margin-bottom: 8px;
       font-weight: 500;
       color: $terminal-text;
       font-size: 15px;
@@ -161,43 +185,45 @@
     }
 
     input {
-      width: calc(100% - 25px);
-      padding: 12px 15px;
-      background: $terminal-bg-dark;
-      border: 1px solid $terminal-border;
-      font-size: 15px;
-      color: $terminal-text;
-      box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
-      transition: all 0.2s;
-      font-family: 'Courier New', monospace;
+      width: 100%;
+      height: $input-height-md;
+      padding: $input-padding-y-md $input-padding-x-md;
+      background: $bg-card;
+      border: 1px solid $border-color;
+      border-radius: $border-radius;
+      font-size: $input-font-size-md;
+      color: $dark-text;
+      box-shadow: $shadow-sm;
+      transition: all $transition-speed $transition-ease;
+      font-family: $font-family;
       
       &::placeholder {
-        color: $terminal-text-muted;
+        color: $muted-text;
       }
       
       &:focus {
         outline: none;
-        border-color: $terminal-text-bright;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
-        background: $terminal-bg;
+        border-color: $accent-color;
+        box-shadow: $shadow-md;
+        background: $bg-hover;
       }
     }
   }
 
   .login-button {
     width: 100%;
-    padding: 14px;
-    background: $terminal-bg-dark;
-    color: $terminal-text;
-    border: 1px solid $terminal-border;
-    font-size: 16px;
-    font-weight: 500;
+    height: $input-height-md;
+    padding: $input-padding-y-md $input-padding-x-md;
+    background: $accent-color;
+    color: $text-lightest;
+    border: 1px solid $accent-color;
+    border-radius: $border-radius;
+    font-size: $input-font-size-md;
+    font-weight: $font-weight-medium;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    font-family: 'Courier New', monospace;
+    transition: all $transition-speed $transition-ease;
+    box-shadow: $shadow-sm;
+    font-family: $font-family;
     
     &:hover:not(:disabled) {
       background: $terminal-panel;

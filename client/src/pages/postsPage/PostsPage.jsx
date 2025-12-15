@@ -146,15 +146,15 @@ const PostsPage = ({ productFilter = null }) => {
   };
 
   // Get unique subreddits for dropdown
-  const uniqueSubreddits = [
-    ...new Set(posts.map((post) => post.subreddit).filter(Boolean)),
-  ];
+  const uniqueSubreddits = posts && posts.length > 0
+    ? [...new Set(posts.map((post) => post.subreddit).filter(Boolean))]
+    : [];
 
   return (
     <div className="posts-container">
       <PageHeader 
-        title="Scraped Posts"
-        description="View and filter the most recent scraped posts from Reddit"
+        title="Insights"
+        description="View and filter the most recent insights and discussions"
       />
 
       {/* Unified Filters Section */}
@@ -165,12 +165,17 @@ const PostsPage = ({ productFilter = null }) => {
           <div className="search-bar">
             <input
               type="text"
-              placeholder="Search in posts, titles, subreddits..."
+              placeholder="Search insights, titles, sources..."
               value={searchTerm}
               onChange={handleSearchChange}
               className="search-input"
             />
-            <div className="search-icon">🔍</div>
+            <div className="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+            </div>
           </div>
 
           <div className="filter-grid">
@@ -244,16 +249,16 @@ const PostsPage = ({ productFilter = null }) => {
             </div>
 
             <div className="filter-item">
-              <label>Subreddit</label>
+              <label>Source</label>
               <select
                 name="subreddit"
                 value={localFilters.subreddit}
                 onChange={handleLocalFilterChange}
               >
-                <option value="">All Subreddits</option>
+                <option value="">All Sources</option>
                 {uniqueSubreddits.map((subreddit) => (
                   <option key={subreddit} value={subreddit}>
-                    r/{subreddit}
+                    {subreddit}
                   </option>
                 ))}
               </select>
@@ -349,7 +354,7 @@ const PostsPage = ({ productFilter = null }) => {
                     </div>
 
                     <div className="post-meta">
-                      <span className="subreddit">r/{post.subreddit}</span>
+                      <span className="subreddit">{post.subreddit}</span>
                       <span className="separator">•</span>
                       <span className="author">u/{post.author}</span>
                       {post.created_utc && (
@@ -448,7 +453,7 @@ const PostsPage = ({ productFilter = null }) => {
                           rel="noopener noreferrer"
                           className="view-button"
                         >
-                          View on Reddit
+                          View Original
                         </a>
                       )}
                     </div>
@@ -473,7 +478,7 @@ const PostsPage = ({ productFilter = null }) => {
                     </h3>
 
                     <div className="grid-meta">
-                      <span className="subreddit">r/{post.subreddit}</span>
+                      <span className="subreddit">{post.subreddit}</span>
                       <span className="score">{post.score}pts</span>
                     </div>
 

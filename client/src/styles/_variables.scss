@@ -1,39 +1,233 @@
 @use "sass:color";
 
-// Terminal/Hardware Theme Variables
-$terminal-bg: #000000;
-$terminal-bg-dark: #0a0a0a;
-$terminal-bg-darker: #050505;
-$terminal-panel: #1a1a1a;
-$terminal-border: #00ff00;
-$terminal-border-dim: #00cc00;
-$terminal-text: #00ff00;
-$terminal-text-bright: #00ff41;
-$terminal-text-dim: #00cc00;
-$terminal-text-muted: #008800;
-$terminal-error: #ff0000;
-$terminal-success: #00ff00;
-$terminal-warning: #ffff00;
+// Premium Light Theme - Claude Console Inspired
+// Lighter shades with premium feel, simple and clean
 
-// Text colors
-$dark-text: #00ff00;
-$medium-text: #00cc00;
-$light-text: #00ff41;
+// Primary accent (Indigo - modern, professional)
+$primary-indigo: #6366f1; // Main indigo
+$primary-indigo-dark: #4f46e5; // Darker for hover
+$primary-indigo-light: #818cf8; // Lighter indigo
+$primary-indigo-lighter: #a5b4fc;
+$primary-indigo-lightest: #c7d2fe;
+
+// Light background palette (Claude Console inspired - beige/cream)
+$bg-primary: #faf9f6;  // Main background (light beige)
+$bg-secondary: #f5f4f1;  // Secondary background
+$bg-tertiary: #f0efec;  // Card background
+$bg-hover: #ebeae7;  // Hover states
+$bg-active: #e6e5e2;  // Active states
+$bg-sidebar: #f7f6f3;  // Sidebar background (slightly different)
+$bg-card: #ffffff;  // Card background (white)
+
+// Text palette (dark on light)
+$text-primary: #1f2937;  // Primary text (dark grey)
+$text-secondary: #4b5563;  // Secondary text
+$text-tertiary: #6b7280;  // Tertiary text
+$text-muted: #9ca3af;  // Muted text
+$text-dim: #d1d5db;  // Very muted
+
+// Legacy dark theme variables (for compatibility)
+$dark-900: #0f172a;
+$dark-800: #1e293b;
+$dark-700: #334155;
+$dark-600: #475569;
+$dark-500: #64748b;
+$text-lightest: #1f2937;
+$text-light: #4b5563;
+$text-medium: #6b7280;
+$text-dim: #9ca3af;
+$text-dark: #9ca3af;
 
 // Accent colors
-$accent-color: #00ff00;
-$accent-glow: rgba(0, 255, 0, 0.3);
-$secondary-glow: rgba(0, 255, 0, 0.2);
+$accent-color: $primary-indigo;
+$accent-hover: $primary-indigo-dark;
+$accent-active: $primary-indigo-light;
 
-// UI elements
-$glass-bg: rgba(26, 26, 26, 0.95);
-$glass-border: rgba(0, 255, 0, 0.3);
-$glass-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
-$sidebar-dark: #0a0a0a;
-$secondary-color: #1a1a1a;
+// Text colors (for light theme)
+$dark-text: $text-primary;
+$medium-text: $text-secondary;
+$light-text: $text-tertiary;
+$muted-text: $text-muted;
 
-// Error/Success
-$error-color: #ff0000;
-$success-color: #00ff00;
+// UI elements (light theme)
+$glass-bg: rgba(255, 255, 255, 0.9);
+$glass-border: rgba(99, 102, 241, 0.15);
+$glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+$sidebar-dark: $bg-sidebar;
+$secondary-color: $primary-indigo-light;
+$border-sidebar: rgba(0, 0, 0, 0.08);
+$border-hover: rgba(99, 102, 241, 0.2);
 
+// Error/Success/Warning (dark theme friendly)
+$error-color: #f87171;
+$success-color: #34d399;
+$warning-color: #fbbf24;
+$info-color: $primary-indigo;
+
+// Borders (rounded aesthetics)
+$border-color: rgba(0, 0, 0, 0.1);
+$border-color-light: rgba(99, 102, 241, 0.15);
+$border-radius: 8px;
+$border-radius-sm: 6px;
+$border-radius-lg: 12px;
+$border-radius-xl: 16px;
+
+// Shadows (light theme - subtle, clean edges)
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+// Typography
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+$font-size-xs: 12px;
+$font-size-sm: 14px;
+$font-size-base: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 20px;
+$font-size-2xl: 24px;
+$font-size-3xl: 30px;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-base: 1.5;
+$line-height-tight: 1.25;
+$line-height-relaxed: 1.75;
+
+// Smooth animations
 $transition-speed: 0.2s;
+$transition-speed-fast: 0.15s;
+$transition-speed-slow: 0.3s;
+$transition-ease: cubic-bezier(0.4, 0, 0.2, 1); // Material Design easing
+$transition-ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94); // Smooth ease
+
+// Standardized Component Sizes
+// Buttons and inputs should use these sizes for consistency
+
+// Button/Input Heights
+$input-height-sm: 36px;   // Small buttons/inputs
+$input-height-md: 44px;   // Medium buttons/inputs (default)
+$input-height-lg: 52px;   // Large buttons/inputs
+
+// Button/Input Padding
+$input-padding-x-sm: 12px;
+$input-padding-x-md: 16px;
+$input-padding-x-lg: 20px;
+
+$input-padding-y-sm: 8px;
+$input-padding-y-md: 12px;
+$input-padding-y-lg: 16px;
+
+// Font sizes for buttons/inputs
+$input-font-size-sm: 14px;
+$input-font-size-md: 16px;
+$input-font-size-lg: 18px;
+
+// Spacing System (consistent margins/padding)
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-2xl: 48px;
+$spacing-3xl: 64px;
+
+// Component spacing
+$component-gap-sm: $spacing-sm;   // 8px
+$component-gap-md: $spacing-md;    // 16px
+$component-gap-lg: $spacing-lg;    // 24px
+$component-gap-xl: $spacing-xl;   // 32px
+
+// Standardized Button Mixin
+@mixin button-base($size: 'md') {
+  font-family: $font-family;
+  font-weight: $font-weight-medium;
+  border: none;
+  border-radius: $border-radius;
+  cursor: pointer;
+  transition: all $transition-speed $transition-ease;
+  box-shadow: $shadow-sm;
+  
+  @if $size == 'sm' {
+    height: $input-height-sm;
+    padding: $input-padding-y-sm $input-padding-x-sm;
+    font-size: $input-font-size-sm;
+  } @else if $size == 'lg' {
+    height: $input-height-lg;
+    padding: $input-padding-y-lg $input-padding-x-lg;
+    font-size: $input-font-size-lg;
+  } @else {
+    height: $input-height-md;
+    padding: $input-padding-y-md $input-padding-x-md;
+    font-size: $input-font-size-md;
+  }
+  
+  &:hover:not(:disabled) {
+    transform: rotate(1deg);
+    box-shadow: $shadow-md;
+  }
+  
+  &:active:not(:disabled) {
+    transform: rotate(0deg);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $accent-color;
+  color: $text-lightest;
+  
+  &:hover:not(:disabled) {
+    background: $accent-hover;
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background: $bg-secondary;
+  color: $dark-text;
+  border: 1px solid $border-color;
+  
+  &:hover:not(:disabled) {
+    background: $bg-hover;
+    border-color: $accent-color;
+  }
+}
+
+// Backward compatibility aliases for old terminal theme variables
+$terminal-bg: $bg-secondary;
+$terminal-bg-dark: $bg-tertiary;
+$terminal-bg-darker: $dark-600;
+$terminal-panel: $bg-card;
+$terminal-border: $primary-indigo;
+$terminal-border-dim: $border-color;
+$terminal-text: $dark-text;
+$terminal-text-bright: $primary-indigo;
+$terminal-text-dim: $medium-text;
+$terminal-text-muted: $muted-text;
+$terminal-error: $error-color;
+$terminal-success: $success-color;
+$terminal-warning: $warning-color;
+
+// Legacy aliases for blue theme (mapped to indigo)
+$primary-blue: $primary-indigo;
+$primary-blue-dark: $primary-indigo-dark;
+$primary-blue-light: $primary-indigo-light;
+$primary-blue-lighter: $primary-indigo-lighter;
+$primary-blue-lightest: $primary-indigo-lightest;
+$white: $text-lightest;
+$off-white: $dark-700;
+$light-gray: $dark-600;
+$medium-gray: $dark-500;
+$dark-gray: $dark-500;
+$text-dark: $text-lightest;
+$text-medium: $text-light;
+$text-light: $text-medium;

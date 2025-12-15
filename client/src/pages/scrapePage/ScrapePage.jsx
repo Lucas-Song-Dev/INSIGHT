@@ -1,33 +1,34 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { triggerScrape, fetchStatus } from "@/api/api.js";
 import { useNotification } from "@/context/NotificationContext";
 import "./scrapePage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import LoadingState from "@/components/LoadingState/LoadingState";
 
+// Calculate estimated cost (matches server logic)
+const calculateEstimatedCost = (timeFilter) => {
+  const baseCost = 1;
+  const timeMultipliers = {
+    'hour': 0.5,
+    'day': 0.7,
+    'week': 1.0,
+    'month': 1.5,
+    'year': 2.0,
+    'all': 3.0
+  };
+  const timeMult = timeMultipliers[timeFilter] || 1.0;
+  const postMult = Math.max(1.0, 100 / 50); // Default 100 posts
+  const cost = Math.floor(baseCost * timeMult * postMult);
+  return Math.max(1, Math.min(10, cost));
+};
+
 const ScrapePage = () => {
+  const [insightType, setInsightType] = useState("product");
   const [loading, setLoading] = useState(false);
   const [scrapeInProgress, setScrapeInProgress] = useState(false);
   const { showNotification } = useNotification();
-  const [customSubreddit, setCustomSubreddit] = useState("");
-  const [customProduct, setCustomProduct] = useState("");
   const [errors, setErrors] = useState({});
   
-  // Lists for random generation
-  const CODING_SUBREDDITS = [
-    "programming", "webdev", "learnprogramming", "Python", "javascript", 
-    "reactjs", "node", "cscareerquestions", "MachineLearning", "compsci",
-    "gamedev", "devops", "aws", "docker", "kubernetes", "linux", "git",
-    "algorithms", "datascience", "cybersecurity"
-  ];
-  
-  const SOFTWARE_PRODUCTS = [
-    "Adobe", "Duolingo", "Word", "Replit", "Cursor", "VS Code", "GitHub",
-    "Figma", "Notion", "Slack", "Discord", "Spotify", "Chrome", "Firefox",
-    "Safari", "Windows", "macOS", "Linux", "Android", "iOS", "Photoshop",
-    "Premiere", "After Effects", "Blender", "Unity", "Unreal Engine"
-  ];
-
   // Initialize form data from localStorage or use defaults
   const [formData, setFormData] = useState(() => {
     try {
@@ -41,11 +42,9 @@ const ScrapePage = () => {
 
     // Default values if nothing in localStorage
     return {
-      subreddits: ["webdev", "python"],
-      products: ["cursor", "replit"],
-      limit: 75,
+      topic: "",
       time_filter: "week",
-      use_openai: false,
+      insightType: "product", // 'product' or 'custom'
     };
   });
 
@@ -56,9 +55,9 @@ const ScrapePage = () => {
         const status = await fetchStatus();
         setScrapeInProgress(status.scrape_in_progress);
 
-        // If scrape was in progress but now completed, show notification
+        // If insight discovery was in progress but now completed, show notification
         if (scrapeInProgress && !status.scrape_in_progress) {
-          showNotification("Scraping job completed!", "success");
+          showNotification("Insights discovered!", "success");
           setScrapeInProgress(false);
         }
       } catch (err) {
@@ -81,64 +80,25 @@ const ScrapePage = () => {
   }, [formData]);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value,
     });
-  };
-
-  const removeSubreddit = (subredditToRemove) => {
-    setFormData({
-      ...formData,
-      subreddits: formData.subreddits.filter(
-        (subreddit) => subreddit !== subredditToRemove
-      ),
-    });
-  };
-
-  const removeProduct = (productToRemove) => {
-    setFormData({
-      ...formData,
-      products: formData.products.filter(
-        (product) => product !== productToRemove
-      ),
-    });
-  };
-
-  const addCustomSubreddit = () => {
-    if (customSubreddit && !formData.subreddits.includes(customSubreddit)) {
-      setFormData({
-        ...formData,
-        subreddits: [...formData.subreddits, customSubreddit],
+    // Clear error for this field when user types
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: undefined,
       });
-      setCustomSubreddit("");
-    }
-  };
-
-  const addCustomProduct = () => {
-    if (customProduct && !formData.products.includes(customProduct)) {
-      setFormData({
-        ...formData,
-        products: [...formData.products, customProduct],
-      });
-      setCustomProduct("");
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.subreddits || formData.subreddits.length === 0) {
-      newErrors.subreddits = "At least one subreddit is required";
-    }
-    
-    if (!formData.products || formData.products.length === 0) {
-      newErrors.products = "At least one product is required";
-    }
-    
-    if (formData.limit < 1 || formData.limit > 500) {
-      newErrors.limit = "Limit must be between 1 and 500";
+    if (!formData.topic || formData.topic.trim().length === 0) {
+      newErrors.topic = "Topic or product name is required";
     }
     
     setErrors(newErrors);
@@ -156,16 +116,15 @@ const ScrapePage = () => {
     setErrors({});
     try {
       const data = await triggerScrape({
-        products: formData.products,
-        limit: parseInt(formData.limit),
-        subreddits: formData.subreddits,
+        topic: formData.topic.trim(),
+        limit: 100, // Default limit
         time_filter: formData.time_filter,
-        use_openai: false, // Analysis is now manual from product detail page
+        is_custom: insightType === "custom",
       });
       setScrapeInProgress(true);
 
       // Create a formatted message for the notification
-      const notificationMessage = `Scraping job started! Products: ${data.products.join(", ")}, Subreddits: ${data.subreddits.join(", ")}, Limit: ${data.limit}, Time: ${data.time_filter}`;
+      const notificationMessage = `Discovering insights for "${data.topic}"...`;
 
       showNotification(notificationMessage, "info", 8000);
 
@@ -176,117 +135,74 @@ const ScrapePage = () => {
       }, 2000); // Wait 2 seconds for backend to update status
     } catch (err) {
       console.error(err);
-      showNotification(err.message || "Failed to start scraping", "error");
+      showNotification(err.message || "Failed to discover insights", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const generateRandom = () => {
-    // Generate 3-5 random subreddits
-    const shuffledSubreddits = [...CODING_SUBREDDITS].sort(() => 0.5 - Math.random());
-    const randomSubreddits = shuffledSubreddits.slice(0, Math.floor(Math.random() * 3) + 3);
-    
-    // Generate 1-3 random products
-    const shuffledProducts = [...SOFTWARE_PRODUCTS].sort(() => 0.5 - Math.random());
-    const randomProducts = shuffledProducts.slice(0, Math.floor(Math.random() * 3) + 1);
-    
-    setFormData({
-      ...formData,
-      subreddits: randomSubreddits,
-      products: randomProducts,
-    });
-    
-    setErrors({});
-    showNotification("Generated random subreddits and products!", "success");
-  };
-
   // Reset to default values
   const handleReset = () => {
     const defaultData = {
-      subreddits: [],
-      products: [],
-      limit: 75,
+      topic: "",
       time_filter: "week",
-      use_openai: false,
+      insightType: insightType,
     };
 
     setFormData(defaultData);
+    setErrors({});
     // Update localStorage with defaults
     localStorage.setItem("scrape_form_data", JSON.stringify(defaultData));
   };
+  
+  // Calculate cost for the current mode
+  const estimatedCost = useMemo(() => {
+    return calculateEstimatedCost(formData.time_filter);
+  }, [formData.time_filter]);
 
   return (
     <div className="scrape-page">
       <PageHeader
-        title="Scrape Reddit"
-        description="Scrape posts from Reddit for analysis"
+        title="Find Insights"
+        description="Discover insights about products, features, market gaps, or opportunities"
       />
 
-      <div className="cards-container">
-        {/* Subreddits Section */}
-        <div className="card">
-          <h2 className="card-title">Subreddits</h2>
-          {errors.subreddits && (
-            <div className="error-message">{errors.subreddits}</div>
-          )}
-          <div className="tags-container">
-            {formData.subreddits.map((subreddit) => (
-              <div key={subreddit} className="tag subreddit-tag">
-                <span>r/{subreddit}</span>
-                <button
-                  className="delete-button"
-                  onClick={() => removeSubreddit(subreddit)}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="input-group">
-            <input
-              type="text"
-              value={customSubreddit}
-              onChange={(e) => setCustomSubreddit(e.target.value)}
-              placeholder="Add custom subreddit"
-              className="custom-input"
-            />
-            <button onClick={addCustomSubreddit} className="add-button">
-              Add
-            </button>
-          </div>
-        </div>
+      {/* Insight Type Toggle */}
+      <div className="insight-type-toggle">
+        <button
+          className={`toggle-option ${insightType === "product" ? "active" : ""}`}
+          onClick={() => setInsightType("product")}
+        >
+          Product Insights
+        </button>
+        <button
+          className={`toggle-option ${insightType === "custom" ? "active" : ""}`}
+          onClick={() => setInsightType("custom")}
+        >
+          Custom Insights
+        </button>
+      </div>
 
-        {/* Products Section */}
+      {insightType === "product" ? (
+        <div className="cards-container">
+        {/* Topic/Product Input Section */}
         <div className="card">
-          <h2 className="card-title">Products</h2>
-          {errors.products && (
-            <div className="error-message">{errors.products}</div>
+          <h2 className="card-title">Topic or Product</h2>
+          <p className="card-description">
+            Enter a topic, product name, or technology. Our AI will automatically discover relevant discussions and insights.
+          </p>
+          {errors.topic && (
+            <div className="error-message">{errors.topic}</div>
           )}
-          <div className="tags-container">
-            {formData.products.map((product) => (
-              <div key={product} className="tag product-tag">
-                <span>{product}</span>
-                <button
-                  className="delete-button"
-                  onClick={() => removeProduct(product)}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
           <div className="input-group">
             <input
               type="text"
-              value={customProduct}
-              onChange={(e) => setCustomProduct(e.target.value)}
-              placeholder="Add custom product"
-              className="custom-input"
+              name="topic"
+              value={formData.topic}
+              onChange={handleInputChange}
+              placeholder="e.g., VS Code, React, Docker, Notion, Cursor..."
+              className="custom-input topic-input"
             />
-            <button onClick={addCustomProduct} className="add-button">
-              Add
-            </button>
           </div>
         </div>
 
@@ -296,65 +212,89 @@ const ScrapePage = () => {
 
           <div className="settings-grid">
             <div className="setting-item">
-              <label className="setting-label">Time Filter</label>
+              <label className="setting-label">Timeline</label>
               <select
                 name="time_filter"
                 value={formData.time_filter}
                 onChange={handleInputChange}
                 className="select-input"
               >
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-                <option value="year">Year</option>
+                <option value="hour">Past Hour</option>
+                <option value="day">Past Day</option>
+                <option value="week">Past Week</option>
+                <option value="month">Past Month</option>
+                <option value="year">Past Year</option>
                 <option value="all">All Time</option>
               </select>
-            </div>
-
-            <div className="setting-item">
-              <label className="setting-label">Post Limit</label>
-              <input
-                type="number"
-                name="limit"
-                value={formData.limit}
-                onChange={handleInputChange}
-                min="1"
-                max="100"
-                className="number-input"
-              />
             </div>
           </div>
 
         </div>
-      </div>
 
-      <div className="actions-container">
-        <button
-          onClick={handleReset}
-          className="reset-button"
-          disabled={loading}
-        >
-          Clear All
-        </button>
-        <button
-          onClick={generateRandom}
-          className="generate-button"
-          disabled={loading || scrapeInProgress}
-        >
-          🎲 Generate Random
-        </button>
-        <button
-          onClick={handleScrape}
-          disabled={loading || scrapeInProgress}
-          className="scrape-button"
-        >
-          {loading
-            ? "Starting..."
-            : scrapeInProgress
-            ? "Scraping in Progress..."
-            : "Start Scraping Reddit Posts"}
-        </button>
+        <div className="actions-container">
+          <button
+            onClick={handleReset}
+            className="reset-button"
+            disabled={loading}
+          >
+            Clear All
+          </button>
+          <button
+            onClick={handleScrape}
+            disabled={loading || scrapeInProgress}
+            className="scrape-button"
+          >
+            {loading
+              ? "Starting..."
+              : scrapeInProgress
+              ? "Discovering Insights..."
+              : `Find Insights (-${estimatedCost} credits)`}
+          </button>
+        </div>
       </div>
+      ) : (
+        <div className="custom-insights-container">
+          <div className="card">
+            <h2 className="card-title">Custom Insights Prompt</h2>
+            <p className="card-description">
+              Describe what you want to discover. Claude AI will recommend the best subreddits, timeline, and search strategy.
+            </p>
+            {errors.topic && (
+              <div className="error-message">{errors.topic}</div>
+            )}
+            <div className="input-group">
+              <textarea
+                name="topic"
+                value={formData.topic}
+                onChange={handleInputChange}
+                placeholder="e.g., Find market gaps in productivity tools, discover pain points with remote work software, identify opportunities in developer tools..."
+                className="custom-input topic-textarea"
+                rows={6}
+              />
+            </div>
+          </div>
+          <div className="actions-container">
+            <button
+              onClick={handleReset}
+              className="reset-button"
+              disabled={loading}
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleScrape}
+              disabled={loading || scrapeInProgress}
+              className="scrape-button"
+            >
+              {loading
+                ? "Starting..."
+                : scrapeInProgress
+                ? "Discovering Insights..."
+                : `Generate Custom Insights (-${estimatedCost} credits)`}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

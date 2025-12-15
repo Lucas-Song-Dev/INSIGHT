@@ -124,7 +124,7 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
         </button>
         <PageHeader 
           title={selectedProduct}
-          description="View posts, analysis, and recommendations for this product"
+          description="Discover insights, analysis, and recommendations for this topic"
         />
       </div>
 
@@ -134,7 +134,7 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
           className={`tab-button ${activeTab === "posts" ? "active" : ""}`}
           onClick={() => setActiveTab("posts")}
         >
-          📝 Posts
+          💬 Discussions
           {productData.posts && (
             <span className="tab-badge">{productData.posts.length}</span>
           )}

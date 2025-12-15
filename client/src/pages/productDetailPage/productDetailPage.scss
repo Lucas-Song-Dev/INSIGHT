@@ -1,9 +1,10 @@
 @use "../../styles/variables" as *;
 
 .product-detail-page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 25px;
+  width: 100%;
+  padding: $spacing-xl;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .product-header {
@@ -22,7 +23,7 @@
   transition: all 0.3s;
   
   &:hover {
-    background: lighten($terminal-panel, 5%);
+    background: color.adjust($terminal-panel, $lightness: 5%);
     border-color: $terminal-text-bright;
     color: $terminal-text-bright;
   }
@@ -117,7 +118,7 @@
   transition: all 0.3s;
   
   &:hover:not(:disabled) {
-    background: lighten($terminal-panel, 5%);
+    background: color.adjust($terminal-panel, $lightness: 5%);
     border-color: $terminal-text-bright;
     color: $terminal-text-bright;
     box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);

@@ -102,8 +102,8 @@
     &:focus {
       outline: none;
       border-color: $accent-color;
-      box-shadow: 0 0 0 4px $accent-glow;
-      background: rgba(255, 255, 255, 0.95);
+      box-shadow: $shadow-md;
+      background: $bg-hover;
     }
   }
   
@@ -369,8 +369,8 @@
     &:focus {
       outline: none;
       border-color: $accent-color;
-      box-shadow: 0 0 0 4px $accent-glow;
-      background: rgba(255, 255, 255, 0.95);
+      box-shadow: $shadow-md;
+      background: $bg-hover;
     }
   }
   
@@ -462,8 +462,8 @@
       &:focus {
         outline: none;
         border-color: $accent-color;
-        box-shadow: 0 0 0 3px $accent-glow;
-        background: rgba(255, 255, 255, 0.95);
+        box-shadow: $shadow-md;
+        background: $bg-hover;
       }
     }
     
@@ -478,7 +478,7 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
       
       &:hover {
-        background: rgba(255, 255, 255, 0.95);
+        background: $bg-hover;
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
       }

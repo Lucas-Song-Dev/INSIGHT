@@ -15,6 +15,7 @@ class MongoDBStore:
         self.client = None
         self.db = None
         self.scrape_in_progress = False
+        self.user_scraping_jobs = {}  # Track active scraping jobs per user: {username: thread_id}
         self.pain_points = {}
         self.raw_posts = []
         self.analyzed_posts = []
@@ -39,6 +40,8 @@ class MongoDBStore:
             # Load current metadata if available
             self._load_metadata()
             self.load_pain_points()
+            # Create database indexes for performance
+            self.create_indexes()
             return True
         except ConnectionFailure as e:
             logger.error(f"Failed to connect to MongoDB: {str(e)}")

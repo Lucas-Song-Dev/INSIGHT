@@ -1,9 +1,18 @@
 import axios from "axios";
+import { handleApiError, createAbortController, isCancelledError } from "../utils/errorHandler";
 
 // Get API base URL from environment, with fallback for local development
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const DEFAULT_LIMIT = 100;
 const DEFAULT_TIME_FILTER = "month";
+const REQUEST_TIMEOUT = 300000; // 5 minutes for long-running operations
+
+// Create axios instance with default config
+const apiClient = axios.create({
+  baseURL: API_BASE,
+  timeout: REQUEST_TIMEOUT,
+  withCredentials: true,
+});
 
 // Log API base URL in development to help debug
 if (import.meta.env.DEV) {
@@ -11,58 +20,64 @@ if (import.meta.env.DEV) {
 }
 
 /**
- * Trigger a scraping job on Reddit
+ * Discover insights for a topic with AI-powered suggestions
  * @param {{
- *   products?: string[],
+ *   topic: string,
  *   limit?: number,
- *   subreddits?: string[],
- *   time_filter?: string,
- *   use_openai?: boolean
+ *   time_filter?: string
  * }} options
  */
 export const triggerScrape = async (options) => {
   const {
-    products = [],
+    topic,
     limit = DEFAULT_LIMIT,
-    subreddits = [],
     time_filter = DEFAULT_TIME_FILTER,
-    use_openai = false,
+    is_custom = false,
   } = options;
 
+  if (!topic || !topic.trim()) {
+    throw new Error("Topic is required");
+  }
+
   const payload = {
-    products,
+    topic: topic.trim(),
     limit,
-    subreddits,
     time_filter,
-    use_openai,
+    is_custom,
   };
 
   try {
-    const res = await axios.post(`${API_BASE}/scrape`, payload, {
-      withCredentials: true,
+    const abortController = createAbortController();
+    const res = await apiClient.post('/scrape', payload, {
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
-    if (err.response?.data) {
-      throw new Error(err.response.data.message || "Scraping failed");
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
     }
-    throw err;
+    const errorInfo = handleApiError(err);
+    throw new Error(errorInfo.message);
   }
 };
 
 /**
- * Get all scraped posts
+ * Get all discovered insights/posts
  * @param {Object} filters - All optional query filters
  * @returns {Promise<Object>}
  */
 export const fetchPosts = async (filters = {}) => {
   try {
+    const abortController = createAbortController();
     const res = await axios.get(`${API_BASE}/posts`, {
       params: filters,
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Failed to fetch posts");
     }
@@ -80,11 +95,15 @@ export const fetchPosts = async (filters = {}) => {
  */
 export const registerUser = async (userData) => {
   try {
+    const abortController = createAbortController();
     const res = await axios.post(`${API_BASE}/register`, userData, {
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     // Return error response data if available, otherwise throw
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Registration failed");
@@ -147,6 +166,7 @@ export const logoutUser = async () => {
  */
 export const fetchSavedRecommendations = async ({ products }) => {
   try {
+    const abortController = createAbortController();
     let params = {};
     if (Array.isArray(products) && products.length > 0) {
       // Convert array to products[] format for query params
@@ -158,10 +178,13 @@ export const fetchSavedRecommendations = async ({ products }) => {
 
     const res = await axios.get(`${API_BASE}/recommendations`, {
       params: params,
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Failed to fetch recommendations");
     }
@@ -177,15 +200,19 @@ export const fetchSavedRecommendations = async ({ products }) => {
  */
 export const generateRecommendations = async ({ products }) => {
   try {
+    const abortController = createAbortController();
     const requestData = {
       products: Array.isArray(products) ? products : [],
     };
 
     const res = await axios.post(`${API_BASE}/recommendations`, requestData, {
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Failed to generate recommendations");
     }
@@ -202,12 +229,16 @@ export const generateRecommendations = async ({ products }) => {
  */
 export const fetchPainPoints = async (filters = {}) => {
   try {
+    const abortController = createAbortController();
     const res = await axios.get(`${API_BASE}/pain-points`, {
       params: filters,
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Failed to fetch pain points");
     }
@@ -216,36 +247,47 @@ export const fetchPainPoints = async (filters = {}) => {
 };
 
 /**
- * Get OpenAI-generated analysis of pain points
+ * Get Claude-generated analysis of pain points
  * @param {{
  *   products?: string[]
  * }} options
  */
-export const fetchOpenAIAnalysis = async ({ product }) => {
+export const fetchClaudeAnalysis = async ({ product }) => {
   try {
-    const res = await axios.get(`${API_BASE}/openai-analysis`, {
+    const abortController = createAbortController();
+    const res = await axios.get(`${API_BASE}/claude-analysis`, {
       params: { products: product },
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     if (err.response?.data) {
-      throw new Error(err.response.data.message || "Failed to fetch OpenAI analysis");
+      throw new Error(err.response.data.message || "Failed to fetch Claude analysis");
     }
     throw err;
   }
 };
+
+// Alias for backward compatibility
+export const fetchOpenAIAnalysis = fetchClaudeAnalysis;
 
 /**
  * Get list of all products that have posts (whether analyzed or not)
  */
 export const fetchAllProducts = async () => {
   try {
+    const abortController = createAbortController();
     const res = await axios.get(`${API_BASE}/all-products`, {
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Failed to fetch all products");
     }
@@ -276,15 +318,19 @@ export const runAnalysis = async ({ product }) => {
 };
 
 /**
- * Get scraper/status/connection info
+ * Get status/connection info
  */
 export const fetchStatus = async () => {
   try {
+    const abortController = createAbortController();
     const res = await axios.get(`${API_BASE}/status`, {
-      withCredentials: true,
+      signal: abortController.signal,
     });
     return res.data;
   } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
     // Don't throw for 401/403 - let AuthContext handle it
     if (err.response?.status === 401 || err.response?.status === 403) {
       throw err;
@@ -293,5 +339,73 @@ export const fetchStatus = async () => {
       throw new Error(err.response.data.message || "Failed to fetch status");
     }
     throw err;
+  }
+};
+
+/**
+ * Get current user's profile information including credits
+ */
+export const fetchUserProfile = async () => {
+  try {
+    const abortController = createAbortController();
+    const res = await axios.get(`${API_BASE}/user/profile`, {
+      signal: abortController.signal,
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
+    if (err.response?.data) {
+      throw new Error(err.response.data.message || "Failed to fetch user profile");
+    }
+    throw err;
+  }
+};
+
+/**
+ * Update user credits
+ * @param {{
+ *   username: string,
+ *   credits: number,
+ *   operation: 'set' | 'add' | 'deduct'
+ * }} options
+ */
+export const updateUserCredits = async (options) => {
+  try {
+    const abortController = createAbortController();
+    const res = await axios.post(`${API_BASE}/user/credits`, options, {
+      signal: abortController.signal,
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
+    if (err.response?.data) {
+      throw new Error(err.response.data.message || "Failed to update credits");
+    }
+    throw err;
+  }
+};
+
+/**
+ * Delete user account
+ * @returns {Promise<Object>}
+ */
+export const deleteAccount = async () => {
+  try {
+    const abortController = createAbortController();
+    const res = await apiClient.delete('/user', {
+      signal: abortController.signal,
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
+    const errorInfo = handleApiError(err);
+    throw new Error(errorInfo.message || "Failed to delete account");
   }
 };

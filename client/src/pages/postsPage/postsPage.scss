@@ -356,8 +356,8 @@
       &:focus {
         outline: none;
         border-color: $accent-color;
-        box-shadow: 0 0 0 4px $accent-glow;
-        background: rgba(255, 255, 255, 0.95);
+        box-shadow: $shadow-md;
+        background: $bg-hover;
       }
     }
     
@@ -406,8 +406,8 @@
         &:focus {
           outline: none;
           border-color: $accent-color;
-          box-shadow: 0 0 0 4px $accent-glow;
-          background: rgba(255, 255, 255, 0.95);
+          box-shadow: $shadow-md;
+          background: $bg-hover;
         }
       }
       
@@ -452,7 +452,8 @@
       
       &:focus {
         outline: none;
-        box-shadow: 0 0 0 3px $accent-glow, 0 4px 15px rgba(74, 144, 226, 0.3);
+        box-shadow: $shadow-lg;
+        border-color: $accent-color;
       }
       
       &:disabled {

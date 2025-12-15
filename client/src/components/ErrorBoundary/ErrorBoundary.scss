@@ -1,0 +1,132 @@
+@use '../../styles/variables' as *;
+
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 40px;
+  background: $bg-secondary;
+}
+
+.error-boundary-content {
+  max-width: 600px;
+  text-align: center;
+  background: $bg-card;
+  padding: 40px;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-lg;
+  border: 1px solid $border-color;
+}
+
+.error-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.error-boundary-content h1 {
+  font-size: $font-size-2xl;
+  font-weight: $font-weight-semibold;
+  color: $dark-text;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  color: $text-medium;
+  font-size: $font-size-base;
+  line-height: $line-height-relaxed;
+  margin-bottom: 24px;
+}
+
+.error-id {
+  font-size: $font-size-sm;
+  color: $text-light;
+  margin-bottom: 24px;
+  
+  code {
+    background: $bg-secondary;
+    padding: 4px 8px;
+    border-radius: $border-radius-sm;
+    font-family: 'Courier New', monospace;
+    color: $primary-blue;
+  }
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.error-button {
+  padding: 12px 24px;
+  border-radius: $border-radius;
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+  transition: all $transition-speed $transition-ease;
+  border: none;
+  
+  &.primary {
+    background: $primary-blue;
+    color: $white;
+    
+    &:hover {
+      background: $primary-blue-dark;
+      box-shadow: $shadow-md;
+    }
+  }
+  
+  &.secondary {
+    background: $bg-secondary;
+    color: $text-medium;
+    border: 1px solid $border-color;
+    
+    &:hover {
+      background: $bg-hover;
+      color: $dark-text;
+    }
+  }
+}
+
+.error-details {
+  margin-top: 24px;
+  text-align: left;
+  background: $bg-secondary;
+  border-radius: $border-radius;
+  padding: 16px;
+  border: 1px solid $border-color;
+  
+  summary {
+    cursor: pointer;
+    font-weight: $font-weight-medium;
+    color: $dark-text;
+    margin-bottom: 12px;
+    
+    &:hover {
+      color: $primary-blue;
+    }
+  }
+}
+
+.error-stack {
+  background: $bg-tertiary;
+  padding: 16px;
+  border-radius: $border-radius-sm;
+  overflow-x: auto;
+  font-size: $font-size-sm;
+  font-family: 'Courier New', monospace;
+  color: $error-color;
+  line-height: $line-height-tight;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+
+
+
+
+
+
