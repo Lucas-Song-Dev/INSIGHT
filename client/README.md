@@ -103,8 +103,10 @@ The client is a static React app that can be deployed to any static hosting serv
    - Select the `client` folder as the root
 
 2. **Configure Build Settings**
-   - **Build Command:** `npm run build`
+   - **Build Command:** `npm install && npm run build`
    - **Output Directory:** `dist`
+   
+   **Note:** Make sure `package-lock.json` is committed to the repository. If you've updated dependencies, regenerate it locally with `npm install` before deploying.
    - **Environment Variables:**
      ```
      VITE_API_BASE_URL=https://your-api-domain.com/api

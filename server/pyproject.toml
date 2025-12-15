@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Reddit Painpoint Analyzer Backend"
 requires-python = ">=3.11"
 dependencies = [
-    "api>=0.0.7",
     "anthropic>=0.34.0",
     "bcrypt>=4.3.0",
     "email-validator>=2.2.0",
@@ -26,7 +25,6 @@ dependencies = [
     "PyJWT>=2.10.1",
     "python-dotenv>=1.1.0",
     "requests>=2.32.3",
-    "routes>=2.5.1",
     "scikit-learn>=1.5.2",
     "scipy>=1.16.3",
     "trafilatura>=2.0.0",
