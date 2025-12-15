@@ -216,50 +216,69 @@ class Register(Resource):
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        print(f"\n[TOKEN_CHECK] Checking authentication for {f.__name__}")
-        print(f"[TOKEN_CHECK] Path: {request.path}")
-        print(f"[TOKEN_CHECK] Cookies: {list(request.cookies.keys())}")
+        logger.info(f"[TOKEN_CHECK] ========== TOKEN CHECK START ==========")
+        logger.info(f"[TOKEN_CHECK] Function: {f.__name__}")
+        logger.info(f"[TOKEN_CHECK] Path: {request.path}")
+        logger.info(f"[TOKEN_CHECK] Method: {request.method}")
+        logger.info(f"[TOKEN_CHECK] Args received: {len(args)} positional, {len(kwargs)} keyword")
+        logger.info(f"[TOKEN_CHECK] Args details: args={args}, kwargs={kwargs}")
+        logger.info(f"[TOKEN_CHECK] Cookies present: {list(request.cookies.keys())}")
+        
         token = None
         
         # Try to get token from cookies first
         token = request.cookies.get('access_token')
-        print(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
+        logger.info(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
+        if token:
+            logger.info(f"[TOKEN_CHECK] Token length: {len(token)} characters")
         
         # If not in cookies, check Authorization header
         if not token:
             auth_header = request.headers.get('Authorization')
-            print(f"[TOKEN_CHECK] Authorization header: {auth_header[:50] if auth_header else 'None'}...")
-            if auth_header and auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1]
-                print(f"[TOKEN_CHECK] Token from header: Found")
+            logger.info(f"[TOKEN_CHECK] Authorization header: {'Present' if auth_header else 'Not present'}")
+            if auth_header:
+                logger.info(f"[TOKEN_CHECK] Authorization header preview: {auth_header[:50]}...")
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(' ')[1]
+                    logger.info(f"[TOKEN_CHECK] Token extracted from header: Found (length: {len(token)})")
         
         if not token:
-            print(f"[TOKEN_CHECK] ERROR: No token found - returning 401")
-            logger.warning(f"Authentication failed for {request.path}: No token provided")
+            logger.warning(f"[TOKEN_CHECK] ERROR: No token found - returning 401")
+            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
             return {"status": "error", "message": "Authentication token is missing"}, 401
         
         try:
-            print(f"[TOKEN_CHECK] Decoding token...")
+            logger.info(f"[TOKEN_CHECK] Decoding token...")
             # Decode the token
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
             current_user = payload
-            print(f"[TOKEN_CHECK] Token valid! User: {payload.get('username', 'unknown')}")
-            logger.info(f"Authentication successful for {request.path} - User: {payload.get('username', 'unknown')}")
+            username = payload.get('username', 'unknown')
+            logger.info(f"[TOKEN_CHECK] Token valid! User: {username}")
+            logger.info(f"[TOKEN_CHECK] Token payload: {payload}")
+            logger.info(f"[TOKEN_CHECK] Authentication successful for {request.path} - User: {username}")
         except jwt.ExpiredSignatureError:
-            print(f"[TOKEN_CHECK] ERROR: Token expired")
-            logger.warning(f"Authentication failed for {request.path}: Token expired")
+            logger.warning(f"[TOKEN_CHECK] ERROR: Token expired")
+            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
             return {"status": "error", "message": "Token has expired"}, 401
         except jwt.InvalidTokenError as e:
-            print(f"[TOKEN_CHECK] ERROR: Invalid token - {str(e)}")
-            logger.warning(f"Authentication failed for {request.path}: Invalid token - {str(e)}")
+            logger.warning(f"[TOKEN_CHECK] ERROR: Invalid token - {str(e)}")
+            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
             return {"status": "error", "message": "Invalid token"}, 401
         except Exception as e:
-            print(f"[TOKEN_CHECK] ERROR: Unexpected error - {str(e)}")
-            logger.error(f"Authentication error for {request.path}: {str(e)}", exc_info=True)
+            logger.error(f"[TOKEN_CHECK] ERROR: Unexpected error - {str(e)}", exc_info=True)
+            logger.error(f"[TOKEN_CHECK] ========== TOKEN CHECK ERROR ==========")
             return {"status": "error", "message": "Authentication error"}, 401
         
-        print(f"[TOKEN_CHECK] Calling {f.__name__} with user: {current_user}")
-        return f(current_user, *args, **kwargs)
+        # Preserve self (first argument) and pass current_user as second argument
+        # Flask-RESTful passes self as first arg, so we need to preserve it
+        logger.info(f"[TOKEN_CHECK] Calling {f.__name__} with self={args[0] if args else 'None'}, current_user={current_user}")
+        logger.info(f"[TOKEN_CHECK] ========== TOKEN CHECK SUCCESS ==========")
+        if args:
+            # Preserve self (first arg) and add current_user as second arg
+            return f(args[0], current_user, *args[1:], **kwargs)
+        else:
+            # No self (shouldn't happen with Resource methods, but handle it)
+            return f(current_user, **kwargs)
     
     return decorated
 class Login(Resource):

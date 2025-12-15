@@ -70,73 +70,144 @@ export const AuthProvider = ({ children }) => {
 
   const login = async () => {
     console.log('[AUTH] ========== LOGIN FUNCTION CALLED ==========');
+    console.log('[AUTH] Timestamp:', new Date().toISOString());
     console.log('[AUTH] Step 1: Setting isAuthenticated to true');
+    console.log('[AUTH] Current auth state before login:', { isAuthenticated, user: user?.username || 'null' });
     setIsAuthenticated(true);
+    console.log('[AUTH] isAuthenticated set to true');
     
     // Wait longer for the cookie to be set by the browser
     // httpOnly cookies are set by the browser and may take a moment
     // Also, we need to ensure the response has been fully processed
     console.log('[AUTH] Step 2: Waiting 300ms for cookie to be set by browser...');
+    const waitStartTime = Date.now();
     await new Promise(resolve => setTimeout(resolve, 300));
+    const waitEndTime = Date.now();
+    console.log(`[AUTH] Wait completed in ${waitEndTime - waitStartTime}ms`);
     
     // Log cookie information (note: httpOnly cookies won't show in document.cookie)
     console.log('[AUTH] Step 3: Checking cookies (httpOnly cookies may not be visible):', document.cookie || 'No cookies found');
+    console.log('[AUTH] Step 3: Cookie count:', document.cookie ? document.cookie.split(';').length : 0);
     console.log('[AUTH] Step 3: Note - httpOnly cookies are not accessible via document.cookie, but should be sent automatically with requests');
+    console.log('[AUTH] Step 3: Current URL:', window.location.href);
+    console.log('[AUTH] Step 3: Document domain:', document.domain);
     
     // Fetch user profile after login with retry logic
     let retryCount = 0;
     const maxRetries = 3;
-    const retryDelay = 200;
+    const baseDelay = 200;
+    
+    console.log('[AUTH] Step 4: Starting profile fetch with retry logic');
+    console.log(`[AUTH] Retry configuration: maxRetries=${maxRetries}, baseDelay=${baseDelay}ms`);
     
     while (retryCount < maxRetries) {
+      const attemptStartTime = Date.now();
       try {
-        console.log(`[AUTH] Step 4.${retryCount + 1}: Attempting to fetch user profile (attempt ${retryCount + 1}/${maxRetries})...`);
+        console.log(`[AUTH] ========== PROFILE FETCH ATTEMPT ${retryCount + 1}/${maxRetries} ==========`);
+        console.log(`[AUTH] Attempt ${retryCount + 1} start time:`, new Date().toISOString());
+        console.log(`[AUTH] Attempt ${retryCount + 1}: Importing fetchUserProfile...`);
+        
         const { fetchUserProfile } = await import("../api/api");
+        console.log(`[AUTH] Attempt ${retryCount + 1}: fetchUserProfile imported, calling API...`);
+        console.log(`[AUTH] Attempt ${retryCount + 1}: API endpoint should be: ${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/user/profile`);
+        console.log(`[AUTH] Attempt ${retryCount + 1}: withCredentials should be: true`);
+        
         const profileResponse = await fetchUserProfile();
-        console.log('[AUTH] Step 5: Profile response received:', {
+        const attemptEndTime = Date.now();
+        const attemptDuration = attemptEndTime - attemptStartTime;
+        
+        console.log(`[AUTH] Attempt ${retryCount + 1}: Profile response received in ${attemptDuration}ms`);
+        console.log(`[AUTH] Attempt ${retryCount + 1}: Profile response:`, {
           status: profileResponse.status,
           hasUser: !!profileResponse.user,
           username: profileResponse.user?.username,
-          email: profileResponse.user?.email
+          email: profileResponse.user?.email,
+          full_name: profileResponse.user?.full_name,
+          preferred_name: profileResponse.user?.preferred_name,
+          birthday: profileResponse.user?.birthday,
+          credits: profileResponse.user?.credits
         });
         
         if (profileResponse.status === 'success') {
-          console.log('[AUTH] Step 6: Profile fetch successful! Setting user:', profileResponse.user?.username);
+          console.log(`[AUTH] Attempt ${retryCount + 1}: SUCCESS! Profile fetch successful!`);
+          console.log('[AUTH] Setting user state with profile data:', {
+            username: profileResponse.user?.username,
+            email: profileResponse.user?.email,
+            full_name: profileResponse.user?.full_name,
+            preferred_name: profileResponse.user?.preferred_name
+          });
           setUser(profileResponse.user);
-          console.log('[AUTH] ========== LOGIN COMPLETE ==========');
+          console.log('[AUTH] User state updated');
+          console.log('[AUTH] ========== LOGIN COMPLETE SUCCESSFULLY ==========');
           return; // Success, exit retry loop
         } else {
-          console.warn('[AUTH] Profile fetch returned non-success status:', profileResponse.status);
+          console.warn(`[AUTH] Attempt ${retryCount + 1}: Profile fetch returned non-success status:`, profileResponse.status);
+          console.warn(`[AUTH] Attempt ${retryCount + 1}: Response message:`, profileResponse.message);
           if (retryCount < maxRetries - 1) {
-            console.log(`[AUTH] Retrying in ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            const nextRetryDelay = baseDelay * (retryCount + 1);
+            console.log(`[AUTH] Attempt ${retryCount + 1}: Will retry in ${nextRetryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, nextRetryDelay));
             retryCount++;
             continue;
+          } else {
+            console.error(`[AUTH] Attempt ${retryCount + 1}: Max retries reached, giving up`);
           }
         }
       } catch (err) {
-        console.error(`[AUTH] Profile fetch attempt ${retryCount + 1} failed:`, {
+        const attemptEndTime = Date.now();
+        const attemptDuration = attemptEndTime - attemptStartTime;
+        console.error(`[AUTH] ========== PROFILE FETCH ATTEMPT ${retryCount + 1} FAILED ==========`);
+        console.error(`[AUTH] Attempt ${retryCount + 1} duration: ${attemptDuration}ms`);
+        console.error(`[AUTH] Attempt ${retryCount + 1} error type:`, err.constructor.name);
+        console.error(`[AUTH] Attempt ${retryCount + 1} error message:`, err.message);
+        console.error(`[AUTH] Attempt ${retryCount + 1} error details:`, {
           message: err.message,
           responseStatus: err.response?.status,
+          responseStatusText: err.response?.statusText,
           responseData: err.response?.data,
-          stack: err.stack
+          hasResponse: !!err.response,
+          requestUrl: err.config?.url,
+          requestMethod: err.config?.method,
+          requestHeaders: err.config?.headers,
+          stack: err.stack?.split('\n').slice(0, 10).join('\n')
         });
         
         // If it's a 401/403, the cookie might not be set yet, retry
         if ((err.response?.status === 401 || err.response?.status === 403) && retryCount < maxRetries - 1) {
-          console.log(`[AUTH] Authentication error (${err.response?.status}), retrying in ${retryDelay * (retryCount + 1)}ms...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+          const nextRetryDelay = baseDelay * (retryCount + 1);
+          console.log(`[AUTH] Attempt ${retryCount + 1}: Authentication error (${err.response?.status}), will retry in ${nextRetryDelay}ms...`);
+          console.log(`[AUTH] Attempt ${retryCount + 1}: This might be due to cookie not being set yet`);
+          await new Promise(resolve => setTimeout(resolve, nextRetryDelay));
+          retryCount++;
+          continue;
+        }
+        
+        // If it's a network/CORS error, also retry
+        if ((err.message?.includes('Network Error') || err.message?.includes('CORS') || !err.response) && retryCount < maxRetries - 1) {
+          const nextRetryDelay = baseDelay * (retryCount + 1);
+          console.log(`[AUTH] Attempt ${retryCount + 1}: Network/CORS error, will retry in ${nextRetryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, nextRetryDelay));
           retryCount++;
           continue;
         }
         
         // If we've exhausted retries or it's a different error, log and continue
-        console.error('[AUTH] All profile fetch attempts failed. User is still authenticated, but profile data unavailable.');
+        console.error('[AUTH] ========== ALL PROFILE FETCH ATTEMPTS FAILED ==========');
+        console.error('[AUTH] Total attempts:', retryCount + 1);
+        console.error('[AUTH] User is still authenticated, but profile data unavailable.');
         console.error('[AUTH] This is not critical - profile can be fetched later when needed.');
+        console.error('[AUTH] Final error summary:', {
+          lastError: err.message,
+          lastStatus: err.response?.status,
+          lastResponseData: err.response?.data
+        });
         console.log('[AUTH] ========== LOGIN COMPLETE (WITH WARNING) ==========');
         return; // Exit retry loop, user is still authenticated
       }
     }
+    
+    console.error('[AUTH] ========== RETRY LOOP EXHAUSTED ==========');
+    console.error('[AUTH] This should not happen - loop should have returned earlier');
   };
 
   const logout = () => {
