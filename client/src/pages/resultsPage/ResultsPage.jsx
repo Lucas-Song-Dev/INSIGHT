@@ -12,30 +12,97 @@ const ResultsPage = ({ setActivePage, setSelectedProduct }) => {
 
   // Fetch all products (with posts, whether analyzed or not)
   const fetchProducts = async () => {
+    console.log('[RESULTS PAGE] ========== FETCH PRODUCTS CALLED ==========');
+    console.log('[RESULTS PAGE] Step 1: Setting loading state to true');
     setLoading(true);
     setError(null);
+    
     try {
+      console.log('[RESULTS PAGE] Step 2: Calling fetchAllProducts API...');
       const data = await fetchAllProducts();
-      setProducts(data.products || []);
+      console.log('[RESULTS PAGE] Step 3: API response received:', {
+        hasData: !!data,
+        status: data?.status,
+        productsCount: data?.products?.length || 0,
+        products: data?.products || []
+      });
+      
+      const productsList = data.products || [];
+      console.log('[RESULTS PAGE] Step 4: Setting products state:', {
+        count: productsList.length,
+        products: productsList.map(p => typeof p === 'string' ? p : p.name)
+      });
+      setProducts(productsList);
+      console.log('[RESULTS PAGE] ========== FETCH PRODUCTS SUCCESS ==========');
     } catch (err) {
-      console.error("Error fetching products:", err);
-      setError("Failed to fetch products");
+      console.error('[RESULTS PAGE] ========== FETCH PRODUCTS ERROR ==========');
+      console.error('[RESULTS PAGE] Error type:', err.constructor.name);
+      console.error('[RESULTS PAGE] Error message:', err.message);
+      console.error('[RESULTS PAGE] Error details:', {
+        message: err.message,
+        responseStatus: err.response?.status,
+        responseStatusText: err.response?.statusText,
+        responseData: err.response?.data,
+        hasResponse: !!err.response,
+        stack: err.stack?.split('\n').slice(0, 5).join('\n')
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to fetch products";
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        errorMessage = "Authentication required. Please log in again.";
+        console.error('[RESULTS PAGE] Authentication error - user may need to re-login');
+      } else if (err.response?.status === 500) {
+        errorMessage = "Server error. Please try again later.";
+        console.error('[RESULTS PAGE] Server error occurred');
+      } else if (err.message?.includes('Network Error') || err.message?.includes('CORS')) {
+        errorMessage = "Network error. Please check your connection and try again.";
+        console.error('[RESULTS PAGE] Network/CORS error - check server connection');
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      console.error('[RESULTS PAGE] Setting error message:', errorMessage);
+      setError(errorMessage);
+      console.error('[RESULTS PAGE] ========== FETCH PRODUCTS ERROR HANDLED ==========');
     } finally {
+      console.log('[RESULTS PAGE] Step 5: Setting loading state to false');
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('[RESULTS PAGE] ========== COMPONENT MOUNTED ==========');
+    console.log('[RESULTS PAGE] useEffect triggered - fetching products on mount');
     fetchProducts();
   }, []);
 
   // Filter products by search term
-  const filteredProducts = products.filter((product) =>
-    (product.name || product).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter((product) => {
+    const productName = (product.name || product).toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    const matches = productName.includes(searchLower);
+    if (searchTerm && matches) {
+      console.log('[RESULTS PAGE] Product matches search:', productName);
+    }
+    return matches;
+  });
+  
+  // Log filtering results
+  useEffect(() => {
+    if (searchTerm) {
+      console.log('[RESULTS PAGE] Search filter applied:', {
+        searchTerm,
+        totalProducts: products.length,
+        filteredCount: filteredProducts.length
+      });
+    }
+  }, [searchTerm, products.length, filteredProducts.length]);
 
   const handleProductClick = (product) => {
     const productName = typeof product === 'string' ? product : product.name;
+    console.log('[RESULTS PAGE] Product clicked:', productName);
+    console.log('[RESULTS PAGE] Navigating to product detail page');
     setSelectedProduct(productName);
     setActivePage("productDetail");
   };

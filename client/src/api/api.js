@@ -333,18 +333,87 @@ export const fetchOpenAIAnalysis = fetchClaudeAnalysis;
  * Get list of all products that have posts (whether analyzed or not)
  */
 export const fetchAllProducts = async () => {
+  console.log('[API] ========== FETCH ALL PRODUCTS API CALL ==========');
+  console.log('[API] API Base URL:', API_BASE);
+  console.log('[API] Products endpoint:', `${API_BASE}/all-products`);
+  console.log('[API] Cookies (httpOnly not visible):', document.cookie || 'No cookies found');
+  console.log('[API] Note: httpOnly cookies are sent automatically with withCredentials: true');
+  
   try {
     const abortController = createAbortController();
+    console.log('[API] Step 1: Sending GET request to all-products endpoint...');
+    console.log('[API] Request config:', {
+      url: `${API_BASE}/all-products`,
+      method: 'GET',
+      withCredentials: true,
+      hasSignal: !!abortController.signal
+    });
+    
     const res = await axios.get(`${API_BASE}/all-products`, {
       signal: abortController.signal,
+      withCredentials: true, // Important for cookies to be sent
     });
+    
+    console.log('[API] Step 2: Products response received');
+    console.log('[API] Response status:', res.status, res.statusText);
+    console.log('[API] Response data:', { 
+      status: res.data?.status,
+      productsCount: res.data?.products?.length || 0,
+      products: res.data?.products?.map(p => typeof p === 'string' ? p : p.name) || []
+    });
+    console.log('[API] ========== FETCH ALL PRODUCTS API SUCCESS ==========');
+    
     return res.data;
   } catch (err) {
+    console.error('[API] ========== FETCH ALL PRODUCTS API ERROR ==========');
+    console.error('[API] Error type:', err.constructor.name);
+    console.error('[API] Error message:', err.message);
+    console.error('[API] Error details:', {
+      message: err.message,
+      responseStatus: err.response?.status,
+      responseStatusText: err.response?.statusText,
+      responseData: err.response?.data,
+      hasResponse: !!err.response,
+      requestUrl: err.config?.url,
+      requestMethod: err.config?.method,
+      cookies: document.cookie || 'No cookies found'
+    });
+    
+    if (err.response) {
+      console.error('[API] Response headers:', {
+        'content-type': err.response.headers['content-type'],
+        'www-authenticate': err.response.headers['www-authenticate']
+      });
+      console.error('[API] Response data:', err.response.data);
+      
+      // Special handling for 401 errors
+      if (err.response.status === 401) {
+        console.error('[API] 401 UNAUTHORIZED - Possible causes:');
+        console.error('[API]   1. User not authenticated (no valid session cookie)');
+        console.error('[API]   2. Cookie not being sent with request (CORS issue?)');
+        console.error('[API]   3. Cookie expired or invalid');
+        console.error('[API]   4. Server not reading cookie correctly');
+        console.error('[API]   Solution: User may need to log in again');
+      } else if (err.response.status === 500) {
+        console.error('[API] 500 INTERNAL SERVER ERROR - Server-side issue');
+      }
+    } else if (err.message?.includes('Network Error') || err.code === 'ERR_NETWORK') {
+      console.error('[API] NETWORK ERROR - Possible causes:');
+      console.error('[API]   1. Server is not running');
+      console.error('[API]   2. CORS policy blocking the request');
+      console.error('[API]   3. Network connectivity issue');
+      console.error('[API]   4. Firewall blocking the request');
+    }
+    
+    console.error('[API] ========== FETCH ALL PRODUCTS API ERROR END ==========');
+    
     if (isCancelledError(err)) {
       throw new Error("Request cancelled");
     }
     if (err.response?.data) {
-      throw new Error(err.response.data.message || "Failed to fetch all products");
+      const errorMessage = err.response.data.message || "Failed to fetch all products";
+      console.error('[API] Throwing error with message:', errorMessage);
+      throw new Error(errorMessage);
     }
     throw err;
   }
