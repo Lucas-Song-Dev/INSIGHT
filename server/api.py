@@ -17,6 +17,11 @@ from security import (
     validate_password_strength, sanitize_error_message
 )
 
+class CORSResource(Resource):
+    """Base resource class that handles OPTIONS for CORS preflight"""
+    def options(self):
+        return {}, 200
+
 # Import data_store from app
 from app import data_store
 from reddit_scraper import RedditScraper
@@ -58,7 +63,7 @@ if ANTHROPIC_API_KEY:
     anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY)
 
 
-class Register(Resource):
+class Register(CORSResource):
     """API endpoint for user registration"""
     @rate_limit(max_requests=5, window=300)  # 5 registrations per 5 minutes
     def post(self):
@@ -282,7 +287,7 @@ def token_required(f):
             return f(current_user, **kwargs)
     
     return decorated
-class Login(Resource):
+class Login(CORSResource):
     """API endpoint for user authentication"""
     @rate_limit(max_requests=10, window=300)  # 10 login attempts per 5 minutes
     def post(self):
@@ -430,7 +435,7 @@ class Login(Resource):
             logger.error(f"Login error: {str(e)}")
             return {"status": "error", "message": error_msg}, 500
 
-class Logout(Resource):
+class Logout(CORSResource):
     """API endpoint for user logout"""
     def post(self):
         """
@@ -455,7 +460,7 @@ class Logout(Resource):
         )
         
         return response
-class ScrapePosts(Resource):
+class ScrapePosts(CORSResource):
     """API endpoint to trigger Reddit scraping"""
     @token_required
     def post(self, current_user):
@@ -939,7 +944,7 @@ class ScrapePosts(Resource):
             "time_filter": time_filter,
             "use_openai": use_openai
         }
-class Recommendations(Resource):
+class Recommendations(CORSResource):
     """API endpoint to handle recommendations (get and generate)"""
     @token_required
     def get(self, current_user):
@@ -1146,7 +1151,7 @@ class Recommendations(Resource):
             "recommendations": all_recommendations
         }
     
-class GetPainPoints(Resource):
+class GetPainPoints(CORSResource):
     """API endpoint to get analyzed pain points"""
     @token_required
     def get(self, current_user):
@@ -1192,7 +1197,7 @@ class GetPainPoints(Resource):
             "pain_points": result,
             "last_updated": data_store.last_scrape_time.isoformat() if data_store.last_scrape_time else None
         }
-class GetPosts(Resource):
+class GetPosts(CORSResource):
     """API endpoint to get scraped posts"""
     @token_required
     def get(self, current_user):
@@ -1383,7 +1388,7 @@ class GetPosts(Resource):
             "last_updated": last_updated,
             "data_source": "mongodb" if data_store.db is not None else "memory"
         }
-class GetStatus(Resource):
+class GetStatus(CORSResource):
     """API endpoint to get current scraper status"""
     def get(self):
         """
@@ -1433,7 +1438,7 @@ class GetStatus(Resource):
             }
         }
     
-class ResetScrapeStatus(Resource):
+class ResetScrapeStatus(CORSResource):
     """API endpoint to reset scraper status"""
     @token_required
     def post(self, current_user):
@@ -1445,7 +1450,7 @@ class ResetScrapeStatus(Resource):
             "message": "Scrape status reset successfully"
         }
 
-class GetAnthropicAnalysis(Resource):
+class GetAnthropicAnalysis(CORSResource):
     """API endpoint to get Anthropic analysis results"""
     @token_required
     def get(self, current_user):
@@ -1525,7 +1530,7 @@ class GetAnthropicAnalysis(Resource):
                 "analyses": list(data_store.anthropic_analyses.values())
             }
 
-class GetAllProducts(Resource):
+class GetAllProducts(CORSResource):
     """API endpoint to get list of all products that have posts (whether analyzed or not)"""
     @token_required
     def get(self, current_user):
@@ -1606,7 +1611,7 @@ class GetAllProducts(Resource):
                 "products": []
             }, 500
 
-class RunAnalysis(Resource):
+class RunAnalysis(CORSResource):
     """API endpoint to manually run Anthropic analysis for a product"""
     @token_required
     def post(self, current_user):
@@ -1736,7 +1741,7 @@ class RunAnalysis(Resource):
                 "message": f"Error running analysis: {str(e)}"
             }, 500
 
-class HealthCheck(Resource):
+class HealthCheck(CORSResource):
     """API endpoint for health check"""
     def get(self):
         """
@@ -1754,7 +1759,7 @@ class HealthCheck(Resource):
 # Alias for GetAnthropicAnalysis (backward compatibility)
 GetClaudeAnalysis = GetAnthropicAnalysis
 
-class GetUserProfile(Resource):
+class GetUserProfile(CORSResource):
     """API endpoint to get user profile"""
     @token_required
     def get(self, current_user):
@@ -1821,7 +1826,7 @@ class GetUserProfile(Resource):
             logger.error("[USER PROFILE] Database not available")
             return {"status": "error", "message": "Database not available"}, 500
 
-class UpdateUserCredits(Resource):
+class UpdateUserCredits(CORSResource):
     """API endpoint to update user credits"""
     @token_required
     def post(self, current_user):
@@ -1893,7 +1898,7 @@ class UpdateUserCredits(Resource):
         else:
             return {"status": "error", "message": "Database not available"}, 500
 
-class DeleteAccount(Resource):
+class DeleteAccount(CORSResource):
     """API endpoint to delete user account"""
     @token_required
     def delete(self, current_user):
