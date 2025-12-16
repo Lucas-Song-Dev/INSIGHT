@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { 
-  Home, 
-  Search, 
-  FileText, 
-  Info, 
-  User, 
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Search,
+  FileText,
+  Info,
+  User,
   Activity,
   ChevronLeft,
   ChevronRight,
@@ -13,9 +13,11 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import "./Sidebar.scss";
 
-const Sidebar = ({ activePage, setActivePage, handleLogout, onCollapseChange }) => {
+const Sidebar = ({ handleLogout, onCollapseChange }) => {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const handleCollapse = () => {
     const newCollapsed = !collapsed;
@@ -26,30 +28,29 @@ const Sidebar = ({ activePage, setActivePage, handleLogout, onCollapseChange }) 
   };
 
   const buildItems = [
-    { id: "home", label: "Dashboard", icon: Home },
-    { id: "scrapepage", label: "Find Insights", icon: Search },
-    { id: "results", label: "Results", icon: FileText },
-    { id: "about", label: "About", icon: Info },
+    { path: "/find-insights", label: "Find Insights", icon: Search },
+    { path: "/results", label: "Results", icon: FileText },
+    { path: "/about", label: "About", icon: Info },
   ];
 
   const analyticsItems = [
-    { id: "status", label: "Status", icon: Activity },
+    { path: "/status", label: "Status", icon: Activity },
   ];
 
   const manageItems = [
-    { id: "profile", label: "Profile", icon: User },
+    { path: "/profile", label: "Profile", icon: User },
   ];
-
-  const handleNavClick = (pageId) => {
-    setActivePage(pageId);
-  };
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-header">
-        <div className="sidebar-title">
+        <button
+          className="sidebar-title clickable"
+          onClick={() => navigate("/insights")}
+          title="Go to Insights Home"
+        >
           {!collapsed && <span className="title-text">INSIGHT</span>}
-        </div>
+        </button>
         <button 
           className="collapse-button"
           onClick={handleCollapse}
@@ -64,16 +65,17 @@ const Sidebar = ({ activePage, setActivePage, handleLogout, onCollapseChange }) 
           <div className="nav-section-label">BUILD</div>
           {buildItems.map((item) => {
             const Icon = item.icon;
+            const isActive = location.pathname === item.path;
             return (
-              <button
-                key={item.id}
-                className={`nav-item ${activePage === item.id ? "active" : ""}`}
-                onClick={() => handleNavClick(item.id)}
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nav-item ${isActive ? "active" : ""}`}
                 title={collapsed ? item.label : undefined}
               >
                 <Icon size={18} className="nav-icon" />
                 {!collapsed && <span className="nav-label">{item.label}</span>}
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -82,16 +84,17 @@ const Sidebar = ({ activePage, setActivePage, handleLogout, onCollapseChange }) 
           <div className="nav-section-label">ANALYTICS</div>
           {analyticsItems.map((item) => {
             const Icon = item.icon;
+            const isActive = location.pathname === item.path;
             return (
-              <button
-                key={item.id}
-                className={`nav-item ${activePage === item.id ? "active" : ""}`}
-                onClick={() => handleNavClick(item.id)}
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nav-item ${isActive ? "active" : ""}`}
                 title={collapsed ? item.label : undefined}
               >
                 <Icon size={18} className="nav-icon" />
                 {!collapsed && <span className="nav-label">{item.label}</span>}
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -100,16 +103,17 @@ const Sidebar = ({ activePage, setActivePage, handleLogout, onCollapseChange }) 
           <div className="nav-section-label">MANAGE</div>
           {manageItems.map((item) => {
             const Icon = item.icon;
+            const isActive = location.pathname === item.path;
             return (
-              <button
-                key={item.id}
-                className={`nav-item ${activePage === item.id ? "active" : ""}`}
-                onClick={() => handleNavClick(item.id)}
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nav-item ${isActive ? "active" : ""}`}
                 title={collapsed ? item.label : undefined}
               >
                 <Icon size={18} className="nav-icon" />
                 {!collapsed && <span className="nav-label">{item.label}</span>}
-              </button>
+              </Link>
             );
           })}
         </div>

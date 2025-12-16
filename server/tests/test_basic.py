@@ -7,7 +7,7 @@ def test_api_endpoints_exist(client):
     endpoints = [
         '/api/register',
         '/api/login',
-        '/api/painpoints',
+        '/api/pain-points',  # Fixed: correct endpoint name
         '/api/posts',
         '/api/status'
     ]

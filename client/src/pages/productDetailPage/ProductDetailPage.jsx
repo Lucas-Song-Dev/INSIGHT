@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { fetchPosts, fetchOpenAIAnalysis, fetchSavedRecommendations, runAnalysis, generateRecommendations } from "@/api/api";
+import { useParams, useNavigate } from "react-router-dom";
+import { fetchClaudeAnalysis, fetchSavedRecommendations, runAnalysis, generateRecommendations } from "@/api/api";
 import { useNotification } from "@/context/NotificationContext";
-import PostsPage from "@/pages/postsPage/PostsPage";
 import AnalysisPage from "@/pages/analysisPage/AnalysisPage";
 import RecomendationPage from "@/pages/recommendationPage/RecomendationPage";
 import "./productDetailPage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
 
-const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
-  const [activeTab, setActiveTab] = useState("posts");
+const ProductDetailPage = () => {
+  const { productName } = useParams();
+  const navigate = useNavigate();
+  const selectedProduct = decodeURIComponent(productName);
+  const [activeTab, setActiveTab] = useState("analysis"); // Default to analysis, removed discussions tab
   const [productData, setProductData] = useState({
     posts: null,
     analysis: null,
@@ -27,17 +30,11 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
   }, [selectedProduct]);
 
   const fetchAllData = async () => {
-    // Fetch posts
-    try {
-      const postsData = await fetchPosts({ product: selectedProduct, limit: 100 });
-      setProductData((prev) => ({ ...prev, posts: postsData.posts || [] }));
-    } catch (err) {
-      console.error("Error fetching posts:", err);
-    }
-
+    // REMOVED: Posts fetching - Discussions tab removed per user request
+    
     // Fetch analysis
     try {
-      const analysisData = await fetchOpenAIAnalysis({ product: [selectedProduct] });
+      const analysisData = await fetchClaudeAnalysis({ product: [selectedProduct] });
       if (analysisData.analyses && analysisData.analyses.length > 0) {
         setProductData((prev) => ({ ...prev, analysis: analysisData.analyses[0] }));
       }
@@ -57,7 +54,7 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
   };
 
   const handleBack = () => {
-    setActivePage("results");
+    navigate("/results");
   };
 
   const handleRunAnalysis = async () => {
@@ -71,7 +68,7 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
       if (result.status === "success") {
         showNotification(`Analysis completed! Found ${result.pain_points_count || 0} pain points.`, "success");
         // Refresh analysis data
-        const analysisData = await fetchOpenAIAnalysis({ product: [selectedProduct] });
+        const analysisData = await fetchClaudeAnalysis({ product: [selectedProduct] });
         if (analysisData.analyses && analysisData.analyses.length > 0) {
           setProductData((prev) => ({ ...prev, analysis: analysisData.analyses[0] }));
         }
@@ -128,22 +125,18 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
         />
       </div>
 
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation - REMOVED Discussions tab per user request */}
       <div className="tabs-container">
-        <button
-          className={`tab-button ${activeTab === "posts" ? "active" : ""}`}
-          onClick={() => setActiveTab("posts")}
-        >
-          💬 Discussions
-          {productData.posts && (
-            <span className="tab-badge">{productData.posts.length}</span>
-          )}
-        </button>
         <button
           className={`tab-button ${activeTab === "analysis" ? "active" : ""}`}
           onClick={() => setActiveTab("analysis")}
         >
-          📊 Analysis
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: '8px'}}>
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Analysis
           {productData.analysis && (
             <span className="tab-badge">
               {productData.analysis.common_pain_points?.length || 0}
@@ -165,11 +158,6 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
 
       {/* Tab Content */}
       <div className="tab-content">
-        {activeTab === "posts" && (
-          <div className="posts-tab">
-            <PostsPage productFilter={selectedProduct} />
-          </div>
-        )}
         {activeTab === "analysis" && (
           <div className="analysis-tab">
             {productData.analysis ? (
@@ -180,7 +168,7 @@ const ProductDetailPage = ({ selectedProduct, setActivePage }) => {
                 <p className="hint">Click "Run Analysis" to generate analysis from existing posts.</p>
                 <button
                   onClick={handleRunAnalysis}
-                  disabled={isRunningAnalysis || !productData.posts || productData.posts.length === 0}
+                  disabled={isRunningAnalysis}
                   className="action-button"
                 >
                   {isRunningAnalysis ? "Running Analysis..." : "Run Analysis"}

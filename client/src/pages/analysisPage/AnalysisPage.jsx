@@ -1,6 +1,6 @@
 // AnalysisPage.jsx
 import React, { useEffect, useState } from "react";
-import { fetchOpenAIAnalysis, fetchAllProducts } from "@/api/api";
+import { fetchClaudeAnalysis, fetchAllProducts } from "@/api/api";
 import "./analysisPage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import SearchBar from "@/components/SearchBar/SearchBar";
@@ -283,7 +283,12 @@ const AnalysisPage = ({ productData = null }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
-          <div className="search-icon">🔍</div>
+          <div className="search-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </div>
         </div>
       </div>
 

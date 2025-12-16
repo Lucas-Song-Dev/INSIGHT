@@ -95,7 +95,7 @@ export const mockApiResponses = {
     },
     insufficientCredits: {
       status: 'error',
-      message: 'Insufficient credits. This operation costs 2 credits, but you only have 1.',
+      message: 'Insufficient credits. You have 1 credits but need 2.',
       required_credits: 2,
       available_credits: 1
     },
@@ -255,7 +255,7 @@ export const createMockApi = () => ({
   
   // Analysis
   fetchClaudeAnalysis: vi.fn(),
-  fetchOpenAIAnalysis: vi.fn(), // Alias
+  fetchClaudeAnalysis: vi.fn(), // Main function
   runAnalysis: vi.fn(),
   
   // Recommendations
@@ -284,7 +284,7 @@ export const setupMockScenario = (mockApi, scenario = 'success') => {
   });
   
   // Set up alias
-  mockApi.fetchOpenAIAnalysis = mockApi.fetchClaudeAnalysis;
+  // fetchClaudeAnalysis is now the main function
   
   return mockApi;
 };

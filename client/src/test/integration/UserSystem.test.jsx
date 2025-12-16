@@ -404,7 +404,7 @@ describe('User System Integration Tests', () => {
           status: 402,
           data: {
             status: 'error',
-            message: 'Insufficient credits. This operation costs 6 credits, but you only have 1.',
+            message: 'Insufficient credits. You have 1 credits but need 6.',
             required_credits: 6,
             available_credits: 1
           }

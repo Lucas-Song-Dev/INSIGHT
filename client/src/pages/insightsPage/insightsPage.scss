@@ -1,0 +1,42 @@
+.insights-page {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+
+  .hero-section {
+    text-align: center;
+
+    .hero-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: $text-primary;
+      margin-bottom: 1.5rem;
+      line-height: 1.2;
+    }
+
+    .hero-description {
+      font-size: 1.125rem;
+      color: $medium-text;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+
+      .cta-button {
+        @include button-primary;
+
+        &.secondary {
+          @include button-secondary;
+        }
+      }
+    }
+  }
+}

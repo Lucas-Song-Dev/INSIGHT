@@ -46,11 +46,34 @@
   min-height: 60px;
 
   .sidebar-title {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: background-color $transition-speed $transition-ease;
+
+    &:hover {
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    &:focus {
+      outline: 2px solid $accent-color;
+      outline-offset: 2px;
+    }
+
     .title-text {
       font-size: $font-size-lg;
       font-weight: $font-weight-semibold;
       color: $text-primary;
       letter-spacing: 0.5px;
+      transition: color $transition-speed $transition-ease;
+    }
+
+    &:hover .title-text {
+      color: $accent-color;
     }
   }
 

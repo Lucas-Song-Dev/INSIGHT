@@ -30,9 +30,15 @@ const LoginPage = ({ onLoginSuccess }) => {
 
       if (response.status === "success") {
         console.log('[LOGIN PAGE] Step 3: Login API returned success');
-        console.log('[LOGIN PAGE] Step 4: Calling onLoginSuccess callback to update auth state...');
-        // Call the onLoginSuccess callback to update auth state
-        await onLoginSuccess();
+        console.log('[LOGIN PAGE] User data in response:', {
+          hasUser: !!response.user,
+          username: response.user?.username,
+          preferred_name: response.user?.preferred_name,
+          full_name: response.user?.full_name
+        });
+        console.log('[LOGIN PAGE] Step 4: Calling onLoginSuccess callback with user data...');
+        // IMPROVEMENT: Pass user data to login callback for immediate use
+        await onLoginSuccess(response.user);
         console.log('[LOGIN PAGE] Step 5: onLoginSuccess callback completed');
         console.log('[LOGIN PAGE] ========== LOGIN FLOW COMPLETE ==========');
       } else {
@@ -65,14 +71,58 @@ const LoginPage = ({ onLoginSuccess }) => {
   };
 
   // Handle successful registration
-  const handleRegisterSuccess = (registeredUsername) => {
+  const handleRegisterSuccess = async (registeredUsername, registeredPassword) => {
+    console.log('[LOGIN PAGE] ========== REGISTRATION SUCCESS HANDLER ==========');
+    console.log('[LOGIN PAGE] Registered username:', registeredUsername);
+    console.log('[LOGIN PAGE] Has password:', !!registeredPassword);
+    
     setShowRegister(false);
     setError("");
-    // Auto-fill the login form with the registered username
-    if (registeredUsername) {
-      setUsername(registeredUsername);
+    
+    // Auto-login after successful registration
+    if (registeredUsername && registeredPassword) {
+      console.log('[LOGIN PAGE] Auto-logging in user after registration...');
+      setIsLoading(true);
+      try {
+        console.log('[LOGIN PAGE] Step 1: Calling loginUser API with registered credentials...');
+        const response = await loginUser({ username: registeredUsername, password: registeredPassword });
+        console.log('[LOGIN PAGE] Step 2: Auto-login API response:', {
+          status: response.status,
+          message: response.message
+        });
+        
+        if (response.status === "success") {
+          console.log('[LOGIN PAGE] Step 3: Auto-login successful, calling onLoginSuccess...');
+          console.log('[LOGIN PAGE] User data in auto-login response:', {
+            hasUser: !!response.user,
+            username: response.user?.username
+          });
+          // IMPROVEMENT: Pass user data to login callback
+          await onLoginSuccess(response.user);
+          console.log('[LOGIN PAGE] Step 4: onLoginSuccess completed');
+          console.log('[LOGIN PAGE] ========== AUTO-LOGIN AFTER REGISTRATION COMPLETE ==========');
+        } else {
+          console.warn('[LOGIN PAGE] Auto-login failed, showing login form');
+          setUsername(registeredUsername);
+          setPassword("");
+          setError("Registration successful! Please log in.");
+        }
+      } catch (err) {
+        console.error('[LOGIN PAGE] Auto-login error:', err);
+        // Fall back to manual login
+        setUsername(registeredUsername);
+        setPassword("");
+        setError("Registration successful! Please log in.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // Fallback: just fill in the username
+      if (registeredUsername) {
+        setUsername(registeredUsername);
+      }
+      setPassword("");
     }
-    setPassword("");
   };
 
   return (

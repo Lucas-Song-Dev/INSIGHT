@@ -1,6 +1,6 @@
 # Reddit Painpoint Analyzer - Server
 
-Flask-based REST API for scraping Reddit and analyzing user pain points with software products. Features JWT authentication, MongoDB integration, and OpenAI analysis.
+Flask-based REST API for scraping Reddit and analyzing user pain points with software products. Features JWT authentication, MongoDB integration, and Anthropic Claude analysis.
 
 ## Tech Stack
 
@@ -8,7 +8,7 @@ Flask-based REST API for scraping Reddit and analyzing user pain points with sof
 - **Flask-RESTful** - REST API framework
 - **MongoDB** - Database for data persistence
 - **PRAW** - Reddit API wrapper
-- **OpenAI API** - Advanced pain point analysis
+- **Anthropic Claude API** - Advanced pain point analysis
 - **JWT** - Authentication tokens
 - **bcrypt** - Password hashing
 - **NLTK** - Natural language processing
@@ -18,7 +18,7 @@ Flask-based REST API for scraping Reddit and analyzing user pain points with sof
 - **Python 3.9+**
 - **MongoDB** (local or cloud instance)
 - **Reddit API credentials** (optional, for scraping)
-- **OpenAI API key** (optional, for advanced analysis)
+- **Anthropic API key** (optional, for advanced analysis)
 
 ## Local Development Setup
 
@@ -77,7 +77,7 @@ REDDIT_CLIENT_ID=your_reddit_client_id
 REDDIT_CLIENT_SECRET=your_reddit_client_secret
 
 # OpenAI API (Optional)
-OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
 
 # Admin Fallback (if MongoDB unavailable)
 ADMIN_USERNAME=admin
@@ -190,7 +190,7 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
    JWT_SECRET_KEY=your-production-secret-key
    REDDIT_CLIENT_ID=...
    REDDIT_CLIENT_SECRET=...
-   OPENAI_API_KEY=...
+   ANTHROPIC_API_KEY=...
    ```
 
 4. **Deploy**
@@ -353,7 +353,7 @@ See the main [API Documentation](#api-endpoints) section below for complete endp
 | `JWT_ACCESS_TOKEN_EXPIRES` | No | Token expiry in seconds | `3600` (default) |
 | `REDDIT_CLIENT_ID` | No | Reddit API client ID | `your_reddit_client_id` |
 | `REDDIT_CLIENT_SECRET` | No | Reddit API secret | `your_reddit_client_secret` |
-| `OPENAI_API_KEY` | No | OpenAI API key | `sk-...` |
+| `ANTHROPIC_API_KEY` | No | Anthropic API key | `sk-ant-...` |
 | `ADMIN_USERNAME` | No | Fallback admin username | `admin` |
 | `ADMIN_PASSWORD` | No | Fallback admin password | `password` |
 
@@ -451,7 +451,7 @@ See the full API documentation in the codebase for complete endpoint details.
 - Check rate limits (Reddit has strict limits)
 - Ensure user agent is set (handled by PRAW)
 
-### OpenAI API Issues
+### Anthropic API Issues
 - Verify API key is valid
 - Check API quota/limits
 - Ensure proper error handling in code

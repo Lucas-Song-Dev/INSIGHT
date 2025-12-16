@@ -68,13 +68,27 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async () => {
+  const login = async (userData = null) => {
     console.log('[AUTH] ========== LOGIN FUNCTION CALLED ==========');
     console.log('[AUTH] Timestamp:', new Date().toISOString());
+    console.log('[AUTH] User data provided:', !!userData);
     console.log('[AUTH] Step 1: Setting isAuthenticated to true');
     console.log('[AUTH] Current auth state before login:', { isAuthenticated, user: user?.username || 'null' });
     setIsAuthenticated(true);
     console.log('[AUTH] isAuthenticated set to true');
+    
+    // IMPROVEMENT: If user data is provided directly (from login response), use it immediately
+    if (userData) {
+      console.log('[AUTH] User data provided in login call, setting immediately:', {
+        username: userData.username,
+        preferred_name: userData.preferred_name,
+        full_name: userData.full_name
+      });
+      setUser(userData);
+      console.log('[AUTH] User data set from login response');
+      console.log('[AUTH] ========== LOGIN COMPLETE WITH PROVIDED DATA ==========');
+      return; // No need to fetch profile
+    }
     
     // Wait longer for the cookie to be set by the browser
     // httpOnly cookies are set by the browser and may take a moment

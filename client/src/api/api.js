@@ -14,6 +14,39 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+// Debug: Log all requests to see which ones send cookies
+apiClient.interceptors.request.use((config) => {
+  if (import.meta.env.DEV) {
+    console.log(`[AXIOS] ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`[AXIOS] withCredentials: ${config.withCredentials}`);
+    console.log(`[AXIOS] Current cookies in document:`, document.cookie || 'None');
+    console.log(`[AXIOS] Token in localStorage:`, localStorage.getItem('access_token') ? 'YES' : 'NO');
+  }
+  return config;
+});
+
+// Add Authorization header to requests if token exists
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (import.meta.env.DEV) {
+    console.log(`[API] INTERCEPTOR: ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`[API] INTERCEPTOR: Token in localStorage: ${token ? 'YES (' + token.length + ' chars)' : 'NO'}`);
+    console.log(`[API] INTERCEPTOR: Current localStorage keys:`, Object.keys(localStorage));
+  }
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+    if (import.meta.env.DEV) {
+      console.log(`[API] INTERCEPTOR: Added Authorization header: Bearer ${token.substring(0, 20)}...`);
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.log(`[API] INTERCEPTOR: No token available, will rely on cookies`);
+    }
+  }
+  return config;
+});
+
 // Log API base URL in development to help debug
 if (import.meta.env.DEV) {
   console.log("API Base URL:", API_BASE);
@@ -209,18 +242,45 @@ export const loginUser = async (credentials) => {
       'set-cookie': res.headers['set-cookie'] ? 'Present (cookies should be set)' : 'Not present',
       'content-type': res.headers['content-type']
     });
-    console.log('[API] Response data:', { 
+    console.log('[API] Response data:', {
       status: res.data?.status,
       message: res.data?.message,
       hasUser: !!res.data?.user,
-      username: res.data?.user?.username
+      username: res.data?.user?.username,
+      hasToken: !!res.data?.token,
+      tokenLength: res.data?.token?.length || 0
     });
-    
+
+    // Store token in localStorage for Authorization headers
+    console.log('[API] Step 3: Checking for token in response...');
+    console.log('[API] Response data keys:', Object.keys(res.data));
+    console.log('[API] Response data.token exists:', !!res.data.token);
+
+    if (res.data.token) {
+      console.log('[API] Token found! Storing in localStorage');
+      localStorage.setItem('access_token', res.data.token);
+      console.log('[API] Token stored successfully, length:', res.data.token.length);
+      console.log('[API] Token preview:', res.data.token.substring(0, 20) + '...');
+      console.log('[API] localStorage now contains:', localStorage.getItem('access_token') ? 'token' : 'nothing');
+    } else {
+      console.warn('[API] CRITICAL: No token received in login response!');
+      console.warn('[API] Full response data:', JSON.stringify(res.data, null, 2));
+
+      // Try to get token from a different endpoint
+      console.log('[API] Attempting fallback: fetching token from /api/status endpoint...');
+      try {
+        const statusRes = await axios.get(`${API_BASE}/status`, { withCredentials: true });
+        console.log('[API] Status endpoint response:', statusRes.data);
+      } catch (fallbackErr) {
+        console.warn('[API] Fallback failed:', fallbackErr.message);
+      }
+    }
+
     // Note: httpOnly cookies won't appear in document.cookie
-    console.log('[API] Step 3: Checking cookies after response (httpOnly cookies not visible):', document.cookie || 'No cookies found');
+    console.log('[API] Step 4: Checking cookies after response (httpOnly cookies not visible):', document.cookie || 'No cookies found');
     console.log('[API] Note: httpOnly cookies are set by the browser and sent automatically with subsequent requests');
     console.log('[API] ========== LOGIN USER API SUCCESS ==========');
-    
+
     return res.data;
   } catch (err) {
     console.error('[API] ========== LOGIN USER API ERROR ==========');
@@ -264,9 +324,17 @@ export const logoutUser = async () => {
         withCredentials: true, // Important for cookies to be sent
       }
     );
+
+    // Clear token from localStorage regardless of server response
+    localStorage.removeItem('access_token');
+    console.log('[API] Token cleared from localStorage');
+
     return res.data;
   } catch (err) {
     // Even if logout fails on server, we should still clear local state
+    localStorage.removeItem('access_token');
+    console.log('[API] Token cleared from localStorage (logout failed on server)');
+
     // Return error response data if available, otherwise throw
     if (err.response?.data) {
       throw new Error(err.response.data.message || "Logout failed");
@@ -293,7 +361,7 @@ export const fetchSavedRecommendations = async ({ products }) => {
       });
     }
 
-    const res = await axios.get(`${API_BASE}/recommendations`, {
+    const res = await apiClient.get('/recommendations', {
       params: params,
       signal: abortController.signal,
     });
@@ -322,7 +390,7 @@ export const generateRecommendations = async ({ products }) => {
       products: Array.isArray(products) ? products : [],
     };
 
-    const res = await axios.post(`${API_BASE}/recommendations`, requestData, {
+    const res = await apiClient.post('/recommendations', requestData, {
       signal: abortController.signal,
     });
     return res.data;
@@ -347,7 +415,7 @@ export const generateRecommendations = async ({ products }) => {
 export const fetchPainPoints = async (filters = {}) => {
   try {
     const abortController = createAbortController();
-    const res = await axios.get(`${API_BASE}/pain-points`, {
+    const res = await apiClient.get('/pain-points', {
       params: filters,
       signal: abortController.signal,
     });
@@ -372,7 +440,7 @@ export const fetchPainPoints = async (filters = {}) => {
 export const fetchClaudeAnalysis = async ({ product }) => {
   try {
     const abortController = createAbortController();
-    const res = await axios.get(`${API_BASE}/claude-analysis`, {
+    const res = await apiClient.get('/claude-analysis', {
       params: { products: product },
       signal: abortController.signal,
     });
@@ -388,8 +456,6 @@ export const fetchClaudeAnalysis = async ({ product }) => {
   }
 };
 
-// Alias for backward compatibility
-export const fetchOpenAIAnalysis = fetchClaudeAnalysis;
 
 /**
  * Get list of all products that have posts (whether analyzed or not)
@@ -639,7 +705,7 @@ export const fetchUserProfile = async () => {
 export const updateUserCredits = async (options) => {
   try {
     const abortController = createAbortController();
-    const res = await axios.post(`${API_BASE}/user/credits`, options, {
+    const res = await apiClient.post('/user/credits', options, {
       signal: abortController.signal,
     });
     return res.data;

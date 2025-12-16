@@ -124,7 +124,7 @@ const ScrapePage = () => {
       setScrapeInProgress(true);
 
       // Create a formatted message for the notification
-      const notificationMessage = `Discovering insights for "${data.topic}"...`;
+      const notificationMessage = `Discovering insights for "${formData.topic}"...`;
 
       showNotification(notificationMessage, "info", 8000);
 
@@ -206,30 +206,8 @@ const ScrapePage = () => {
           </div>
         </div>
 
-        {/* Settings Section */}
-        <div className="card">
-          <h2 className="card-title">Settings</h2>
-
-          <div className="settings-grid">
-            <div className="setting-item">
-              <label className="setting-label">Timeline</label>
-              <select
-                name="time_filter"
-                value={formData.time_filter}
-                onChange={handleInputChange}
-                className="select-input"
-              >
-                <option value="hour">Past Hour</option>
-                <option value="day">Past Day</option>
-                <option value="week">Past Week</option>
-                <option value="month">Past Month</option>
-                <option value="year">Past Year</option>
-                <option value="all">All Time</option>
-              </select>
-            </div>
-          </div>
-
-        </div>
+        {/* Settings Section - REMOVED Timeline per user request */}
+        {/* Timeline filter removed - using default time filter (month) */}
 
         <div className="actions-container">
           <button
@@ -257,7 +235,7 @@ const ScrapePage = () => {
           <div className="card">
             <h2 className="card-title">Custom Insights Prompt</h2>
             <p className="card-description">
-              Describe what you want to discover. Claude AI will recommend the best subreddits, timeline, and search strategy.
+              Describe what you want to discover. Claude AI will recommend the best subreddits and search strategy.
             </p>
             {errors.topic && (
               <div className="error-message">{errors.topic}</div>

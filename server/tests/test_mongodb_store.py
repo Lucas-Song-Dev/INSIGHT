@@ -92,18 +92,18 @@ class TestMongoDBStore:
             result = store.save_pain_point(mock_pain_point)
             assert isinstance(result, bool)
     
-    def test_save_openai_analysis(self, store):
-        """Test saving OpenAI/Claude analysis"""
+    def test_save_anthropic_analysis(self, store):
+        """Test saving Anthropic analysis"""
         analysis_data = {
             'common_pain_points': [],
             'analysis_summary': 'Test analysis'
         }
-        
+
         if store.db:
-            store.db.openai_analysis.find_one = MagicMock(return_value=None)
-            store.db.openai_analysis.insert_one = MagicMock(return_value=True)
-            
-            result = store.save_openai_analysis('test_product', analysis_data)
+            store.db.anthropic_analysis.find_one = MagicMock(return_value=None)
+            store.db.anthropic_analysis.insert_one = MagicMock(return_value=True)
+
+            result = store.save_anthropic_analysis('test_product', analysis_data)
             assert isinstance(result, bool)
     
     def test_update_metadata(self, store):

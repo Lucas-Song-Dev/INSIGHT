@@ -82,7 +82,8 @@ const RegisterForm = ({ onRegisterSuccess, onCancel }) => {
       // Registration successful
       if (response.status === "success") {
         console.log('[REGISTER FORM] Step 5: Registration successful, calling onRegisterSuccess');
-        onRegisterSuccess(username);
+        // Pass both username and password for auto-login
+        onRegisterSuccess(username, password);
         console.log('[REGISTER FORM] ========== REGISTRATION COMPLETE ==========');
       } else {
         console.warn('[REGISTER FORM] Registration returned non-success status:', response.status);

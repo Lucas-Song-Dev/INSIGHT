@@ -3,9 +3,10 @@ import json
 import os
 from flask import jsonify, request, Blueprint, current_app, make_response
 from flask_restful import Resource
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Thread
 import re
+import praw
 
 from dotenv import load_dotenv
 from functools import wraps
@@ -21,7 +22,7 @@ from app import data_store
 from reddit_scraper import RedditScraper
 from nlp_analyzer import NLPAnalyzer
 from advanced_nlp_analyzer import AdvancedNLPAnalyzer
-from openai_analyzer import OpenAIAnalyzer
+from anthropic_analyzer import AnthropicAnalyzer
 load_dotenv()
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 # Get API credentials from environment variables
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # Validate JWT secret on startup
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not JWT_SECRET_KEY:
@@ -45,16 +46,16 @@ JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", 3600))  # 1
 scraper = RedditScraper()
 analyzer = NLPAnalyzer()  # Legacy analyzer for backward compatibility
 advanced_analyzer = AdvancedNLPAnalyzer()  # Advanced NLP with 94% accuracy target
-openai_analyzer = OpenAIAnalyzer()
+anthropic_analyzer = AnthropicAnalyzer()
 # In api_resources.py - no need to create a new MongoDB store here since we're using the one from app.py
 mongodb_uri = os.getenv("MONGODB_URI")
 
-# Initialize Reddit and OpenAI clients if credentials are available
+# Initialize Reddit and Anthropic clients if credentials are available
 if REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET:
     scraper.initialize_client(REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET)
     
-if OPENAI_API_KEY:
-    openai_analyzer.initialize_client(OPENAI_API_KEY)
+if ANTHROPIC_API_KEY:
+    anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY)
 
 
 class Register(Resource):
@@ -189,7 +190,7 @@ class Register(Resource):
                 "preferred_name": preferred_name,
                 "birthday": birthday,
                 "credits": 5,  # Default credits for new users
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "last_login": None
             }
             
@@ -220,27 +221,27 @@ def token_required(f):
         logger.info(f"[TOKEN_CHECK] Function: {f.__name__}")
         logger.info(f"[TOKEN_CHECK] Path: {request.path}")
         logger.info(f"[TOKEN_CHECK] Method: {request.method}")
-        logger.info(f"[TOKEN_CHECK] Args received: {len(args)} positional, {len(kwargs)} keyword")
-        logger.info(f"[TOKEN_CHECK] Args details: args={args}, kwargs={kwargs}")
+        logger.info(f"[TOKEN_CHECK] Headers: {dict(request.headers)}")
         logger.info(f"[TOKEN_CHECK] Cookies present: {list(request.cookies.keys())}")
+        logger.info(f"[TOKEN_CHECK] Authorization header: {request.headers.get('Authorization', 'Not present')}")
         
         token = None
-        
-        # Try to get token from cookies first
-        token = request.cookies.get('access_token')
-        logger.info(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
-        if token:
-            logger.info(f"[TOKEN_CHECK] Token length: {len(token)} characters")
-        
-        # If not in cookies, check Authorization header
+
+        # Try to get token from Authorization header first (for SPA compatibility)
+        auth_header = request.headers.get('Authorization')
+        logger.info(f"[TOKEN_CHECK] Authorization header: {'Present' if auth_header else 'Not present'}")
+        if auth_header:
+            logger.info(f"[TOKEN_CHECK] Authorization header preview: {auth_header[:50]}...")
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+                logger.info(f"[TOKEN_CHECK] Token extracted from header: Found (length: {len(token)})")
+
+        # If not in header, try to get token from cookies (fallback)
         if not token:
-            auth_header = request.headers.get('Authorization')
-            logger.info(f"[TOKEN_CHECK] Authorization header: {'Present' if auth_header else 'Not present'}")
-            if auth_header:
-                logger.info(f"[TOKEN_CHECK] Authorization header preview: {auth_header[:50]}...")
-                if auth_header.startswith('Bearer '):
-                    token = auth_header.split(' ')[1]
-                    logger.info(f"[TOKEN_CHECK] Token extracted from header: Found (length: {len(token)})")
+            token = request.cookies.get('access_token')
+            logger.info(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
+            if token:
+                logger.info(f"[TOKEN_CHECK] Token length: {len(token)} characters")
         
         if not token:
             logger.warning(f"[TOKEN_CHECK] ERROR: No token found - returning 401")
@@ -328,34 +329,68 @@ class Login(Resource):
                     # Update last login time
                     data_store.db.users.update_one(
                         {"username": username},
-                        {"$set": {"last_login": datetime.utcnow()}}
+                        {"$set": {"last_login": datetime.now(timezone.utc)}}
                     )
                     
                     # Generate JWT token
-                    token_expiry = datetime.utcnow() + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRES)
+                    token_expiry = datetime.now(timezone.utc) + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRES)
                     token_payload = {
                         'username': username,
                         'exp': token_expiry
                     }
                     token = jwt.encode(token_payload, JWT_SECRET_KEY, algorithm="HS256")
                     
-                    # Create response WITHOUT token in body (security: token only in HTTP-only cookie)
-                    response = make_response(jsonify({
+                    # IMPROVEMENT: Include user data in login response for better UX
+                    # This eliminates the need for an additional API call
+                    user_data = {
+                        "username": user.get("username"),
+                        "email": user.get("email"),
+                        "full_name": user.get("full_name"),
+                        "preferred_name": user.get("preferred_name"),
+                        "birthday": user.get("birthday"),
+                        "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+                        "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
+                        "credits": user.get("credits", 0)
+                    }
+                    
+                    # Create response WITH user data AND token for SPA compatibility
+                    response_data = {
                         "status": "success",
                         "message": "Authentication successful",
-                        "expires": token_expiry.isoformat()
-                    }))
-                    
+                        "expires": token_expiry.isoformat(),
+                        "user": user_data,  # Include user data for immediate use
+                        "token": token  # Include token for SPA storage
+                    }
+
+                    logger.info(f"[LOGIN] Response data keys: {list(response_data.keys())}")
+                    logger.info(f"[LOGIN] Token length: {len(token) if token else 0}")
+                    logger.info(f"[LOGIN] Token preview: {token[:20] if token else 'None'}...")
+                    logger.info(f"[LOGIN] Response data has token field: {'token' in response_data}")
+
+                    # Manually create JSON response to ensure token is included
+                    import json
+                    response_json = json.dumps(response_data)
+                    response = make_response(response_json)
+                    response.headers['Content-Type'] = 'application/json'
+
+                    logger.info(f"[LOGIN] Manual JSON response created")
+                    logger.info(f"[LOGIN] Response content type: {response.headers.get('Content-Type')}")
+                    logger.info(f"[LOGIN] Response data length: {len(response_json)}")
+                    logger.info(f"[LOGIN] Response contains token: {'token' in response_json}")
+
                     # Set secure cookie with token
                     response.set_cookie(
-                        'access_token', 
+                        'access_token',
                         token,
                         httponly=True,
                         secure=request.is_secure,  # True in production with HTTPS
                         samesite='Lax',  # Changed from 'Strict' to 'Lax' for better compatibility
                         max_age=JWT_ACCESS_TOKEN_EXPIRES
                     )
-                    
+
+                    logger.info(f"[LOGIN] User {username} logged in successfully with user data included")
+                    logger.info(f"[LOGIN] Cookie set - httponly=True, secure={request.is_secure}, samesite=Lax")
+                    logger.info(f"[LOGIN] Response will include set-cookie header")
                     return response
                 else:
                     return {"status": "error", "message": "Invalid credentials"}, 401
@@ -363,7 +398,7 @@ class Login(Resource):
                 # Fallback to environment variable check if database not available
                 if username == os.getenv("ADMIN_USERNAME", "admin") and password == os.getenv("ADMIN_PASSWORD", "password"):
                     # Generate JWT token
-                    token_expiry = datetime.utcnow() + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRES)
+                    token_expiry = datetime.now(timezone.utc) + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRES)
                     token_payload = {
                         'username': username,
                         'exp': token_expiry
@@ -432,7 +467,7 @@ class ScrapePosts(Resource):
         - limit (int): Maximum number of posts to scrape per product (optional)
         - subreddits (list): List of subreddits to search (optional)
         - time_filter (str): Time period to search ('day', 'week', 'month', 'year', 'all') (optional)
-        - use_openai (bool): Whether to use OpenAI to analyze common pain points (optional)
+        - use_openai (bool): Whether to use Anthropic to analyze common pain points (optional)
         
         Returns:
             JSON response with status of the scraping job
@@ -442,15 +477,40 @@ class ScrapePosts(Resource):
         print("=" * 60)
         logger.info("ScrapePosts POST endpoint called")
         
-        if data_store.scrape_in_progress:
-            print("ERROR: Scrape already in progress!")
-            return {"status": "error", "message": "A scraping job is already in progress"}, 409
+        # CRITICAL FIX: Use atomic MongoDB operation to prevent race condition
+        # This ensures only one scraping job can start at a time
+        from pymongo import ReturnDocument
+        if data_store.db is not None:
+            result = data_store.db.metadata.find_one_and_update(
+                {"_id": "scraper_metadata", "scrape_in_progress": False},
+                {"$set": {"scrape_in_progress": True, "last_updated": datetime.now(timezone.utc)}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER
+            )
+            if not result or result.get("scrape_in_progress") != True:
+                print("ERROR: Scrape already in progress!")
+                return {"status": "error", "message": "A scraping job is already in progress"}, 409
+            data_store.scrape_in_progress = True
+        else:
+            # Fallback for no database (less safe)
+            if data_store.scrape_in_progress:
+                print("ERROR: Scrape already in progress!")
+                return {"status": "error", "message": "A scraping job is already in progress"}, 409
+            data_store.scrape_in_progress = True
         
         # Get parameters
         data = request.get_json() or {}
         print(f"Request data: {data}")
         products = data.get('products', scraper.target_products)
-        limit = int(data.get('limit', 100))
+        
+        # SECURITY FIX: Validate limit parameter to prevent DoS
+        try:
+            limit = int(data.get('limit', 100))
+            if limit < 1 or limit > 1000:
+                return {"status": "error", "message": "Limit must be between 1 and 1000"}, 400
+        except (ValueError, TypeError):
+            return {"status": "error", "message": "Invalid limit parameter"}, 400
+        
         subreddits = data.get('subreddits')
         time_filter = data.get('time_filter', 'month')
         use_openai = data.get('use_openai', False)
@@ -473,16 +533,65 @@ class ScrapePosts(Resource):
             
         # Initialize OpenAI client if needed
         if use_openai:
-            if not OPENAI_API_KEY:
-                return {"status": "error", "message": "OpenAI API key not configured on server"}, 500
+            if not ANTHROPIC_API_KEY:
+                return {"status": "error", "message": "Anthropic API key not configured on server"}, 500
                 
-            if not openai_analyzer.initialize_client(OPENAI_API_KEY):
-                return {"status": "error", "message": "Failed to initialize OpenAI client"}, 500
+            if not anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY):
+                return {"status": "error", "message": "Failed to initialize Anthropic client"}, 500
         
         # Validate time filter
         if time_filter not in scraper.time_filters.keys():
             return {"status": "error", "message": f"Invalid time_filter. Must be one of: {', '.join(scraper.time_filters.keys())}"}, 400
         
+        # CRITICAL FIX: Check and deduct credits BEFORE starting scrape
+        username = current_user.get('username')
+        scrape_cost = 2  # Cost in credits for scraping
+        
+        if data_store.db is not None:
+            try:
+                # Atomically check and deduct credits
+                from pymongo import ReturnDocument
+                user_result = data_store.db.users.find_one_and_update(
+                    {"username": username, "credits": {"$gte": scrape_cost}},
+                    {"$inc": {"credits": -scrape_cost}},
+                    return_document=ReturnDocument.AFTER
+                )
+                
+                if not user_result:
+                    # Either user not found or insufficient credits
+                    user = data_store.db.users.find_one({"username": username})
+                    if not user:
+                        # Rollback scrape_in_progress
+                        data_store.db.metadata.update_one(
+                            {"_id": "scraper_metadata"},
+                            {"$set": {"scrape_in_progress": False}}
+                        )
+                        data_store.scrape_in_progress = False
+                        return {"status": "error", "message": "User not found"}, 404
+                    
+                    # Insufficient credits
+                    current_credits = user.get("credits", 0)
+                    data_store.db.metadata.update_one(
+                        {"_id": "scraper_metadata"},
+                        {"$set": {"scrape_in_progress": False}}
+                    )
+                    data_store.scrape_in_progress = False
+                    return {
+                        "status": "error", 
+                        "message": f"Insufficient credits. You have {current_credits} credits but need {scrape_cost}."
+                    }, 402
+                
+                logger.info(f"Credits deducted: {scrape_cost}. User {username} has {user_result.get('credits', 0)} credits remaining")
+            except Exception as e:
+                logger.error(f"Error deducting credits: {str(e)}")
+                # Rollback scrape_in_progress
+                if data_store.db is not None:
+                    data_store.db.metadata.update_one(
+                        {"_id": "scraper_metadata"},
+                        {"$set": {"scrape_in_progress": False}}
+                    )
+                data_store.scrape_in_progress = False
+                return {"status": "error", "message": "Failed to process credit payment"}, 500
         
         # Update metadata in MongoDB -- need added
         data_store.update_metadata(
@@ -500,7 +609,7 @@ class ScrapePosts(Resource):
                 print(f"Subreddits: {subreddits}")
                 print(f"Limit: {limit}")
                 print(f"Time filter: {time_filter}")
-                print(f"Use OpenAI: {use_openai}")
+                print(f"Use Anthropic: {use_openai}")
                 print("=" * 50)
                 logger.info(f"=== STARTING SCRAPE ===")
                 logger.info(f"Products: {products}")
@@ -535,26 +644,87 @@ class ScrapePosts(Resource):
                     print("WARNING: No posts were scraped!")
                     logger.warning("No posts were scraped!")
                 
-                # Use advanced NLP analyzer for high-accuracy sentiment analysis
-                print(f"Running advanced NLP analysis on {len(all_posts)} posts")
-                logger.info(f"Running advanced NLP analysis on {len(all_posts)} posts")
-                nlp_results = advanced_analyzer.analyze_batch(all_posts)
+                # USER REQUEST: Filter posts to only analyze those with explicit pain points, dislikes, or improvement ideas
+                def has_pain_point_indicators(post):
+                    """Check if post explicitly mentions pain points, dislikes, or improvements"""
+                    text = f"{getattr(post, 'title', '')} {getattr(post, 'content', '')}".lower()
+                    
+                    # Pain point indicators
+                    pain_indicators = [
+                        'problem', 'issue', 'bug', 'broken', "doesn't work", 'not working',
+                        'error', 'crash', 'frustrating', 'annoying', 'difficult', 'hard to',
+                        "can't", 'cannot', 'impossible', 'hate', 'bad', 'terrible', 'horrible',
+                        'slow', 'laggy', 'unusable', 'unstable', 'inconsistent', 'disappointed',
+                        'disappointing', 'sucks', 'worst', 'awful', 'poor', 'weak', 'fails'
+                    ]
+                    
+                    # Improvement/feature request indicators
+                    improvement_indicators = [
+                        'wish', 'should', 'would be nice', 'feature request', 'improvement',
+                        'improve', 'better', 'add', 'need', 'want', 'suggest', 'recommend',
+                        'hope', 'please add', 'missing', 'lack', 'could be', 'should have'
+                    ]
+                    
+                    # Dislike indicators
+                    dislike_indicators = [
+                        'dislike', "don't like", 'hate', 'disappointed', 'frustrated',
+                        'annoyed', 'upset', 'angry', 'complaint', 'complain'
+                    ]
+                    
+                    all_indicators = pain_indicators + improvement_indicators + dislike_indicators
+                    
+                    # Check if any indicator is in the text
+                    return any(indicator in text for indicator in all_indicators)
+                
+                # Filter posts before analysis
+                posts_with_indicators = [post for post in all_posts if has_pain_point_indicators(post)]
+                posts_without_indicators = [post for post in all_posts if not has_pain_point_indicators(post)]
+                
+                print(f"Filtered posts: {len(posts_with_indicators)} with pain points/improvements, {len(posts_without_indicators)} without")
+                logger.info(f"Post filtering: {len(posts_with_indicators)} posts with explicit pain points/dislikes/improvements, {len(posts_without_indicators)} filtered out")
+                
+                # Only analyze posts with indicators
+                if len(posts_with_indicators) == 0:
+                    print("WARNING: No posts found with explicit pain points, dislikes, or improvement ideas!")
+                    logger.warning("No posts with pain point indicators found - all posts filtered out")
+                
+                # Use advanced NLP analyzer ONLY on filtered posts
+                print(f"Running advanced NLP analysis on {len(posts_with_indicators)} filtered posts")
+                logger.info(f"Running advanced NLP analysis on {len(posts_with_indicators)} filtered posts (with pain points/dislikes/improvements)")
+                nlp_results = advanced_analyzer.analyze_batch(posts_with_indicators) if posts_with_indicators else {'total_words': 0, 'avg_sentiment': 0, 'pain_points': []}
                 print(f"NLP Analysis complete: {nlp_results['total_words']} words, Avg sentiment: {nlp_results['avg_sentiment']:.3f}")
                 print(f"NLP pain points found: {len(nlp_results.get('pain_points', []))}")
                 logger.info(f"NLP Analysis complete: {nlp_results['total_words']} words, "
                           f"Avg sentiment: {nlp_results['avg_sentiment']:.3f}")
                 logger.info(f"NLP pain points found: {len(nlp_results.get('pain_points', []))}")
                 
-                # Also run legacy analyzer for product detection and categorization
-                print(f"Running legacy analyzer.analyze_posts...")
-                logger.info(f"Running legacy analyzer.analyze_posts...")
-                analyzer.analyze_posts(all_posts, products)
+                # Also run legacy analyzer for product detection and categorization (on filtered posts only)
+                print(f"Running legacy analyzer.analyze_posts on filtered posts...")
+                logger.info(f"Running legacy analyzer.analyze_posts on {len(posts_with_indicators)} filtered posts...")
+                if posts_with_indicators:
+                    analyzer.analyze_posts(posts_with_indicators, products)
                 print(f"Legacy analyzer complete")
                 logger.info(f"Legacy analyzer complete")
                 
+                # Save all posts to MongoDB, but mark which ones have pain points
                 posts_saved = 0
-                print(f"Saving {len(all_posts)} posts to MongoDB...")
+                print(f"Saving {len(all_posts)} posts to MongoDB (marked with has_pain_points flag)...")
                 for post in all_posts:
+                    # Get detected products
+                    detected_products = analyzer.get_product_from_post(post, products)
+                    # Set products for this post
+                    post.products = detected_products
+                    
+                    # Mark if post has pain point indicators
+                    post.has_pain_points = has_pain_point_indicators(post)
+                    
+                    logger.debug(f"Post '{post.title[:50]}...' -> products: {detected_products}, has_pain_points: {post.has_pain_points}, sentiment: {getattr(post, 'sentiment', 'N/A')}")
+                    # Save to MongoDB with advanced NLP results
+                    if data_store.save_post(post):
+                        posts_saved += 1
+                        # Only add to analyzed_posts if it has pain points
+                        if post.has_pain_points:
+                            data_store.analyzed_posts.append(post)
                     # Get detected products
                     detected_products = analyzer.get_product_from_post(post, products)
                     # Set products for this post
@@ -612,7 +782,7 @@ class ScrapePosts(Resource):
                 logger.info(f"Saved {pain_points_saved} pain points to MongoDB")
                 logger.info(f"Total pain points in store: {len(data_store.pain_points)}")
                 
-                # Note: OpenAI analysis is now manual - users can trigger it from the product detail page
+                # Note: Anthropic analysis is now manual - users can trigger it from the product detail page
                 print("Scrape complete. Posts saved. Analysis can be run manually from the product detail page.")
                 logger.info("Scrape complete. Posts saved. Analysis can be run manually from the product detail page.")
                 
@@ -627,25 +797,129 @@ class ScrapePosts(Resource):
                 print(f"Raw posts in store: {len(data_store.raw_posts)}")
                 print(f"Analyzed posts in store: {len(data_store.analyzed_posts)}")
                 print(f"Pain points in store: {len(data_store.pain_points)}")
-                print(f"OpenAI analyses in store: {len(data_store.openai_analyses)}")
+                print(f"Anthropic analyses in store: {len(data_store.anthropic_analyses)}")
                 print("=" * 50)
                 logger.info(f"=== SCRAPE COMPLETE ===")
                 logger.info(f"Total posts: {len(all_posts)}")
                 logger.info(f"Raw posts in store: {len(data_store.raw_posts)}")
                 logger.info(f"Analyzed posts in store: {len(data_store.analyzed_posts)}")
                 logger.info(f"Pain points in store: {len(data_store.pain_points)}")
-                logger.info(f"OpenAI analyses in store: {len(data_store.openai_analyses)}")
-            except Exception as e:
+                logger.info(f"Anthropic analyses in store: {len(data_store.anthropic_analyses)}")
+            except praw.exceptions.RedditAPIException as e:
                 print("=" * 50)
-                print("=== ERROR IN BACKGROUND SCRAPING ===")
+                print("=== REDDIT API ERROR IN BACKGROUND SCRAPING ===")
                 print(f"Error: {str(e)}")
-                import traceback
-                traceback.print_exc()
                 print("=" * 50)
-                logger.error(f"=== ERROR IN BACKGROUND SCRAPING ===")
-                logger.error(f"Error: {str(e)}", exc_info=True)
-                # Update status in case of error
+                logger.error(f"Reddit API error in background scraping: {str(e)}", exc_info=True)
+                # Update status and refund credits
                 data_store.update_metadata(scrape_in_progress=False)
+                # Refund credits to user
+                if data_store.db is not None:
+                    try:
+                        data_store.db.users.update_one(
+                            {"username": username},
+                            {"$inc": {"credits": scrape_cost}}
+                        )
+                        logger.info(f"Refunded {scrape_cost} credits to {username} due to Reddit API error")
+                    except Exception as refund_error:
+                        logger.error(f"Failed to refund credits: {str(refund_error)}")
+            except praw.exceptions.RedditAPIException as e:
+                # CRITICAL FIX: Specific handling for Reddit API errors
+                error_type = "Reddit API Error"
+                logger.error(f"=== {error_type} IN BACKGROUND SCRAPING ===")
+                logger.error(f"Error: {str(e)}", exc_info=True)
+                
+                # Categorize error for appropriate handling
+                if "rate limit" in str(e).lower() or "429" in str(e):
+                    error_category = "rate_limit"
+                    user_message = "Reddit API rate limit exceeded. Please try again later."
+                elif "403" in str(e) or "forbidden" in str(e).lower():
+                    error_category = "authentication"
+                    user_message = "Reddit API authentication failed. Please check credentials."
+                else:
+                    error_category = "api_error"
+                    user_message = "Reddit API error occurred. Please try again later."
+                
+                # Update status and refund credits
+                data_store.update_metadata(scrape_in_progress=False)
+                
+                # Refund credits to user
+                if data_store.db is not None:
+                    try:
+                        result = data_store.db.users.update_one(
+                            {"username": username},
+                            {"$inc": {"credits": scrape_cost}}
+                        )
+                        if result.modified_count > 0:
+                            logger.info(f"Refunded {scrape_cost} credits to {username} due to {error_category}")
+                        else:
+                            logger.warning(f"Failed to refund credits: user {username} not found")
+                    except Exception as refund_error:
+                        logger.error(f"Failed to refund credits: {str(refund_error)}", exc_info=True)
+                
+                # TODO: Send notification to user about failure
+                
+            except praw.exceptions.RequestException as e:
+                # CRITICAL FIX: Network/connection errors
+                error_type = "Network Error"
+                logger.error(f"=== {error_type} IN BACKGROUND SCRAPING ===")
+                logger.error(f"Error: {str(e)}", exc_info=True)
+                
+                # Network errors are often transient - could retry
+                error_category = "network_error"
+                user_message = "Network error occurred. Please check your connection and try again."
+                
+                # Update status and refund credits
+                data_store.update_metadata(scrape_in_progress=False)
+                
+                # Refund credits
+                if data_store.db is not None:
+                    try:
+                        data_store.db.users.update_one(
+                            {"username": username},
+                            {"$inc": {"credits": scrape_cost}}
+                        )
+                        logger.info(f"Refunded {scrape_cost} credits to {username} due to {error_category}")
+                    except Exception as refund_error:
+                        logger.error(f"Failed to refund credits: {str(refund_error)}", exc_info=True)
+                
+            except Exception as e:
+                # CRITICAL FIX: Generic error handling with proper categorization
+                error_type = type(e).__name__
+                logger.error(f"=== UNEXPECTED ERROR IN BACKGROUND SCRAPING ===")
+                logger.error(f"Error Type: {error_type}")
+                logger.error(f"Error: {str(e)}", exc_info=True)
+                
+                # Categorize error
+                if isinstance(e, (ValueError, TypeError, AttributeError)):
+                    error_category = "validation_error"
+                    user_message = "Invalid input or configuration error."
+                elif isinstance(e, (ConnectionError, TimeoutError)):
+                    error_category = "connection_error"
+                    user_message = "Connection error occurred. Please try again."
+                else:
+                    error_category = "unexpected_error"
+                    user_message = "An unexpected error occurred. Please contact support."
+                
+                # Update status and refund credits
+                data_store.update_metadata(scrape_in_progress=False)
+                
+                # Refund credits to user
+                if data_store.db is not None:
+                    try:
+                        result = data_store.db.users.update_one(
+                            {"username": username},
+                            {"$inc": {"credits": scrape_cost}}
+                        )
+                        if result.modified_count > 0:
+                            logger.info(f"Refunded {scrape_cost} credits to {username} due to {error_category}")
+                        else:
+                            logger.warning(f"Failed to refund credits: user {username} not found")
+                    except Exception as refund_error:
+                        logger.error(f"Failed to refund credits: {str(refund_error)}", exc_info=True)
+                
+                # Log error details for debugging (but don't expose to user)
+                logger.error(f"Error details - Type: {error_type}, Category: {error_category}, User: {username}")
         
         # Start the background thread
         print(f"Starting background scrape thread...")
@@ -757,19 +1031,19 @@ class Recommendations(Resource):
         logger.info(f"Requested to generate recommendations for products: {products_param}")
         
         # Ensure OpenAI is initialized
-        if not OPENAI_API_KEY:
+        if not ANTHROPIC_API_KEY:
             return {
                 "status": "error",
-                "message": "OpenAI API key not configured on server",
-                "openai_enabled": False
+                "message": "Anthropic API key not configured on server",
+                "anthropic_enabled": False
             }, 500
-            
-        if not openai_analyzer.api_key:
-            if not openai_analyzer.initialize_client(OPENAI_API_KEY):
+
+        if not anthropic_analyzer.api_key:
+            if not anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY):
                 return {
                     "status": "error",
-                    "message": "Failed to initialize OpenAI client",
-                    "openai_enabled": False
+                    "message": "Failed to initialize Anthropic client",
+                    "anthropic_enabled": False
                 }, 500
         
         # Store recommendations for each product
@@ -793,7 +1067,7 @@ class Recommendations(Resource):
                         query = {"$or": product_queries}
                 
                 logger.info(f"MongoDB query for analyses: {query}")
-                analyses_cursor = data_store.db.openai_analysis.find(query)
+                analyses_cursor = data_store.db.anthropic_analysis.find(query)
                 
                 # Process each analysis
                 for analysis_doc in analyses_cursor:
@@ -814,7 +1088,7 @@ class Recommendations(Resource):
                     logger.info(f"Generating recommendations for {product_name} based on {len(pain_points)} pain points")
                     
                     # Generate recommendations for this product's pain points
-                    recommendations = openai_analyzer.generate_recommendations(pain_points, product_name)
+                    recommendations = anthropic_analyzer.generate_recommendations(pain_points, product_name)
                     
                     # Save the recommendations to MongoDB
                     save_result = data_store.save_recommendations(product_name, recommendations)
@@ -828,7 +1102,7 @@ class Recommendations(Resource):
                 # Return the recommendations
                 return {
                     "status": "success",
-                    "openai_enabled": True,
+                    "anthropic_enabled": True,
                     "recommendations": all_recommendations
                 }
                 
@@ -838,16 +1112,16 @@ class Recommendations(Resource):
         
         # Fall back to in-memory data if database is not connected or query failed
         # Get all analyses from in-memory cache
-        if not data_store.openai_analyses:
+        if not data_store.anthropic_analyses:
             return {
                 "status": "info",
-                "message": "No OpenAI analyses available. Use the scrape endpoint with use_openai=true to generate analysis.",
-                "openai_enabled": True,
+                "message": "No Anthropic analyses available. Use the scrape endpoint with use_openai=true to generate analysis.",
+                "anthropic_enabled": True,
                 "recommendations": []
             }, 400
         
         # Process requested products or all products if none specified
-        product_keys = list(data_store.openai_analyses.keys())
+        product_keys = list(data_store.anthropic_analyses.keys())
         if products_param:
             # Filter to only requested products (case-insensitive)
             requested_products = [p.strip().lower() for p in products_param if isinstance(p, str) and p.strip()]
@@ -858,17 +1132,17 @@ class Recommendations(Resource):
         
         # Generate recommendations for each product
         for product_key in product_keys:
-            analysis = data_store.openai_analyses[product_key]
+            analysis = data_store.anthropic_analyses[product_key]
             pain_points = analysis.get('common_pain_points', [])
             
             if pain_points:
                 # Generate recommendations for this product's pain points
-                recommendations = openai_analyzer.generate_recommendations(pain_points, product_key)
+                recommendations = anthropic_analyzer.generate_recommendations(pain_points, product_key)
                 all_recommendations.append(recommendations)
         
         return {
             "status": "success",
-            "openai_enabled": True,
+            "anthropic_enabled": True,
             "recommendations": all_recommendations
         }
     
@@ -973,7 +1247,10 @@ class GetPosts(Resource):
                     query["pain_points"] = {"$exists": True, "$ne": []}
                     
                 if subreddit:
-                    query["subreddit"] = {"$regex": f"^{subreddit}$", "$options": "i"}
+                    # SECURITY FIX: Validate and escape subreddit name to prevent NoSQL injection
+                    if not re.match(r'^[a-zA-Z0-9_-]+$', subreddit):
+                        return {"status": "error", "message": "Invalid subreddit name format"}, 400
+                    query["subreddit"] = {"$regex": f"^{re.escape(subreddit)}$", "$options": "i"}
                     
                 if min_score > 0:
                     query["score"] = {"$gte": min_score}
@@ -1118,13 +1395,13 @@ class GetStatus(Resource):
         """
         # Get connection status from initialized clients
         reddit_status = "connected" if scraper.reddit else "not_configured"
-        openai_status = "connected" if openai_analyzer.api_key else "not_configured"
+        anthropic_status = "connected" if anthropic_analyzer.api_key else "not_configured"
         
         # Get counts from MongoDB if available, otherwise use in-memory cache
         raw_posts_count = len(data_store.raw_posts)
         analyzed_posts_count = len(data_store.analyzed_posts)
         pain_points_count = len(data_store.pain_points)
-        openai_analyses_count = len(data_store.openai_analyses)
+        anthropic_analyses_count = len(data_store.anthropic_analyses)
         
         if data_store.db is not None:
             try:
@@ -1133,13 +1410,13 @@ class GetStatus(Resource):
                 # Analyzed posts are posts that have sentiment analysis
                 analyzed_posts_count = data_store.db.posts.count_documents({"sentiment": {"$exists": True}})
                 pain_points_count = data_store.db.pain_points.count_documents({})
-                openai_analyses_count = data_store.db.openai_analysis.count_documents({})
+                anthropic_analyses_count = data_store.db.anthropic_analysis.count_documents({})
                 
-                logger.debug(f"Status counts from MongoDB - Posts: {raw_posts_count}, Analyzed: {analyzed_posts_count}, Pain Points: {pain_points_count}, OpenAI: {openai_analyses_count}")
+                logger.debug(f"Status counts from MongoDB - Posts: {raw_posts_count}, Analyzed: {analyzed_posts_count}, Pain Points: {pain_points_count}, OpenAI: {anthropic_analyses_count}")
             except Exception as e:
                 logger.error(f"Error counting from MongoDB: {str(e)}")
                 # Fallback to in-memory cache
-                logger.debug(f"Using in-memory counts - Posts: {raw_posts_count}, Analyzed: {analyzed_posts_count}, Pain Points: {pain_points_count}, OpenAI: {openai_analyses_count}")
+                logger.debug(f"Using in-memory counts - Posts: {raw_posts_count}, Analyzed: {analyzed_posts_count}, Pain Points: {pain_points_count}, OpenAI: {anthropic_analyses_count}")
                 
         return {
             "status": "success",
@@ -1149,11 +1426,11 @@ class GetStatus(Resource):
             "analyzed_posts_count": analyzed_posts_count,
             "pain_points_count": pain_points_count,
             "subreddits_scraped": list(data_store.subreddits_scraped),
-            "has_openai_analyses": openai_analyses_count > 0,
-            "openai_analyses_count": openai_analyses_count,
+            "has_anthropic_analyses": anthropic_analyses_count > 0,
+            "anthropic_analyses_count": anthropic_analyses_count,
             "apis": {
                 "reddit": reddit_status,
-                "openai": openai_status
+                "anthropic": anthropic_status
             }
         }
     
@@ -1169,19 +1446,19 @@ class ResetScrapeStatus(Resource):
             "message": "Scrape status reset successfully"
         }
 
-class GetOpenAIAnalysis(Resource):
-    """API endpoint to get OpenAI analysis results"""
+class GetAnthropicAnalysis(Resource):
+    """API endpoint to get Anthropic analysis results"""
     @token_required
     def get(self, current_user):
         """
-        Get the OpenAI analysis of pain points
-        
+        Get the Anthropic analysis of pain points
+
         GET parameters:
         - product (str): Single product name (optional, for backward compatibility)
         - products (str): Comma-separated list of product names (optional)
-        
+
         Returns:
-            JSON response with OpenAI analysis data
+            JSON response with Anthropic analysis data
         """
         # Get query parameters
         products_param = request.args.getlist('products[]')
@@ -1190,11 +1467,11 @@ class GetOpenAIAnalysis(Resource):
         # Check if MongoDB is connected
         if data_store.db is None:
             # Fallback to in-memory data
-            if not data_store.openai_analyses:
+            if not data_store.anthropic_analyses:
                 return {
                     "status": "info",
-                    "message": "No OpenAI analyses available. Use the scrape endpoint with use_openai=true to generate analysis.",
-                    "openai_enabled": True,
+                    "message": "No Anthropic analyses available. Use the scrape endpoint with use_openai=true to generate analysis.",
+                    "anthropic_enabled": True,
                     "analyses": []
                 }
     
@@ -1207,7 +1484,7 @@ class GetOpenAIAnalysis(Resource):
                 
                 # Use MongoDB's $in operator to find matching products in one query
                 query = {"product": {"$in": requested_products}}
-                cursor = data_store.db.openai_analysis.find(query)
+                cursor = data_store.db.anthropic_analysis.find(query)
                 
                 for doc in cursor:
                     # Transform to the expected response format
@@ -1218,13 +1495,13 @@ class GetOpenAIAnalysis(Resource):
                 
                 return {
                     "status": "success",
-                    "openai_enabled": True,
+                    "anthropic_enabled": True,
                     "analyses": matched_analyses
                 }
             
             # Return all analyses from MongoDB if no filters are applied
             all_analyses = []
-            cursor = data_store.db.openai_analysis.find({})
+            cursor = data_store.db.anthropic_analysis.find({})
             
             for doc in cursor:
                 if "analysis" in doc:
@@ -1234,19 +1511,19 @@ class GetOpenAIAnalysis(Resource):
             
             return {
                 "status": "success",
-                "openai_enabled": True,
+                "anthropic_enabled": True,
                 "analyses": all_analyses
             }
             
         except Exception as e:
-            logger.error(f"Error retrieving OpenAI analyses from MongoDB: {str(e)}")
-            
+            logger.error(f"Error retrieving Anthropic analyses from MongoDB: {str(e)}")
+
             # Fallback to in-memory data if MongoDB query fails
             return {
                 "status": "error",
                 "message": f"Database error: {str(e)}",
-                "openai_enabled": True,
-                "analyses": list(data_store.openai_analyses.values())
+                "anthropic_enabled": True,
+                "analyses": list(data_store.anthropic_analyses.values())
             }
 
 class GetAllProducts(Resource):
@@ -1291,7 +1568,7 @@ class GetAllProducts(Resource):
                 
                 if data_store.db is not None:
                     # Check if analysis exists
-                    analysis_doc = data_store.db.openai_analysis.find_one({
+                    analysis_doc = data_store.db.anthropic_analysis.find_one({
                         "$or": [
                             {"_id": product.strip().lower()},
                             {"product": product.strip().lower()}
@@ -1309,7 +1586,7 @@ class GetAllProducts(Resource):
                     has_recommendations = rec_doc is not None
                 else:
                     # Fallback to in-memory
-                    has_analysis = product in data_store.openai_analyses
+                    has_analysis = product in data_store.anthropic_analyses
                     has_recommendations = product in data_store.recommendations if hasattr(data_store, 'recommendations') else False
                 
                 products_with_status.append({
@@ -1331,11 +1608,11 @@ class GetAllProducts(Resource):
             }, 500
 
 class RunAnalysis(Resource):
-    """API endpoint to manually run OpenAI analysis for a product"""
+    """API endpoint to manually run Anthropic analysis for a product"""
     @token_required
     def post(self, current_user):
         """
-        Run OpenAI analysis for a specific product
+        Run Anthropic analysis for a specific product
         
         POST parameters:
         - product (str): Product name to analyze
@@ -1350,8 +1627,47 @@ class RunAnalysis(Resource):
             if not product:
                 return {"status": "error", "message": "Product name is required"}, 400
             
+            # SECURITY FIX: Validate product name format
+            if len(product) > 100:
+                return {"status": "error", "message": "Product name too long (max 100 characters)"}, 400
+            if not re.match(r'^[a-zA-Z0-9\s\-_.]+$', product):
+                return {"status": "error", "message": "Invalid product name format"}, 400
+            
             print(f"\n[RUN_ANALYSIS] Starting analysis for product: '{product}'")
             logger.info(f"Starting manual analysis for product: '{product}'")
+            
+            # USER REQUEST: Filter posts to only analyze those with explicit pain points, dislikes, or improvement ideas
+            def has_pain_point_indicators(post):
+                """Check if post explicitly mentions pain points, dislikes, or improvements"""
+                if isinstance(post, dict):
+                    text = f"{post.get('title', '')} {post.get('content', '')}".lower()
+                else:
+                    text = f"{getattr(post, 'title', '')} {getattr(post, 'content', '')}".lower()
+                
+                # Pain point indicators
+                pain_indicators = [
+                    'problem', 'issue', 'bug', 'broken', "doesn't work", 'not working',
+                    'error', 'crash', 'frustrating', 'annoying', 'difficult', 'hard to',
+                    "can't", 'cannot', 'impossible', 'hate', 'bad', 'terrible', 'horrible',
+                    'slow', 'laggy', 'unusable', 'unstable', 'inconsistent', 'disappointed',
+                    'disappointing', 'sucks', 'worst', 'awful', 'poor', 'weak', 'fails'
+                ]
+                
+                # Improvement/feature request indicators
+                improvement_indicators = [
+                    'wish', 'should', 'would be nice', 'feature request', 'improvement',
+                    'improve', 'better', 'add', 'need', 'want', 'suggest', 'recommend',
+                    'hope', 'please add', 'missing', 'lack', 'could be', 'should have'
+                ]
+                
+                # Dislike indicators
+                dislike_indicators = [
+                    'dislike', "don't like", 'hate', 'disappointed', 'frustrated',
+                    'annoyed', 'upset', 'angry', 'complaint', 'complain'
+                ]
+                
+                all_indicators = pain_indicators + improvement_indicators + dislike_indicators
+                return any(indicator in text for indicator in all_indicators)
             
             # Fetch posts for this product
             if data_store.db is None:
@@ -1379,11 +1695,20 @@ class RunAnalysis(Resource):
             if not product_posts:
                 return {"status": "error", "message": f"No posts found for product '{product}'"}, 404
             
-            print(f"[RUN_ANALYSIS] Found {len(product_posts)} posts for '{product}'")
-            logger.info(f"Found {len(product_posts)} posts for '{product}'")
+            # USER REQUEST: Filter to only posts with explicit pain points/dislikes/improvements
+            filtered_posts = [post for post in product_posts if has_pain_point_indicators(post)]
             
-            # Run OpenAI analysis
-            analysis = openai_analyzer.analyze_common_pain_points(product_posts, product)
+            if not filtered_posts:
+                return {
+                    "status": "error", 
+                    "message": f"No posts with explicit pain points, dislikes, or improvement ideas found for product '{product}'. Analysis only runs on posts that mention problems, issues, or suggestions."
+                }, 404
+            
+            print(f"[RUN_ANALYSIS] Found {len(product_posts)} total posts, {len(filtered_posts)} with pain points/improvements for '{product}'")
+            logger.info(f"Found {len(product_posts)} total posts, {len(filtered_posts)} with explicit pain points/dislikes/improvements for '{product}'")
+            
+            # Run Anthropic analysis ONLY on filtered posts
+            analysis = anthropic_analyzer.analyze_common_pain_points(filtered_posts, product)
             
             if 'error' in analysis:
                 print(f"[RUN_ANALYSIS] Analysis failed: {analysis.get('error')}")
@@ -1395,7 +1720,7 @@ class RunAnalysis(Resource):
                 }, 500
             
             # Save analysis to MongoDB
-            save_result = data_store.save_openai_analysis(product, analysis)
+            save_result = data_store.save_anthropic_analysis(product, analysis)
             print(f"[RUN_ANALYSIS] Analysis saved: {save_result}")
             logger.info(f"Analysis saved for '{product}': {save_result}")
             
@@ -1424,11 +1749,11 @@ class HealthCheck(Resource):
         return {
             "status": "success",
             "message": "API is running",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-# Alias for GetOpenAIAnalysis (backward compatibility)
-GetClaudeAnalysis = GetOpenAIAnalysis
+# Alias for GetAnthropicAnalysis (backward compatibility)
+GetClaudeAnalysis = GetAnthropicAnalysis
 
 class GetUserProfile(Resource):
     """API endpoint to get user profile"""
@@ -1521,23 +1846,42 @@ class UpdateUserCredits(Resource):
         
         if data_store.db is not None:
             try:
-                user = data_store.db.users.find_one({"username": username})
-                if not user:
-                    return {"status": "error", "message": "User not found"}, 404
-                
-                current_credits = user.get("credits", 0)
+                from pymongo import ReturnDocument
                 
                 if credits is not None:
-                    # Set absolute value (admin use)
-                    new_credits = int(credits)
+                    # Set absolute value (admin use only)
+                    # TODO: Add admin permission check
+                    result = data_store.db.users.find_one_and_update(
+                        {"username": username},
+                        {"$set": {"credits": int(credits)}},
+                        return_document=ReturnDocument.AFTER
+                    )
                 else:
-                    # Apply delta
-                    new_credits = current_credits + int(delta)
+                    # CRITICAL FIX: Use atomic $inc operator to prevent race condition
+                    delta_value = int(delta)
+                    result = data_store.db.users.find_one_and_update(
+                        {"username": username},
+                        {"$inc": {"credits": delta_value}},
+                        return_document=ReturnDocument.AFTER
+                    )
                 
-                data_store.db.users.update_one(
-                    {"username": username},
-                    {"$set": {"credits": new_credits}}
-                )
+                if not result:
+                    return {"status": "error", "message": "User not found"}, 404
+                
+                new_credits = result.get("credits", 0)
+                
+                # Prevent negative credits
+                if new_credits < 0:
+                    # Rollback by adding back the negative amount
+                    data_store.db.users.update_one(
+                        {"username": username},
+                        {"$set": {"credits": 0}}
+                    )
+                    return {
+                        "status": "error",
+                        "message": "Insufficient credits",
+                        "credits": 0
+                    }, 400
                 
                 return {
                     "status": "success",

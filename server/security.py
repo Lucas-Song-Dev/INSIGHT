@@ -6,7 +6,7 @@ import re
 import logging
 from functools import wraps
 from flask import request, jsonify
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import jwt
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ def rate_limit(max_requests=None, window=None):
                 client_id = request.headers.get('X-Forwarded-For').split(',')[0].strip()
             
             # Check rate limit
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             key = f"{client_id}:{f.__name__}"
             
             if key in _rate_limit_store:

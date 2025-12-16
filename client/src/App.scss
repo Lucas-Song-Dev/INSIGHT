@@ -52,7 +52,177 @@ body {
       font-weight: $font-weight-semibold;
       color: $text-primary;
       margin: 0;
-      padding: $spacing-lg 0;
+      padding: $spacing-lg 0 $spacing-xl 0;
+    }
+  }
+
+  .welcome-banner {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+    border: 2px solid rgba(99, 102, 241, 0.3);
+    border-radius: $border-radius-xl;
+    padding: $spacing-xl;
+    margin-bottom: $spacing-xl;
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    box-shadow: $shadow-lg;
+    
+    .welcome-icon {
+      font-size: 48px;
+      flex-shrink: 0;
+    }
+    
+    .welcome-content {
+      flex: 1;
+      
+      h2 {
+        font-size: $font-size-2xl;
+        font-weight: $font-weight-bold;
+        color: $text-primary;
+        margin: 0 0 $spacing-sm 0;
+      }
+      
+      p {
+        font-size: $font-size-base;
+        color: $medium-text;
+        margin: 0 0 $spacing-md 0;
+        line-height: $line-height-relaxed;
+      }
+      
+      .get-started-button {
+        background: $accent-color;
+        color: white;
+        border: none;
+        padding: $spacing-sm $spacing-lg;
+        border-radius: $border-radius-md;
+        font-size: $font-size-base;
+        font-weight: $font-weight-semibold;
+        cursor: pointer;
+        transition: all $transition-speed $transition-ease;
+        
+        &:hover {
+          background: darken($accent-color, 10%);
+          transform: translateX(4px);
+        }
+      }
+    }
+  }
+
+  // Data Source Banner - Prominent, minimal, aesthetically pleasing
+  .data-source-banner {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.05) 0%, rgba(107, 114, 128, 0.02) 100%);
+    border: 1px solid rgba(107, 114, 128, 0.15);
+    border-radius: $border-radius-xl;
+    padding: $spacing-xl;
+    margin: $spacing-xl 0;
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    box-shadow: $shadow-sm;
+    
+    .data-source-icon {
+      font-size: 48px;
+      flex-shrink: 0;
+      opacity: 0.8;
+    }
+    
+    .data-source-content {
+      flex: 1;
+      
+      .data-source-title {
+        font-size: $font-size-2xl;
+        font-weight: $font-weight-bold;
+        color: $text-primary;
+        margin: 0 0 $spacing-sm 0;
+        letter-spacing: -0.5px;
+      }
+      
+      .data-source-description {
+        font-size: $font-size-base;
+        color: $medium-text;
+        margin: 0;
+        line-height: $line-height-relaxed;
+        max-width: 800px;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      text-align: center;
+      padding: $spacing-lg;
+      
+      .data-source-icon {
+        font-size: 36px;
+      }
+      
+      .data-source-title {
+        font-size: $font-size-xl;
+      }
+    }
+  }
+
+  .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: $spacing-lg;
+    margin-top: $spacing-lg;
+
+    .stat-card {
+      background: $bg-card;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-lg;
+      padding: $spacing-lg;
+      display: flex;
+      align-items: center;
+      gap: $spacing-md;
+      transition: all $transition-speed $transition-ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: $shadow-md;
+        border-color: rgba(99, 102, 241, 0.5);
+      }
+
+      &.clickable {
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: $spacing-lg;
+        width: 100%;
+        text-align: left;
+
+        &:hover {
+          background: rgba(99, 102, 241, 0.1);
+          transform: translateY(-3px);
+          box-shadow: $shadow-lg;
+        }
+
+        &:focus {
+          outline: 2px solid $accent-color;
+          outline-offset: 2px;
+        }
+      }
+      
+      .stat-icon {
+        font-size: 32px;
+        flex-shrink: 0;
+      }
+      
+      .stat-content {
+        flex: 1;
+        
+        .stat-value {
+          font-size: $font-size-xl;
+          font-weight: $font-weight-bold;
+          color: $text-primary;
+          margin-bottom: 4px;
+        }
+        
+        .stat-label {
+          font-size: $font-size-sm;
+          color: $medium-text;
+        }
+      }
     }
   }
 }
@@ -78,6 +248,43 @@ body {
     margin-bottom: 20px;
     color: $accent-color;
     letter-spacing: -0.5px;
+  }
+
+  .home-subtitle {
+    font-size: $font-size-lg;
+    color: $medium-text;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .home-actions {
+    margin-top: 3rem;
+    text-align: center;
+
+    .insights-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-size: $font-size-lg;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all $transition-speed $transition-ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+      }
+
+      &:focus {
+        outline: 2px solid $accent-color;
+        outline-offset: 2px;
+      }
+    }
   }
   
   .tagline {

@@ -106,7 +106,7 @@ class TestGetStatusEndpoint:
         mock_store.raw_posts = []
         mock_store.analyzed_posts = []
         mock_store.pain_points = {}
-        mock_store.openai_analyses = {}
+        mock_store.anthropic_analyses = {}
         mock_store.subreddits_scraped = set()
         mock_store.scrape_in_progress = False
         mock_store.last_scrape_time = None
@@ -171,7 +171,7 @@ class TestRecommendationsEndpoint:
     def test_get_recommendations_no_db(self, mock_store, client, auth_headers):
         """Test get recommendations without database"""
         mock_store.db = None
-        mock_store.openai_analyses = {}
+        mock_store.anthropic_analyses = {}
         
         response = client.get('/api/recommendations', headers=auth_headers)
         assert response.status_code in [400, 500]
@@ -206,7 +206,7 @@ class TestGetClaudeAnalysisEndpoint:
     def test_get_claude_analysis_success(self, mock_store, client, auth_headers):
         """Test successful get Claude analysis"""
         mock_store.db = None
-        mock_store.openai_analyses = {}
+        mock_store.anthropic_analyses = {}
         
         response = client.get('/api/claude-analysis', headers=auth_headers)
         assert response.status_code in [200, 400]

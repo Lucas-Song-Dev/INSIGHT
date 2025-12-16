@@ -66,11 +66,6 @@
     height: 3px;
     background: linear-gradient(to right, $accent-color, color.adjust($accent-color, $lightness: -15%));
     border-radius: 4px;
-    transition: width 0.3s ease;
-  }
-  
-  &:hover::after {
-    width: 100%;
   }
 }
 
@@ -91,32 +86,8 @@
   -webkit-backdrop-filter: blur(5px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   padding: 25px;
-  transition: box-shadow $transition-speed, border-color $transition-speed;
   position: relative;
   overflow: hidden;
-  
-  &:hover {
-    // Use box-shadow only - no transform to avoid layout shifts and scrollbar flickering
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-    border-color: rgba(255, 255, 255, 0.5);
-  }
-  
-  // Subtle gradient animation
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(to right, transparent, $accent-color, transparent);
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  
-  &:hover::before {
-    opacity: 1;
-  }
 }
 
 .card-title {
@@ -135,11 +106,6 @@
     width: 40px;
     height: 2px;
     background: $accent-color;
-    transition: width 0.3s;
-  }
-  
-  &:hover::after {
-    width: 100%;
   }
 }
 
@@ -168,12 +134,6 @@
   font-size: 14px;
   font-weight: 500;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s;
-  
-  &:hover {
-    // Use box-shadow only - no transform to avoid layout shifts
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
-  }
 
   span {
     margin-right: 8px;
@@ -205,7 +165,6 @@
   height: 24px;
   padding: 0;
   border-radius: 50%;
-  transition: color 0.3s, background 0.3s;
   
   &:hover {
     color: white;
@@ -231,7 +190,6 @@
   border-radius: $border-radius;
   font-size: $input-font-size-md;
   color: $dark-text;
-  transition: all $transition-speed $transition-ease;
   font-family: $font-family;
   
   &:focus {
@@ -256,15 +214,9 @@
   border-radius: 0 12px 12px 0;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.3s, filter 0.3s;
   
   &:hover {
     background: linear-gradient(135deg, color.adjust($accent-color, $lightness: 5%), $accent-color);
-    filter: brightness(1.05);
-  }
-  
-  &:active {
-    filter: brightness(0.95);
   }
 }
 
@@ -323,7 +275,6 @@
   gap: 15px;
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s;
   
   &:hover {
     .openai-checkbox {
@@ -346,7 +297,6 @@
   background-color: rgba(255, 255, 255, 0.8);
   border: 2px solid rgba(0, 0, 0, 0.2);
   border-radius: 4px;
-  transition: all 0.2s ease;
   position: relative;
   
   &:checked {
@@ -383,7 +333,6 @@
   font-size: 16px;
   font-weight: 600;
   color: $dark-text;
-  transition: color 0.2s;
 }
 
 .openai-details {
@@ -411,28 +360,6 @@
     cursor: not-allowed;
   }
   
-  &::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(transparent, rgba(255, 255, 255, 0.1), transparent);
-    transform: rotate(45deg);
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  
-  &:hover::after {
-    opacity: 1;
-    animation: shimmerButton 2s infinite;
-  }
-  
-  @keyframes shimmerButton {
-    0% { transform: rotate(45deg) translateX(-100%); }
-    100% { transform: rotate(45deg) translateX(100%); }
-  }
 }
 
 .actions-container {
@@ -451,17 +378,10 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: box-shadow 0.3s, filter 0.3s;
   box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3); // Matte gray shadow
   
   &:hover:not(:disabled) {
-    // Use box-shadow only - no transform to avoid layout shifts
     box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4); // Matte gray shadow
-    filter: brightness(1.05);
-  }
-  
-  &:active:not(:disabled) {
-    filter: brightness(0.95);
   }
   
   &:disabled {
@@ -483,12 +403,6 @@
   box-shadow: 0 4px 15px rgba(220, 38, 38, 0.1); // Using error-color
   font-size: 14px;
   font-weight: 500;
-  animation: fadeInUp 0.3s ease;
-  
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
 }
 
 // Results Container with Glass Style
@@ -512,11 +426,6 @@
     width: 40px;
     height: 2px;
     background: $accent-color;
-    transition: width 0.3s;
-  }
-  
-  &:hover::after {
-    width: 100%;
   }
 }
 
@@ -534,11 +443,6 @@
   font-size: 14px;
   line-height: 1.6;
   color: $dark-text;
-  transition: all 0.3s;
-  
-  &:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  }
   
   &::-webkit-scrollbar {
     width: 8px;

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { fetchAllProducts } from "@/api/api";
 import "./resultsPage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import LoadingState from "@/components/LoadingState/LoadingState";
 
-const ResultsPage = ({ setActivePage, setSelectedProduct }) => {
+const ResultsPage = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -103,8 +105,7 @@ const ResultsPage = ({ setActivePage, setSelectedProduct }) => {
     const productName = typeof product === 'string' ? product : product.name;
     console.log('[RESULTS PAGE] Product clicked:', productName);
     console.log('[RESULTS PAGE] Navigating to product detail page');
-    setSelectedProduct(productName);
-    setActivePage("productDetail");
+    navigate(`/products/${encodeURIComponent(productName)}`);
   };
 
   return (

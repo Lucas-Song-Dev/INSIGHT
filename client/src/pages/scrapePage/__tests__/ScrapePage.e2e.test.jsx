@@ -343,7 +343,7 @@ describe('ScrapePage E2E Tests', () => {
     it('should handle API error responses', async () => {
       mockTriggerScrape.mockResolvedValue({
         status: 'error',
-        message: 'Insufficient credits',
+        message: 'Insufficient credits. You have 0 credits but need 2.',
       });
 
       render(<ScrapePage />);
@@ -356,7 +356,7 @@ describe('ScrapePage E2E Tests', () => {
 
       await waitFor(() => {
         expect(mockShowNotification).toHaveBeenCalledWith(
-          'Insufficient credits',
+          'Insufficient credits. You have 0 credits but need 2.',
           'error',
           expect.any(Number)
         );
@@ -392,6 +392,35 @@ describe('ScrapePage E2E Tests', () => {
 
       fireEvent.keyDown(topicInput, { key: 'Tab' });
       // Next focusable element should be timeFilter (though exact behavior depends on tabindex)
+    });
+
+    it('should show notification with form topic data, not API response', async () => {
+      const mockShowNotification = vi.fn();
+      const mockTriggerScrape = vi.fn().mockResolvedValue({
+        status: 'success',
+        topic: 'API_TOPIC' // Different from form topic
+      });
+
+      vi.mocked(useNotification).mockReturnValue({ showNotification: mockShowNotification });
+      vi.doMock('../../../api/api', () => ({
+        triggerScrape: mockTriggerScrape
+      }));
+
+      render(<ScrapePage />);
+
+      const topicInput = screen.getByLabelText('Topic or Product');
+      const scrapeButton = screen.getByRole('button', { name: /Find Insights/ });
+
+      fireEvent.change(topicInput, { target: { value: 'Form Topic' } });
+      fireEvent.click(scrapeButton);
+
+      await waitFor(() => {
+        expect(mockShowNotification).toHaveBeenCalledWith(
+          'Discovering insights for "Form Topic"...', // Should use form data, not API response
+          'info',
+          8000
+        );
+      });
     });
   });
 });

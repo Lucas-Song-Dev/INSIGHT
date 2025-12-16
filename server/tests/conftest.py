@@ -73,7 +73,7 @@ def mock_data_store():
     mock_store.analyzed_posts = []
     mock_store.subreddits_scraped = set()
     mock_store.last_scrape_time = None
-    mock_store.openai_analyses = {}
+    mock_store.anthropic_analyses = {}
     return mock_store
 
 @pytest.fixture

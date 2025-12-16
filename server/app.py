@@ -16,8 +16,12 @@ try:
 except LookupError:
     nltk.download("punkt")
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
+# Set up logging - CRITICAL FIX: Use appropriate log level based on environment
+log_level = os.getenv("LOG_LEVEL", "INFO" if os.getenv("FLASK_ENV") == "production" else "DEBUG")
+logging.basicConfig(
+    level=getattr(logging, log_level.upper(), logging.INFO),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 logging.getLogger("pymongo").setLevel(logging.WARNING)
 logging.getLogger("pymongo.connection").setLevel(logging.WARNING)
@@ -67,17 +71,60 @@ def add_request_id():
 
 @app.before_request
 def log_request_info():
-    """Log all incoming requests for debugging"""
+    """Log incoming requests with security considerations"""
     request_id = getattr(g, 'request_id', 'N/A')
-    print(f"\n[REQUEST {request_id}] {request.method} {request.path}")
-    print(f"[REQUEST {request_id}] Headers: {dict(request.headers)}")
-    if request.is_json:
-        print(f"[REQUEST {request_id}] JSON Body: {request.get_json()}")
-    elif request.form:
-        print(f"[REQUEST {request_id}] Form Data: {dict(request.form)}")
-    elif request.args:
-        print(f"[REQUEST {request_id}] Query Params: {dict(request.args)}")
-    logger.debug(f"[{request_id}] Request: {request.method} {request.path}")
+    
+    # CRITICAL FIX: Only log in development, sanitize sensitive data
+    is_development = os.getenv("FLASK_ENV") != "production"
+    
+    if is_development:
+        # In development, log more details but still sanitize
+        logger.debug(f"[{request_id}] {request.method} {request.path}")
+        
+        # Sanitize headers - remove sensitive information
+        headers = dict(request.headers)
+        sensitive_headers = ['authorization', 'cookie', 'x-api-key', 'x-auth-token']
+        sanitized_headers = {k: '***REDACTED***' if k.lower() in sensitive_headers else v 
+                            for k, v in headers.items()}
+        logger.debug(f"[{request_id}] Headers: {sanitized_headers}")
+        
+        # Sanitize request body - remove passwords and tokens
+        if request.is_json:
+            body = request.get_json() or {}
+            sanitized_body = sanitize_sensitive_data(body)
+            logger.debug(f"[{request_id}] JSON Body: {sanitized_body}")
+        elif request.form:
+            form_data = dict(request.form)
+            sanitized_form = sanitize_sensitive_data(form_data)
+            logger.debug(f"[{request_id}] Form Data: {sanitized_form}")
+        elif request.args:
+            logger.debug(f"[{request_id}] Query Params: {dict(request.args)}")
+    else:
+        # In production, only log minimal info
+        logger.info(f"[{request_id}] {request.method} {request.path}")
+
+
+def sanitize_sensitive_data(data):
+    """Remove sensitive fields from data for logging"""
+    if not isinstance(data, dict):
+        return data
+    
+    sensitive_fields = ['password', 'token', 'secret', 'api_key', 'access_token', 
+                       'refresh_token', 'authorization', 'auth']
+    sanitized = {}
+    
+    for key, value in data.items():
+        key_lower = key.lower()
+        if any(sensitive in key_lower for sensitive in sensitive_fields):
+            sanitized[key] = '***REDACTED***'
+        elif isinstance(value, dict):
+            sanitized[key] = sanitize_sensitive_data(value)
+        elif isinstance(value, list) and value and isinstance(value[0], dict):
+            sanitized[key] = [sanitize_sensitive_data(item) for item in value]
+        else:
+            sanitized[key] = value
+    
+    return sanitized
 
 # Add security headers and request ID to all responses
 @app.after_request

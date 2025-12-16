@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
@@ -21,7 +21,7 @@ class MongoDBStore:
         self.analyzed_posts = []
         self.subreddits_scraped = set()
         self.last_scrape_time = None
-        self.openai_analyses = {}
+        self.anthropic_analyses = {}
         
         # Connect to MongoDB if URI is provided
         if self.mongodb_uri:
@@ -74,8 +74,8 @@ class MongoDBStore:
             self.db.users.create_index("username", unique=True)
             self.db.users.create_index("email")
             
-            # Create indexes on openai_analysis collection
-            self.db.openai_analysis.create_index("product")
+            # Create indexes on anthropic_analysis collection
+            self.db.anthropic_analysis.create_index("product")
             
             # Create indexes on recommendations collection
             self.db.recommendations.create_index("product")
@@ -112,7 +112,7 @@ class MongoDBStore:
         
         try:
             # Prepare update data
-            update_data = {"last_updated": datetime.utcnow()}
+            update_data = {"last_updated": datetime.now(timezone.utc)}
             
             # Only update fields that are provided
             if scrape_in_progress is not None:
@@ -166,7 +166,7 @@ class MongoDBStore:
             
             # Add timestamp if not present
             if 'created_at' not in post_data:
-                post_data['created_at'] = datetime.utcnow()
+                post_data['created_at'] = datetime.now(timezone.utc)
             
             # Get post ID - either from id attribute or from the 'id' key
             post_id = None
@@ -213,7 +213,7 @@ class MongoDBStore:
             recommendations_data = {
                 "product": product,
                 "recommendations": recommendations,
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(timezone.utc)
             }
             
             # Use product name as ID
@@ -245,7 +245,7 @@ class MongoDBStore:
             
             # Add timestamp if not present
             if 'created_at' not in pain_data:
-                pain_data['created_at'] = datetime.utcnow()
+                pain_data['created_at'] = datetime.now(timezone.utc)
             
             # Use custom ID or generate one
             pain_id = pain_data.get('id', str(hash(f"{pain_data['product']}_{pain_data['topic']}")))
@@ -266,10 +266,10 @@ class MongoDBStore:
             logger.error(f"Error saving pain point: {str(e)}")
             return False
     
-    def save_openai_analysis(self, product, analysis):
-        """Save OpenAI analysis to database"""
+    def save_anthropic_analysis(self, product, analysis):
+        """Save Anthropic analysis to database"""
         if self.db is None:
-            logger.error("Cannot save OpenAI analysis: Database connection not established")
+            logger.error("Cannot save Anthropic analysis: Database connection not established")
             return False
         
         try:
@@ -280,27 +280,27 @@ class MongoDBStore:
             analysis_data = {
                 "product": product_normalized,
                 "analysis": analysis,
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(timezone.utc)
             }
             
             # Use normalized product name as ID for consistency
             analysis_data['_id'] = product_normalized
             
             # Insert or update analysis
-            result = self.db.openai_analysis.update_one(
+            result = self.db.anthropic_analysis.update_one(
                 {"_id": product_normalized},
                 {"$set": analysis_data},
                 upsert=True
             )
             
-            logger.info(f"Saved OpenAI analysis for {product}")
-            
+            logger.info(f"Saved Anthropic analysis for {product}")
+
             # Update local cache with original product name as key
-            self.openai_analyses[product] = analysis
-            
+            self.anthropic_analyses[product] = analysis
+
             return True
         except Exception as e:
-            logger.error(f"Error saving OpenAI analysis: {str(e)}")
+            logger.error(f"Error saving Anthropic analysis: {str(e)}")
             return False
     
     def load_pain_points(self):

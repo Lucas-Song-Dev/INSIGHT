@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import "./App.scss";
 import Post from "./pages/postsPage/PostsPage";
 import AnalysisPage from "./pages/analysisPage/AnalysisPage";
@@ -7,12 +8,13 @@ import RecomendationPage from "./pages/recommendationPage/RecomendationPage";
 import AboutPage from "./pages/aboutPage/AboutPage";
 import ResultsPage from "./pages/resultsPage/ResultsPage";
 import ProductDetailPage from "./pages/productDetailPage/ProductDetailPage";
+import InsightsPage from "./pages/insightsPage/InsightsPage";
 import Sidebar from "./components/Sidebar/Sidebar";
 import ProfilePage from "./pages/profilePage/ProfilePage";
 import StatusPage from "./pages/statusPage/StatusPage";
 import LoginPage from "./pages/auth/LoginPage";
 import { useAuth } from "./context/AuthContext";
-import { logoutUser, fetchPosts, fetchOpenAIAnalysis, fetchAllProducts } from "./api/api";
+import { logoutUser, fetchPosts, fetchClaudeAnalysis, fetchAllProducts } from "./api/api";
 import Notification from "./components/Notification/Notification";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import Background from "./components/Background/Background";
@@ -44,14 +46,16 @@ const getUserName = (user) => {
   return name;
 };
 
-function App() {
-  const [activePage, setActivePage] = useState("home");
-  const [selectedProduct, setSelectedProduct] = useState(null);
+// App Content Component (needs to be inside Router)
+function AppContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { isAuthenticated, isLoading, login, logout, user } = useAuth();
 
   // Periodic API polling for debugging - logs posts and analysis data
+  // PERFORMANCE FIX: Only enable polling in development mode
   useEffect(() => {
+    // Skip polling in production
+    if (import.meta.env.MODE === 'production') return;
     if (!isAuthenticated) return;
 
     const pollAPIs = async () => {
@@ -96,7 +100,7 @@ function App() {
             : productsWithAnalysis[0];
           try {
             console.log(`[POLL] Fetching analysis for product: ${firstProduct}...`);
-            const analysisData = await fetchOpenAIAnalysis({ product: [firstProduct] });
+            const analysisData = await fetchClaudeAnalysis({ product: [firstProduct] });
             console.log("[POLL] Analysis API Response:", {
               status: analysisData.status,
               analysesCount: analysisData.analyses?.length || 0,
@@ -148,14 +152,79 @@ function App() {
     return <LoginPage onLoginSuccess={login} />;
   }
 
+  // Check if user is new (created within last 5 minutes)
+  const isNewUser = () => {
+    if (!user?.created_at) return false;
+    const createdAt = new Date(user.created_at);
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+    return diffMinutes < 5;
+  };
+
   // Define the content to render based on active page
   const renderContent = () => {
     switch (activePage) {
+      case "insights":
+        return <InsightsPage setActivePage={setActivePage} />;
       case "home":
         return (
           <div className="home-container">
             <div className="home-header">
               <h1>Good {getTimeOfDay()}, {getUserName(user)}</h1>
+              <p className="home-subtitle">Welcome to your insights dashboard</p>
+
+              <div className="quick-stats">
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M16 8l-8 8"/>
+                      <path d="M12 8v8"/>
+                    </svg>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">{user?.credits || 0}</div>
+                    <div className="stat-label">Credits Available</div>
+                  </div>
+                </div>
+                <button className="stat-card clickable" onClick={() => setActivePage("scrapepage")}>
+                  <div className="stat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">Start</div>
+                    <div className="stat-label">Find Insights</div>
+                  </div>
+                </button>
+                <button className="stat-card clickable" onClick={() => setActivePage("results")}>
+                  <div className="stat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="20" x2="18" y2="10"/>
+                      <line x1="12" y1="20" x2="12" y2="4"/>
+                      <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">View</div>
+                    <div className="stat-label">Results</div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="home-actions">
+                <button
+                  className="insights-button"
+                  onClick={() => setActivePage("insights")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: '8px'}}>
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                  </svg>
+                  Learn About Real User Insights →
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -198,8 +267,6 @@ function App() {
       <Background />
       {/* Sidebar Navigation */}
       <Sidebar
-        activePage={activePage}
-        setActivePage={setActivePage}
         handleLogout={handleLogout}
         onCollapseChange={setSidebarCollapsed}
       />
@@ -207,11 +274,30 @@ function App() {
       {/* Main Content */}
       <div className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`} data-testid="main-content">
         <ErrorBoundary>
-          {renderContent()}
+          <Routes>
+            <Route path="/" element={<InsightsPage />} />
+            <Route path="/insights" element={<InsightsPage />} />
+            <Route path="/find-insights" element={<ScrapePage />} />
+            <Route path="/results" element={<ResultsPage />} />
+            <Route path="/products/:productName" element={<ProductDetailPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/status" element={<StatusPage />} />
+            <Route path="/analysis" element={<AnalysisPage />} />
+          </Routes>
         </ErrorBoundary>
         <Notification />
       </div>
     </div>
+  );
+}
+
+// Main App component with Router
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

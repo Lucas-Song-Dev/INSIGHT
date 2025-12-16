@@ -121,8 +121,15 @@ class RedditScraper:
                 # Apply rate limiting to avoid hitting the Reddit API too hard
                 time.sleep(2)
                     
+            except praw.exceptions.RedditAPIException as e:
+                logger.error(f"Reddit API error searching subreddit {subreddit}: {str(e)}")
+                # Continue with other subreddits
+            except praw.exceptions.RequestException as e:
+                logger.error(f"Network error searching subreddit {subreddit}: {str(e)}")
+                # Continue with other subreddits
             except Exception as e:
-                logger.error(f"Error searching subreddit {subreddit}: {str(e)}")
+                logger.error(f"Unexpected error searching subreddit {subreddit}: {str(e)}", exc_info=True)
+                # Continue with other subreddits
                 
         logger.info(f"Found {len(posts)} posts for query '{query}'")
         return posts
