@@ -1,6 +1,7 @@
 import os
 import logging
-from flask import Flask, request
+import uuid
+from flask import Flask, request, g
 from flask_cors import CORS
 from flask_restful import Api
 import nltk
@@ -16,7 +17,7 @@ try:
 except LookupError:
     nltk.download("punkt")
 
-# Set up logging - CRITICAL FIX: Use appropriate log level based on environment
+# Set up logging
 log_level = os.getenv("LOG_LEVEL", "INFO" if os.getenv("FLASK_ENV") == "production" else "DEBUG")
 logging.basicConfig(
     level=getattr(logging, log_level.upper(), logging.INFO),
@@ -31,31 +32,23 @@ logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 
-# Configure CORS FIRST, before any routes
-cors_origins = ["https://iinsightss.com", "https://www.iinsightss.com", "https://reddit-painpoint-4nx9b.ondigitalocean.app", "http://localhost:5173"]
+# Configure CORS origins
+cors_origins = [
+    "https://iinsightss.com",
+    "https://www.iinsightss.com",
+    "https://reddit-painpoint-4nx9b.ondigitalocean.app",
+    "http://localhost:5173"
+]
 
 logger.info(f"Setting up CORS for origins: {cors_origins}")
 
-# Try manual CORS headers first to bypass Flask-RESTful issues
-@app.after_request
-def add_cors_headers(response):
-    origin = request.headers.get('Origin')
-    if origin in cors_origins:
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        logger.debug(f"Added CORS headers for origin: {origin}")
-    elif origin:
-        logger.warning(f"Blocked CORS request from unauthorized origin: {origin}")
-    return response
-
-# Also try Flask-CORS as backup
+# Configure CORS - single, clean configuration
 CORS(app,
-    origins=cors_origins,
+    resources={r"/*": {"origins": cors_origins}},
     supports_credentials=True,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"]
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    expose_headers=["Content-Type", "X-Request-ID"]
 )
 
 # Initialize Flask-RESTful API
@@ -78,9 +71,6 @@ if not validate_jwt_secret():
     logger.warning("JWT_SECRET_KEY validation failed - check your configuration")
 
 # Add request ID tracking
-import uuid
-from flask import g
-
 @app.before_request
 def add_request_id():
     """Add unique request ID to all requests"""
@@ -88,18 +78,15 @@ def add_request_id():
     origin = request.headers.get('Origin', 'No Origin')
     logger.info(f"[{g.request_id}] {request.method} {request.path} (Origin: {origin})")
 
-# Removed duplicate OPTIONS handler - using manual CORS headers instead
-
 @app.before_request
 def log_request_info():
     """Log incoming requests with security considerations"""
     request_id = getattr(g, 'request_id', 'N/A')
     
-    # CRITICAL FIX: Only log in development, sanitize sensitive data
+    # Only log in development, sanitize sensitive data
     is_development = os.getenv("FLASK_ENV") != "production"
     
     if is_development:
-        # In development, log more details but still sanitize
         logger.debug(f"[{request_id}] {request.method} {request.path}")
         
         # Sanitize headers - remove sensitive information
@@ -109,7 +96,7 @@ def log_request_info():
                             for k, v in headers.items()}
         logger.debug(f"[{request_id}] Headers: {sanitized_headers}")
         
-        # Sanitize request body - remove passwords and tokens
+        # Sanitize request body
         if request.is_json:
             body = request.get_json() or {}
             sanitized_body = sanitize_sensitive_data(body)
