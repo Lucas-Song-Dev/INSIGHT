@@ -50,7 +50,8 @@ CORS(app, resources={r"/api/*": {
     "origins": allowed_origins,
     "supports_credentials": True,
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
+    "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+    "expose_headers": ["X-Request-ID"]
 }})
 
 # Initialize Flask-RESTful API
@@ -81,6 +82,18 @@ def add_request_id():
     """Add unique request ID to all requests"""
     g.request_id = str(uuid.uuid4())
     logger.info(f"[{g.request_id}] {request.method} {request.path}")
+
+@app.before_request
+def handle_options_request():
+    """Handle OPTIONS requests for CORS preflight"""
+    if request.method == 'OPTIONS':
+        logger.info(f"[{g.request_id}] Handling OPTIONS preflight request for {request.path}")
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
 @app.before_request
 def log_request_info():

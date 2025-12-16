@@ -9,7 +9,7 @@ const REQUEST_TIMEOUT = 300000; // 5 minutes for long-running operations
 
 // Create axios instance with default config
 const apiClient = axios.create({
-  baseURL: API_BASE,
+  baseURL: `${API_BASE}/api`,
   timeout: REQUEST_TIMEOUT,
   withCredentials: true,
 });
@@ -48,8 +48,12 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // Log API base URL in development to help debug
+console.log("API Base URL:", API_BASE);
+console.log("API Client Base URL:", `${API_BASE}/api`);
 if (import.meta.env.DEV) {
-  console.log("API Base URL:", API_BASE);
+  console.log("Environment: Development");
+} else {
+  console.log("Environment: Production");
 }
 
 /**
@@ -542,12 +546,9 @@ export const fetchAllProducts = async () => {
  */
 export const runAnalysis = async ({ product }) => {
   try {
-    const res = await axios.post(
-      `${API_BASE}/run-analysis`,
-      { product },
-      {
-        withCredentials: true,
-      }
+    const res = await apiClient.post(
+      '/run-analysis',
+      { product }
     );
     return res.data;
   } catch (err) {
