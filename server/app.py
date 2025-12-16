@@ -32,12 +32,20 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 
 # Enable CORS with security restrictions
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+default_origins = ["http://localhost:5173", "https://www.iinsightss.com", "https://iinsightss.com"]
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+else:
+    allowed_origins = default_origins
+
+logger.info(f"CORS configured for origins: {allowed_origins}")
+
 CORS(app, resources={r"/api/*": {
     "origins": allowed_origins,
     "supports_credentials": True,
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization"]
+    "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
 }})
 
 # Initialize Flask-RESTful API
