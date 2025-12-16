@@ -31,28 +31,32 @@ logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 
-# Enable CORS with security restrictions
-default_origins = [
-    "http://localhost:5173",  # Local development
-    "https://www.iinsightss.com",  # Production domain
-    "https://iinsightss.com",  # Production domain (without www)
-    "https://reddit-painpoint-4nx9b.ondigitalocean.app"  # DigitalOcean deployment
-]
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
-if allowed_origins_env:
-    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
-else:
-    allowed_origins = default_origins
+# Configure CORS FIRST, before any routes
+cors_origins = ["https://iinsightss.com", "https://www.iinsightss.com", "https://reddit-painpoint-4nx9b.ondigitalocean.app", "http://localhost:5173"]
 
-logger.info(f"CORS configured for origins: {allowed_origins}")
+logger.info(f"Setting up CORS for origins: {cors_origins}")
 
-CORS(app, resources={r"/api/*": {
-    "origins": allowed_origins,
-    "supports_credentials": True,
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-    "expose_headers": ["X-Request-ID"]
-}})
+# Try manual CORS headers first to bypass Flask-RESTful issues
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin')
+    if origin in cors_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        logger.debug(f"Added CORS headers for origin: {origin}")
+    elif origin:
+        logger.warning(f"Blocked CORS request from unauthorized origin: {origin}")
+    return response
+
+# Also try Flask-CORS as backup
+CORS(app,
+    origins=cors_origins,
+    supports_credentials=True,
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"]
+)
 
 # Initialize Flask-RESTful API
 api = Api(app)
@@ -81,19 +85,10 @@ from flask import g
 def add_request_id():
     """Add unique request ID to all requests"""
     g.request_id = str(uuid.uuid4())
-    logger.info(f"[{g.request_id}] {request.method} {request.path}")
+    origin = request.headers.get('Origin', 'No Origin')
+    logger.info(f"[{g.request_id}] {request.method} {request.path} (Origin: {origin})")
 
-@app.before_request
-def handle_options_request():
-    """Handle OPTIONS requests for CORS preflight"""
-    if request.method == 'OPTIONS':
-        logger.info(f"[{g.request_id}] Handling OPTIONS preflight request for {request.path}")
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
+# Removed duplicate OPTIONS handler - using manual CORS headers instead
 
 @app.before_request
 def log_request_info():
