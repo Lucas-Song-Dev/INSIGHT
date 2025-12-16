@@ -314,5 +314,219 @@ describe('AuthContext - Comprehensive Tests', () => {
       });
     });
   });
+
+  describe('CORS/Network Error Handling Fix', () => {
+    it('should handle CORS errors without causing false authentication failure', async () => {
+      // Simulate CORS error (no response object, Network Error message)
+      api.fetchStatus.mockRejectedValue({
+        message: 'Network Error',
+        // No response object indicates network/CORS error
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(api.fetchStatus).toHaveBeenCalled();
+      });
+
+      // Should still set isAuthenticated to false (to show login page)
+      // but should log it as a network error, not an auth failure
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
+        expect(screen.getByTestId('is-loading')).toHaveTextContent('false');
+      });
+
+      // Verify it logged as network error, not auth error
+      await waitFor(() => {
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('[AUTH] Network/CORS error'),
+          expect.anything()
+        );
+      });
+    });
+
+    it('should distinguish between 401 auth error and network error', async () => {
+      // Test 401 error (actual auth failure)
+      api.fetchStatus.mockRejectedValue({
+        response: { status: 401 },
+        message: 'Unauthorized'
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(api.fetchStatus).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
+      });
+
+      // Should log as authentication error, not network error
+      await waitFor(() => {
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('[AUTH] Authentication error (401/403)'),
+          expect.anything()
+        );
+      });
+    });
+
+    it('should handle network errors with CORS message', async () => {
+      // Simulate CORS error with explicit CORS message
+      api.fetchStatus.mockRejectedValue({
+        message: 'CORS policy: No Access-Control-Allow-Origin header',
+        // No response object
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(api.fetchStatus).toHaveBeenCalled();
+      });
+
+      // Should set isAuthenticated to false but log as network error
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
+      });
+
+      // Should warn about network/CORS error
+      await waitFor(() => {
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('[AUTH] Network/CORS error'),
+          expect.anything()
+        );
+      });
+    });
+
+    it('should handle errors without response object as network errors', async () => {
+      // Error without response object (network/CORS issue)
+      api.fetchStatus.mockRejectedValue({
+        message: 'Failed to fetch',
+        // No response property
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(api.fetchStatus).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
+      });
+
+      // Should be treated as network error
+      await waitFor(() => {
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('[AUTH] Network/CORS error'),
+          expect.anything()
+        );
+      });
+    });
+
+    it('should handle 403 errors as authentication failures', async () => {
+      // Test 403 error (forbidden - auth failure)
+      api.fetchStatus.mockRejectedValue({
+        response: { status: 403 },
+        message: 'Forbidden'
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(api.fetchStatus).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
+      });
+
+      // Should log as authentication error
+      await waitFor(() => {
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('[AUTH] Authentication error (401/403)'),
+          expect.anything()
+        );
+      });
+    });
+
+    it('should handle other errors (non-auth, non-network) as not authenticated', async () => {
+      // Test other error (e.g., 500 server error)
+      api.fetchStatus.mockRejectedValue({
+        response: { status: 500 },
+        message: 'Internal Server Error'
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(api.fetchStatus).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
+      });
+
+      // Should log as other error
+      await waitFor(() => {
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('[AUTH] Other error during auth check'),
+          expect.anything()
+        );
+      });
+    });
+
+    it('should prevent redirect loops by properly handling network errors', async () => {
+      // Simulate network error that would previously cause redirect loop
+      api.fetchStatus.mockRejectedValue({
+        message: 'Network Error',
+      });
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
+
+      // Wait for initial check to complete
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      }, { timeout: 2000 });
+
+      // Verify isAuthenticated is false (to show login page)
+      expect(result.current.isAuthenticated).toBe(false);
+
+      // Verify it only called fetchStatus once (no loop)
+      expect(api.fetchStatus).toHaveBeenCalledTimes(1);
+
+      // Wait a bit to ensure no additional calls
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Should still be only 1 call (no loop)
+      expect(api.fetchStatus).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 

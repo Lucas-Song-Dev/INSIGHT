@@ -11,41 +11,24 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is already authenticated by verifying token exists
-    // and making a lightweight auth check
+    // Use fetchUserProfile which requires authentication (not fetchStatus which is public)
     const checkAuth = async () => {
       console.log('[AUTH] checkAuth called - checking authentication status');
       console.log('[AUTH] Current cookies:', document.cookie || 'No cookies found');
       try {
-        // Try to fetch status - if it succeeds, user is authenticated
-        // The token should be in cookies (httponly) set by the server
+        // Use fetchUserProfile to check authentication - this endpoint requires auth
+        // If it succeeds, user is authenticated; if it fails with 401/403, user is not authenticated
         const { fetchUserProfile } = await import("../api/api");
-        console.log('[AUTH] Calling fetchStatus to check authentication');
-        const response = await fetchStatus();
-        console.log('[AUTH] fetchStatus response:', response);
-        if (response && response.status === "success") {
-          console.log('[AUTH] Status check successful - user is authenticated');
+        console.log('[AUTH] Calling fetchUserProfile to check authentication');
+        const profileResponse = await fetchUserProfile();
+        console.log('[AUTH] Profile response:', profileResponse);
+        if (profileResponse && profileResponse.status === 'success' && profileResponse.user) {
+          console.log('[AUTH] Profile check successful - user is authenticated');
+          console.log('[AUTH] Setting user:', profileResponse.user?.username);
           setIsAuthenticated(true);
-          // Fetch user profile
-          try {
-            console.log('[AUTH] Fetching user profile...');
-            const profileResponse = await fetchUserProfile();
-            console.log('[AUTH] Profile response:', profileResponse);
-            if (profileResponse.status === 'success') {
-              console.log('[AUTH] Profile fetch successful, setting user:', profileResponse.user?.username);
-              setUser(profileResponse.user);
-            } else {
-              console.warn('[AUTH] Profile fetch returned non-success status:', profileResponse.status);
-            }
-          } catch (err) {
-            console.error('[AUTH] Failed to fetch user profile:', err);
-            console.error('[AUTH] Profile error details:', {
-              message: err.message,
-              responseStatus: err.response?.status,
-              responseData: err.response?.data
-            });
-          }
+          setUser(profileResponse.user);
         } else {
-          console.log('[AUTH] Status check failed or returned non-success - user not authenticated');
+          console.log('[AUTH] Profile check failed or returned non-success - user not authenticated');
           setIsAuthenticated(false);
           setUser(null);
         }
