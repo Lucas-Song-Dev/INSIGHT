@@ -32,7 +32,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 
 # Enable CORS with security restrictions
-default_origins = ["http://localhost:5173", "https://www.iinsightss.com", "https://iinsightss.com"]
+default_origins = [
+    "http://localhost:5173",  # Local development
+    "https://www.iinsightss.com",  # Production domain
+    "https://iinsightss.com",  # Production domain (without www)
+    "https://reddit-painpoint-4nx9b.ondigitalocean.app"  # DigitalOcean deployment
+]
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 if allowed_origins_env:
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]

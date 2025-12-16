@@ -2,7 +2,7 @@ import axios from "axios";
 import { handleApiError, createAbortController, isCancelledError } from "../utils/errorHandler";
 
 // Get API base URL from environment, with fallback for local development
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const DEFAULT_LIMIT = 100;
 const DEFAULT_TIME_FILTER = "month";
 const REQUEST_TIMEOUT = 300000; // 5 minutes for long-running operations
@@ -102,10 +102,9 @@ export const triggerScrape = async (options) => {
 export const fetchPosts = async (filters = {}) => {
   try {
     const abortController = createAbortController();
-    const res = await axios.get(`${API_BASE}/posts`, {
+    const res = await apiClient.get('/posts', {
       params: filters,
       signal: abortController.signal,
-      withCredentials: true, // Important for cookies to be sent
     });
     return res.data;
   } catch (err) {
@@ -152,10 +151,9 @@ export const fetchPosts = async (filters = {}) => {
        hasUserData: !!userData
      });
      
-     const res = await axios.post(`${API_BASE}/register`, userData, {
-       signal: abortController.signal,
-       withCredentials: true, // Important for cookies to be received
-     });
+    const res = await apiClient.post('/register', userData, {
+      signal: abortController.signal,
+    });
      
      console.log('[API] Step 2: Registration response received');
      console.log('[API] Response status:', res.status, res.statusText);
@@ -232,9 +230,7 @@ export const loginUser = async (credentials) => {
       hasCredentials: !!credentials
     });
     
-    const res = await axios.post(`${API_BASE}/login`, credentials, {
-      withCredentials: true, // Important for cookies to be received
-    });
+    const res = await apiClient.post('/login', credentials);
     
     console.log('[API] Step 2: Login response received');
     console.log('[API] Response status:', res.status, res.statusText);
@@ -269,7 +265,7 @@ export const loginUser = async (credentials) => {
       // Try to get token from a different endpoint
       console.log('[API] Attempting fallback: fetching token from /api/status endpoint...');
       try {
-        const statusRes = await axios.get(`${API_BASE}/status`, { withCredentials: true });
+        const statusRes = await apiClient.get('/status');
         console.log('[API] Status endpoint response:', statusRes.data);
       } catch (fallbackErr) {
         console.warn('[API] Fallback failed:', fallbackErr.message);
@@ -317,13 +313,7 @@ export const loginUser = async (credentials) => {
  */
 export const logoutUser = async () => {
   try {
-    const res = await axios.post(
-      `${API_BASE}/logout`,
-      {},
-      {
-        withCredentials: true, // Important for cookies to be sent
-      }
-    );
+    const res = await apiClient.post('/logout', {});
 
     // Clear token from localStorage regardless of server response
     localStorage.removeItem('access_token');
@@ -477,9 +467,8 @@ export const fetchAllProducts = async () => {
       hasSignal: !!abortController.signal
     });
     
-    const res = await axios.get(`${API_BASE}/all-products`, {
+    const res = await apiClient.get('/all-products', {
       signal: abortController.signal,
-      withCredentials: true, // Important for cookies to be sent
     });
     
     console.log('[API] Step 2: Products response received');
@@ -578,9 +567,8 @@ export const fetchStatus = async () => {
   try {
     const abortController = createAbortController();
     console.log('[AUTH] Sending status request to:', `${API_BASE}/status`);
-    const res = await axios.get(`${API_BASE}/status`, {
+    const res = await apiClient.get('/status', {
       signal: abortController.signal,
-      withCredentials: true, // Important for cookies to be sent
     });
     console.log('[AUTH] Status response received:', { 
       status: res.status,
@@ -631,9 +619,8 @@ export const fetchUserProfile = async () => {
       hasSignal: !!abortController.signal
     });
     
-    const res = await axios.get(`${API_BASE}/user/profile`, {
+    const res = await apiClient.get('/user/profile', {
       signal: abortController.signal,
-      withCredentials: true, // Important for cookies to be sent
     });
     
     console.log('[API] Step 2: Profile response received');

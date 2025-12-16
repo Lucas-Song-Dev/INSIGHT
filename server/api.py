@@ -1385,8 +1385,7 @@ class GetPosts(Resource):
         }
 class GetStatus(Resource):
     """API endpoint to get current scraper status"""
-    @token_required
-    def get(self, current_user):
+    def get(self):
         """
         Get current status of the scraper
         
