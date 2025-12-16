@@ -50,15 +50,39 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
         }
       } catch (error) {
-        // If we get an error (401/403), user is not authenticated
-        console.log('[AUTH] checkAuth error - user not authenticated:', error.message);
+        // Only set isAuthenticated to false if we get a 401/403 (actual auth failure)
+        // Network/CORS errors should not trigger auth failure - they're connectivity issues
+        const isAuthError = error.response?.status === 401 || error.response?.status === 403;
+        const isNetworkError = !error.response || error.message?.includes('Network Error') || error.message?.includes('CORS');
+        
+        console.log('[AUTH] checkAuth error:', error.message);
         console.error('[AUTH] checkAuth error details:', {
           message: error.message,
           responseStatus: error.response?.status,
-          responseData: error.response?.data
+          responseData: error.response?.data,
+          isAuthError,
+          isNetworkError
         });
-        setIsAuthenticated(false);
-        setUser(null);
+        
+        if (isAuthError) {
+          // Actual authentication failure - user is not authenticated
+          console.log('[AUTH] Authentication error (401/403) - user not authenticated');
+          setIsAuthenticated(false);
+          setUser(null);
+        } else if (isNetworkError) {
+          // Network/CORS error - can't determine auth status
+          // On initial load (isLoading was true), assume not authenticated to show login page
+          // This prevents redirect loops while still allowing login page to display
+          console.warn('[AUTH] Network/CORS error during auth check - cannot determine auth status');
+          console.warn('[AUTH] Assuming not authenticated to allow login page to display');
+          setIsAuthenticated(false);
+          setUser(null);
+        } else {
+          // Other error - assume not authenticated
+          console.log('[AUTH] Other error during auth check - assuming not authenticated');
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       } finally {
         console.log('[AUTH] checkAuth complete, setting isLoading to false');
         setIsLoading(false);

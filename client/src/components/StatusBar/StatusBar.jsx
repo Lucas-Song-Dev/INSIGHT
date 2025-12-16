@@ -176,11 +176,11 @@ const StatusBar = () => {
               </div>
               <div
                 className={`api-status ${getApiStatusClass(
-                  status.apis.claude || status.apis.openai
+                  status.apis.anthropic || status.apis.claude || status.apis.openai
                 )}`}
               >
                 <span className="api-name">AI Analysis:</span>
-                <span className="api-state">{status.apis.claude || status.apis.openai}</span>
+                <span className="api-state">{status.apis.anthropic || status.apis.claude || status.apis.openai}</span>
               </div>
             </div>
           </div>

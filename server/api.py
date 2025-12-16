@@ -20,7 +20,36 @@ from security import (
 class CORSResource(Resource):
     """Base resource class that handles OPTIONS for CORS preflight"""
     def options(self):
-        return {}, 200
+        """Handle CORS preflight OPTIONS request"""
+        # Get the origin from the request
+        origin = request.headers.get('Origin', '')
+        
+        # Allowed origins (must match app.py CORS configuration)
+        allowed_origins = [
+            "https://iinsightss.com",
+            "https://www.iinsightss.com",
+            "https://reddit-painpoint-4nx9b.ondigitalocean.app",
+            "http://localhost:5173"
+        ]
+        
+        # Create response with proper CORS headers
+        response = make_response('', 200)
+        
+        # Add CORS headers - Flask-CORS will also add headers via after_request hook
+        # but we add them here to ensure they're present for the preflight check
+        if origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+        elif origin:
+            # For development, allow localhost origins
+            if 'localhost' in origin or '127.0.0.1' in origin:
+                response.headers['Access-Control-Allow-Origin'] = origin
+        
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        
+        return response
 
 # Import data_store from app
 from app import data_store
