@@ -4,7 +4,8 @@ from api import (
     HealthCheck, Register, Login, Logout, ScrapePosts, Recommendations,
     GetPainPoints, GetPosts, GetStatus, ResetScrapeStatus,
     GetClaudeAnalysis, GetAllProducts, RunAnalysis,
-    GetUserProfile, UpdateUserCredits, DeleteAccount
+    GetUserProfile, UpdateUserCredits, DeleteAccount,
+    RequestPasswordReset, ResetPassword, ChangePassword
 )
 
 # Create blueprint for main routes
@@ -33,3 +34,6 @@ def initialize_routes(api):
     api.add_resource(GetUserProfile, '/api/user/profile')
     api.add_resource(UpdateUserCredits, '/api/user/credits')
     api.add_resource(DeleteAccount, '/api/user')
+    api.add_resource(RequestPasswordReset, '/api/password/reset-request')
+    api.add_resource(ResetPassword, '/api/password/reset')
+    api.add_resource(ChangePassword, '/api/user/password')

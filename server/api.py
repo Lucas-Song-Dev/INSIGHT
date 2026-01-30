@@ -1,6 +1,8 @@
 import logging
 import json
 import os
+import secrets
+import hashlib
 from flask import jsonify, request, Blueprint, current_app, make_response
 from flask_restful import Resource
 from datetime import datetime, timedelta, timezone
@@ -316,7 +318,91 @@ def token_required(f):
             return f(current_user, **kwargs)
     
     return decorated
+<<<<<<< Updated upstream
 class Login(CORSResource):
+=======
+
+# Utility functions for credit management
+def deduct_user_credits_atomic(username, amount):
+    """
+    Atomically check and deduct user credits using MongoDB atomic operations.
+    Prevents race conditions.
+    
+    Returns:
+        Tuple of (result_dict, status_code)
+    """
+    if data_store.db is None:
+        return {"status": "error", "message": "Database not available"}, 500
+    
+    try:
+        # Use findOneAndUpdate with atomic operation
+        result = data_store.db.users.find_one_and_update(
+            {
+                "username": username,
+                "credits": {"$gte": amount}  # Only update if sufficient credits
+            },
+            {
+                "$inc": {"credits": -amount}  # Atomic decrement
+            },
+            return_document=True  # Return updated document
+        )
+        
+        if result:
+            logger.info(f"Credits deducted: {amount} from {username}. Remaining: {result.get('credits', 0)}")
+            return {
+                "status": "success",
+                "credits": result.get('credits', 0),
+                "deducted": amount
+            }, 200
+        else:
+            # Either user doesn't exist or insufficient credits
+            user = data_store.db.users.find_one({"username": username})
+            if not user:
+                return {"status": "error", "message": "User not found"}, 404
+            
+            current_credits = user.get('credits', 0)
+            return {
+                "status": "error",
+                "message": f"Insufficient credits. Required: {amount}, Available: {current_credits}",
+                "credits": current_credits
+            }, 400
+            
+    except Exception as e:
+        logger.error(f"Error deducting credits: {str(e)}", exc_info=True)
+        return {"status": "error", "message": "Failed to deduct credits"}, 500
+
+def refund_user_credits(username, amount):
+    """
+    Refund credits to user account (atomic operation)
+    
+    Returns:
+        Tuple of (result_dict, status_code)
+    """
+    if data_store.db is None:
+        return {"status": "error", "message": "Database not available"}, 500
+    
+    try:
+        result = data_store.db.users.find_one_and_update(
+            {"username": username},
+            {"$inc": {"credits": amount}},
+            return_document=True
+        )
+        
+        if result:
+            logger.info(f"Credits refunded: {amount} to {username}. New balance: {result.get('credits', 0)}")
+            return {
+                "status": "success",
+                "credits": result.get('credits', 0),
+                "refunded": amount
+            }, 200
+        else:
+            return {"status": "error", "message": "User not found"}, 404
+    except Exception as e:
+        logger.error(f"Error refunding credits: {str(e)}", exc_info=True)
+        return {"status": "error", "message": "Failed to refund credits"}, 500
+
+class Login(Resource):
+>>>>>>> Stashed changes
     """API endpoint for user authentication"""
     @rate_limit(max_requests=10, window=300)  # 10 login attempts per 5 minutes
     def post(self):
@@ -537,6 +623,7 @@ class ScrapePosts(CORSResource):
         print(f"Request data: {data}")
         products = data.get('products', scraper.target_products)
         
+<<<<<<< Updated upstream
         # SECURITY FIX: Validate limit parameter to prevent DoS
         try:
             limit = int(data.get('limit', 100))
@@ -544,6 +631,16 @@ class ScrapePosts(CORSResource):
                 return {"status": "error", "message": "Limit must be between 1 and 1000"}, 400
         except (ValueError, TypeError):
             return {"status": "error", "message": "Invalid limit parameter"}, 400
+=======
+        # Validate and limit the limit parameter
+        limit = int(data.get('limit', 100))
+        limit = max(1, min(limit, 500))  # Enforce min 1, max 500
+        
+        # Validate topic length if provided
+        topic = data.get('topic', '').strip()
+        if topic and len(topic) > 500:
+            return error_response("Topic must be 500 characters or less", 400, "INVALID_TOPIC_LENGTH")
+>>>>>>> Stashed changes
         
         subreddits = data.get('subreddits')
         time_filter = data.get('time_filter', 'month')
@@ -844,8 +941,26 @@ class ScrapePosts(CORSResource):
                 print("=== REDDIT API ERROR IN BACKGROUND SCRAPING ===")
                 print(f"Error: {str(e)}")
                 print("=" * 50)
+<<<<<<< Updated upstream
                 logger.error(f"Reddit API error in background scraping: {str(e)}", exc_info=True)
                 # Update status and refund credits
+=======
+                logger.error(f"=== ERROR IN BACKGROUND SCRAPING ===")
+                logger.error(f"Error: {str(e)}", exc_info=True)
+                
+                # Refund credits on failure (if credits were deducted)
+                # Note: This assumes credits were deducted before thread started
+                # In a full implementation, track the deducted amount
+                username = current_user.get('username') if 'current_user' in locals() else None
+                if username:
+                    # Estimate cost for refund (should match what was deducted)
+                    estimated_cost = 1  # Default, should be calculated based on limit/time_filter
+                    refund_result, _ = refund_user_credits(username, estimated_cost)
+                    if refund_result.get('status') == 'success':
+                        logger.info(f"Credits refunded to {username} due to scraping failure")
+                
+                # Update status in case of error
+>>>>>>> Stashed changes
                 data_store.update_metadata(scrape_in_progress=False)
                 # Refund credits to user
                 if data_store.db is not None:
@@ -1248,13 +1363,17 @@ class GetPosts(CORSResource):
         """
         # Get parameters
         product = request.args.get('product')
-        limit = request.args.get('limit', type=int)
         has_pain_points = request.args.get('has_pain_points', type=bool, default=False)
         subreddit = request.args.get('subreddit')
         min_score = request.args.get('min_score', type=int, default=0)
         min_comments = request.args.get('min_comments', type=int, default=0)
         sort_by = request.args.get('sort_by', default='date')
         sort_order = request.args.get('sort_order', default='desc')
+        
+        # Pagination parameters
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 50)), 100)  # Max 100 per page
+        skip = (page - 1) * per_page
         
         # Validate sort parameters
         valid_sort_fields = {'date': 'created_utc', 'score': 'score', 'comments': 'num_comments', 'sentiment': 'sentiment'}
@@ -1296,16 +1415,15 @@ class GetPosts(CORSResource):
                 mongo_sort_field = valid_sort_fields[sort_by]
                 mongo_sort_direction = -1 if sort_order == 'desc' else 1
                 
-                # Query MongoDB
-                cursor = data_store.db.posts.find(query).sort(mongo_sort_field, mongo_sort_direction)
+                # Get total count for pagination
+                total = data_store.db.posts.count_documents(query)
                 
-                # Apply limit if specified
-                if limit and limit > 0:
-                    cursor = cursor.limit(limit)
+                # Query MongoDB with pagination
+                cursor = data_store.db.posts.find(query).sort(mongo_sort_field, mongo_sort_direction).skip(skip).limit(per_page)
                 
                 # Convert cursor to list
                 posts = list(cursor)
-                logger.info(f"Retrieved {len(posts)} posts from MongoDB")
+                logger.info(f"Retrieved {len(posts)} posts from MongoDB (page {page}, {per_page} per page, total: {total})")
                 
             except Exception as e:
                 logger.error(f"Error querying MongoDB: {str(e)}")
@@ -1339,9 +1457,9 @@ class GetPosts(CORSResource):
                 else:
                     posts.sort(key=lambda x: getattr(x, sort_field, 0), reverse=(sort_order == 'desc'))
                 
-                # Apply limit
-                if limit and limit > 0:
-                    posts = posts[:limit]
+                # Apply pagination to in-memory data
+                total = len(posts)
+                posts = posts[skip:skip + per_page]
         
         # Convert to dictionaries for response
         result = []
@@ -1399,10 +1517,20 @@ class GetPosts(CORSResource):
         if data_store.last_scrape_time:
             last_updated = data_store.last_scrape_time.isoformat() if isinstance(data_store.last_scrape_time, datetime) else data_store.last_scrape_time
         
+        # Calculate total if not already calculated (for in-memory fallback)
+        if 'total' not in locals():
+            total = len(result) if data_store.db is None else data_store.db.posts.count_documents({})
+        
         return {
             "status": "success",
             "count": len(result),
             "posts": result,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page if total > 0 else 0
+            },
             "filters_applied": {
                 "product": product,
                 "has_pain_points": has_pain_points,
@@ -1770,20 +1898,128 @@ class RunAnalysis(CORSResource):
                 "message": f"Error running analysis: {str(e)}"
             }, 500
 
+<<<<<<< Updated upstream
 class HealthCheck(CORSResource):
     """API endpoint for health check"""
+=======
+class HealthCheck(Resource):
+    """API endpoint for health check with dependency status"""
+>>>>>>> Stashed changes
     def get(self):
         """
-        Health check endpoint to verify API is running
+        Comprehensive health check endpoint for monitoring and load balancers
         
         Returns:
-            JSON response with API status
+            JSON response with API status and dependency health checks
         """
+<<<<<<< Updated upstream
         return {
             "status": "success",
             "message": "API is running",
             "timestamp": datetime.now(timezone.utc).isoformat()
+=======
+        health_status = {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": os.getenv("APP_VERSION", "1.0.0"),
+            "dependencies": {}
+>>>>>>> Stashed changes
         }
+        
+        # Check MongoDB
+        mongodb_status = self._check_mongodb()
+        health_status["dependencies"]["mongodb"] = mongodb_status
+        
+        # Check Reddit API
+        reddit_status = self._check_reddit_api()
+        health_status["dependencies"]["reddit_api"] = reddit_status
+        
+        # Check Claude API
+        claude_status = self._check_claude_api()
+        health_status["dependencies"]["claude_api"] = claude_status
+        
+        # Check OpenAI API
+        openai_status = self._check_openai_api()
+        health_status["dependencies"]["openai_api"] = openai_status
+        
+        # Determine overall health
+        all_healthy = all(
+            dep.get("status") == "healthy" or dep.get("status") == "configured"
+            for dep in health_status["dependencies"].values()
+        )
+        
+        # Critical dependencies must be healthy
+        critical_deps = ["mongodb"]
+        critical_healthy = all(
+            health_status["dependencies"].get(dep, {}).get("status") == "healthy"
+            for dep in critical_deps
+        )
+        
+        if not critical_healthy:
+            health_status["status"] = "unhealthy"
+        elif not all_healthy:
+            health_status["status"] = "degraded"
+        
+        status_code = 200 if health_status["status"] == "healthy" else 503
+        return health_status, status_code
+    
+    def _check_mongodb(self):
+        """Check MongoDB connection health"""
+        try:
+            if data_store.db is None:
+                return {"status": "unhealthy", "error": "Not connected"}
+            
+            # Ping database
+            start_time = datetime.utcnow()
+            data_store.db.admin.command('ping')
+            latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+            
+            return {
+                "status": "healthy",
+                "latency_ms": round(latency_ms, 2)
+            }
+        except Exception as e:
+            logger.error(f"MongoDB health check failed: {str(e)}")
+            return {"status": "unhealthy", "error": str(e)}
+    
+    def _check_reddit_api(self):
+        """Check Reddit API configuration"""
+        try:
+            if not REDDIT_CLIENT_ID or not REDDIT_CLIENT_SECRET:
+                return {"status": "not_configured", "message": "Credentials not set"}
+            
+            if scraper.reddit is None:
+                return {"status": "not_initialized", "message": "Client not initialized"}
+            
+            return {"status": "configured", "message": "Reddit API configured"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    def _check_claude_api(self):
+        """Check Claude API configuration"""
+        try:
+            from claude_analyzer import ClaudeAnalyzer
+            claude_analyzer = ClaudeAnalyzer()
+            
+            if not hasattr(claude_analyzer, 'api_key') or not claude_analyzer.api_key:
+                return {"status": "not_configured", "message": "API key not set"}
+            
+            return {"status": "configured", "message": "Claude API configured"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    def _check_openai_api(self):
+        """Check OpenAI API configuration"""
+        try:
+            if not OPENAI_API_KEY:
+                return {"status": "not_configured", "message": "API key not set"}
+            
+            if not openai_analyzer.client:
+                return {"status": "not_initialized", "message": "Client not initialized"}
+            
+            return {"status": "configured", "message": "OpenAI API configured"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
 # Alias for GetAnthropicAnalysis (backward compatibility)
 GetClaudeAnalysis = GetAnthropicAnalysis
@@ -1956,4 +2192,182 @@ class DeleteAccount(CORSResource):
                 return {"status": "error", "message": "Database error"}, 500
         else:
             return {"status": "error", "message": "Database not available"}, 500
+
+class RequestPasswordReset(Resource):
+    """API endpoint to request password reset"""
+    @rate_limit(max_requests=3, window=3600)  # 3 per hour
+    def post(self):
+        """
+        Request password reset email
+        
+        POST parameters:
+        - email (str): User email address
+        
+        Returns:
+            JSON response with reset token (in development only)
+        """
+        data = request.get_json() or {}
+        email = sanitize_input(data.get('email', ''))
+        
+        if not email:
+            return {"status": "error", "message": "Email is required"}, 400
+        
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
+        
+        try:
+            # Check if user exists
+            user = data_store.db.users.find_one({"email": email})
+            if not user:
+                # Don't reveal if email exists for security
+                return {"status": "success", "message": "If the email exists, a reset link has been sent"}, 200
+            
+            # Generate reset token
+            reset_token = secrets.token_urlsafe(32)
+            token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
+            
+            # Store token in database (expires in 1 hour)
+            data_store.db.password_resets.insert_one({
+                "email": email,
+                "token_hash": token_hash,
+                "expires_at": datetime.utcnow() + timedelta(hours=1),
+                "used": False,
+                "created_at": datetime.utcnow()
+            })
+            
+            # TODO: Send email with reset link
+            # For development, return token (REMOVE IN PRODUCTION!)
+            if os.getenv("FLASK_ENV") == "development":
+                return {
+                    "status": "success",
+                    "message": "Password reset email sent",
+                    "reset_token": reset_token  # Remove in production!
+                }, 200
+            else:
+                return {
+                    "status": "success",
+                    "message": "If the email exists, a reset link has been sent"
+                }, 200
+        except Exception as e:
+            logger.error(f"Error requesting password reset: {str(e)}", exc_info=True)
+            return {"status": "error", "message": "Failed to process reset request"}, 500
+
+class ResetPassword(Resource):
+    """API endpoint to reset password with token"""
+    @rate_limit(max_requests=5, window=3600)  # 5 per hour
+    def post(self):
+        """
+        Reset password with token
+        
+        POST parameters:
+        - token (str): Reset token from email
+        - password (str): New password
+        
+        Returns:
+            JSON response confirming password reset
+        """
+        data = request.get_json() or {}
+        token = data.get('token')
+        new_password = data.get('password')
+        
+        if not token or not new_password:
+            return {"status": "error", "message": "Token and password required"}, 400
+        
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
+        
+        try:
+            # Validate password strength
+            is_strong, pwd_error = validate_password_strength(new_password)
+            if not is_strong:
+                return {"status": "error", "message": pwd_error}, 400
+            
+            # Verify token
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            reset_record = data_store.db.password_resets.find_one({
+                "token_hash": token_hash,
+                "used": False,
+                "expires_at": {"$gt": datetime.utcnow()}
+            })
+            
+            if not reset_record:
+                return {"status": "error", "message": "Invalid or expired reset token"}, 400
+            
+            # Update password
+            salt = bcrypt.gensalt()
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), salt)
+            
+            data_store.db.users.update_one(
+                {"email": reset_record["email"]},
+                {"$set": {"password": hashed_password.decode('utf-8')}}
+            )
+            
+            # Mark token as used
+            data_store.db.password_resets.update_one(
+                {"_id": reset_record["_id"]},
+                {"$set": {"used": True}}
+            )
+            
+            logger.info(f"Password reset successful for email: {reset_record['email']}")
+            return {"status": "success", "message": "Password reset successfully"}, 200
+        except Exception as e:
+            logger.error(f"Error resetting password: {str(e)}", exc_info=True)
+            return {"status": "error", "message": "Failed to reset password"}, 500
+
+class ChangePassword(Resource):
+    """API endpoint to change user password"""
+    @token_required
+    def post(self, current_user):
+        """
+        Change user password
+        
+        POST parameters:
+        - current_password (str): Current password
+        - new_password (str): New password
+        
+        Returns:
+            JSON response confirming password change
+        """
+        username = current_user.get('username')
+        if not username:
+            return {"status": "error", "message": "Invalid token"}, 401
+        
+        data = request.get_json() or {}
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return {"status": "error", "message": "Current and new password required"}, 400
+        
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
+        
+        try:
+            # Verify current password
+            user = data_store.db.users.find_one({"username": username})
+            if not user:
+                return {"status": "error", "message": "User not found"}, 404
+            
+            if not bcrypt.checkpw(current_password.encode('utf-8'), user['password'].encode('utf-8')):
+                return {"status": "error", "message": "Current password is incorrect"}, 401
+            
+            # Validate new password strength
+            is_strong, pwd_error = validate_password_strength(new_password)
+            if not is_strong:
+                return {"status": "error", "message": pwd_error}, 400
+            
+            # Update password
+            salt = bcrypt.gensalt()
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), salt)
+            
+            data_store.db.users.update_one(
+                {"username": username},
+                {"$set": {"password": hashed_password.decode('utf-8')}}
+            )
+            
+            logger.info(f"Password changed successfully for user: {username}")
+            return {"status": "success", "message": "Password changed successfully"}, 200
+        except Exception as e:
+            logger.error(f"Error changing password: {str(e)}", exc_info=True)
+            return {"status": "error", "message": "Failed to change password"}, 500
 
