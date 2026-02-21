@@ -38,6 +38,10 @@ A comprehensive platform for analyzing user discussions and generating actionabl
 - **Vitest** for comprehensive testing
 - **Error Boundaries** for graceful error handling
 
+## 📚 Documentation
+
+Project documentation lives in the [**documentation/**](documentation/) folder. When you update any document there, add at the top the **date** (YYYY-MM-DD) and the **git commit** that introduced the change so documentation stays traceable and up to date.
+
 ## 📋 Prerequisites
 
 - Python 3.8+
@@ -148,6 +152,22 @@ The frontend will be available at `http://localhost:5173`
 - Click your profile to view credit balance and usage history
 - Monitor your analysis history and results
 
+## 📦 Data storage (MongoDB)
+
+All data is stored in the MongoDB database named in `MONGODB_URI` (e.g. `reddit_scraper`). Key collections:
+
+| Collection | Purpose |
+|------------|--------|
+| **posts** | Scraped Reddit posts; `product` = topic/product name from the scrape job. |
+| **jobs** | Scrape and analysis jobs (status, logs, parameters, results). |
+| **anthropic_analysis** | Full Claude analysis per product: `_id` = normalized product name (lowercase), document includes `analysis` (common_pain_points, analysis_summary, etc.) and `created_at`. |
+| **pain_points** | Individual pain points; each doc has `product`, `topic` (pain point name), `description`, `severity`, etc. |
+| **recommendations** | Saved recommendations per product; `_id` / `product` and `recommendations` array. |
+| **users** | User accounts, credits, auth data. |
+| **metadata** | Scraper metadata (e.g. scrape_in_progress). |
+
+Analysis flow: **run-analysis** loads posts → Claude extracts pain points → results are written to **anthropic_analysis** and **pain_points**; then (unless `skip_recommendations`) recommendations are generated and written to **recommendations**.
+
 ## 🔧 API Reference
 
 ### Authentication
@@ -170,9 +190,10 @@ POST /api/user/credits     # Update user credits (admin)
 POST /api/scrape           # Start insight discovery (costs credits)
 GET  /api/posts           # Retrieve discussions with filters
 GET  /api/pain-points     # Get identified pain points
-POST /api/run-analysis    # Run AI analysis on collected data
+POST /api/run-analysis    # Run AI analysis (creates job). Body: { product, max_posts?, skip_recommendations? }
 GET  /api/claude-analysis # Get AI analysis results
 ```
+- **run-analysis** options: `product` (required), `max_posts` (optional, 1–1000, default 500), `skip_recommendations` (optional, boolean; if true, only pain-point analysis is run and recommendations are not generated).
 
 ### Recommendations
 ```http
@@ -281,7 +302,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Issues**: Report bugs or request features via GitHub Issues
-- **Documentation**: Check the `/docs` folder for detailed guides
+- **Documentation**: Check the [documentation/](documentation/) folder for detailed guides and test oracles
 - **API**: Use the built-in API documentation at `/api/docs`
 
 ---
