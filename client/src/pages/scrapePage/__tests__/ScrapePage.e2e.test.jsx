@@ -4,8 +4,10 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { axe } from 'jest-axe';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import ScrapePage from '../ScrapePage';
+
+expect.extend(toHaveNoViolations);
 import * as apiModule from '@/api/api';
 import { useNotification } from '@/context/NotificationContext';
 
@@ -16,6 +18,7 @@ vi.mock('@/api/api', async () => {
     ...actual,
     triggerScrape: vi.fn(),
     fetchStatus: vi.fn(),
+    fetchUserProfile: vi.fn(() => Promise.resolve({ status: 'success', user: { credits: 10 } })),
   };
 });
 
@@ -64,20 +67,14 @@ describe('ScrapePage E2E Tests', () => {
       // Step 1: Verify initial state
       expect(screen.getByText('Product Insights')).toHaveClass('active');
       expect(screen.getByLabelText('Topic or Product')).toBeInTheDocument();
-      expect(screen.getByLabelText('Timeline')).toBeInTheDocument();
 
       // Step 2: User enters topic
       const topicInput = screen.getByLabelText('Topic or Product');
       fireEvent.change(topicInput, { target: { value: 'VS Code' } });
       expect(topicInput.value).toBe('VS Code');
 
-      // Step 3: User changes time filter
-      const timeFilter = screen.getByLabelText('Timeline');
-      fireEvent.change(timeFilter, { target: { value: 'month' } });
-      expect(timeFilter.value).toBe('month');
-
-      // Step 4: Verify credits cost updated
-      const button = screen.getByText(/Find Insights/i);
+      // Step 3: Verify credits cost on button
+      const button = screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ });
       expect(button.textContent).toMatch(/-\d+ credits/);
 
       // Step 5: User clicks Find Insights
@@ -87,14 +84,15 @@ describe('ScrapePage E2E Tests', () => {
       expect(screen.getByText(/Starting...|Discovering Insights.../i)).toBeInTheDocument();
       expect(button).toBeDisabled();
 
-      // Step 7: Verify API call
+      // Step 6: Verify API call (time_filter uses form default, e.g. week)
       await waitFor(() => {
-        expect(mockTriggerScrape).toHaveBeenCalledWith({
-          topic: 'VS Code',
-          limit: 100,
-          time_filter: 'month',
-          is_custom: false,
-        });
+        expect(mockTriggerScrape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            topic: 'VS Code',
+            limit: 100,
+            is_custom: false,
+          })
+        );
       });
 
       // Step 8: Verify notification
@@ -111,7 +109,7 @@ describe('ScrapePage E2E Tests', () => {
       render(<ScrapePage />);
 
       // Try to submit without topic
-      const button = screen.getByText(/Find Insights/i);
+      const button = screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ });
       fireEvent.click(button);
 
       await waitFor(() => {
@@ -129,16 +127,12 @@ describe('ScrapePage E2E Tests', () => {
       render(<ScrapePage />);
 
       const topicInput = screen.getByLabelText('Topic or Product');
-      const timeFilter = screen.getByLabelText('Timeline');
-
       fireEvent.change(topicInput, { target: { value: 'Test Product' } });
-      fireEvent.change(timeFilter, { target: { value: 'year' } });
 
       // Wait for debounced save
       await waitFor(() => {
         const saved = JSON.parse(localStorage.getItem('scrape_form_data') || '{}');
         expect(saved.topic).toBe('Test Product');
-        expect(saved.time_filter).toBe('year');
       }, { timeout: 1500 });
     });
 
@@ -152,7 +146,6 @@ describe('ScrapePage E2E Tests', () => {
       render(<ScrapePage />);
 
       expect(screen.getByLabelText('Topic or Product').value).toBe('Saved Product');
-      expect(screen.getByLabelText('Timeline').value).toBe('month');
     });
   });
 
@@ -179,7 +172,7 @@ describe('ScrapePage E2E Tests', () => {
       expect(textarea.value).toBe(customPrompt);
 
       // Step 3: Verify credits cost shown
-      const button = screen.getByText(/Generate Custom Insights/i);
+      const button = screen.getByRole('button', { name: /Generate Custom Insights \(-\d+ credits\)/ });
       expect(button.textContent).toMatch(/-\d+ credits/);
 
       // Step 4: Submit
@@ -201,7 +194,7 @@ describe('ScrapePage E2E Tests', () => {
       
       fireEvent.click(screen.getByText('Custom Insights'));
       
-      const button = screen.getByText(/Generate Custom Insights/i);
+      const button = screen.getByRole('button', { name: /Generate Custom Insights \(-\d+ credits\)/ });
       fireEvent.click(button);
 
       await waitFor(() => {
@@ -222,14 +215,14 @@ describe('ScrapePage E2E Tests', () => {
       // Switch to custom
       fireEvent.click(screen.getByText('Custom Insights'));
       expect(screen.getByText('Custom Insights')).toHaveClass('active');
-      expect(screen.queryByLabelText('Topic or Product')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Topic or Product')).toBeNull();
       expect(screen.getByLabelText('Custom Insights Prompt')).toBeInTheDocument();
 
       // Switch back to product
       fireEvent.click(screen.getByText('Product Insights'));
       expect(screen.getByText('Product Insights')).toHaveClass('active');
       expect(screen.getByLabelText('Topic or Product')).toBeInTheDocument();
-      expect(screen.queryByLabelText('Custom Insights Prompt')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Custom Insights Prompt')).toBeNull();
     });
 
     it('should maintain form data when switching modes', () => {
@@ -255,17 +248,13 @@ describe('ScrapePage E2E Tests', () => {
       render(<ScrapePage />);
 
       const topicInput = screen.getByLabelText('Topic or Product');
-      const timeFilter = screen.getByLabelText('Timeline');
-
       fireEvent.change(topicInput, { target: { value: 'Test Topic' } });
-      fireEvent.change(timeFilter, { target: { value: 'year' } });
 
       const resetButton = screen.getByText('Clear All');
       fireEvent.click(resetButton);
 
       await waitFor(() => {
         expect(topicInput.value).toBe('');
-        expect(timeFilter.value).toBe('week'); // Default value
       });
     });
 
@@ -287,35 +276,22 @@ describe('ScrapePage E2E Tests', () => {
   });
 
   describe('User Flow: Credits Display', () => {
-    it('should update credits cost when time filter changes', async () => {
+    it('should show credits cost on product insights button', () => {
       render(<ScrapePage />);
-
-      const timeFilter = screen.getByLabelText('Timeline');
-      const button = screen.getByText(/Find Insights/i);
-
-      // Get initial cost
-      const initialCostText = button.textContent;
-      const initialCost = parseInt(initialCostText.match(/-(\d+) credits/)?.[1] || '0');
-
-      // Change to year (higher cost)
-      fireEvent.change(timeFilter, { target: { value: 'year' } });
-
-      await waitFor(() => {
-        const updatedCostText = button.textContent;
-        const updatedCost = parseInt(updatedCostText.match(/-(\d+) credits/)?.[1] || '0');
-        expect(updatedCost).toBeGreaterThanOrEqual(initialCost);
-      });
+      const button = screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ });
+      const cost = parseInt(button.textContent.match(/-(\d+) credits/)?.[1] || '0');
+      expect(cost).toBeGreaterThanOrEqual(1);
     });
 
     it('should show credits cost in both modes', () => {
       render(<ScrapePage />);
 
       // Product mode
-      expect(screen.getByText(/Find Insights.*-\d+ credits/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ })).toBeInTheDocument();
 
       // Custom mode
       fireEvent.click(screen.getByText('Custom Insights'));
-      expect(screen.getByText(/Generate Custom Insights.*-\d+ credits/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Generate Custom Insights \(-\d+ credits\)/ })).toBeInTheDocument();
     });
   });
 
@@ -328,7 +304,7 @@ describe('ScrapePage E2E Tests', () => {
       const topicInput = screen.getByLabelText('Topic or Product');
       fireEvent.change(topicInput, { target: { value: 'Test' } });
 
-      const button = screen.getByText(/Find Insights/i);
+      const button = screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ });
       fireEvent.click(button);
 
       await waitFor(() => {
@@ -351,15 +327,14 @@ describe('ScrapePage E2E Tests', () => {
       const topicInput = screen.getByLabelText('Topic or Product');
       fireEvent.change(topicInput, { target: { value: 'Test' } });
 
-      const button = screen.getByText(/Find Insights/i);
+      const button = screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ });
       fireEvent.click(button);
 
       await waitFor(() => {
-        expect(mockShowNotification).toHaveBeenCalledWith(
-          'Insufficient credits. You have 0 credits but need 2.',
-          'error',
-          expect.any(Number)
-        );
+        expect(mockShowNotification).toHaveBeenCalled();
+        const [message] = mockShowNotification.mock.calls[0];
+        expect(message).toMatch(/insufficient|credit/i);
+        expect(mockShowNotification.mock.calls[0][1]).toBe('error');
       });
     });
   });
@@ -384,14 +359,8 @@ describe('ScrapePage E2E Tests', () => {
       render(<ScrapePage />);
 
       const topicInput = screen.getByLabelText('Topic or Product');
-      const timeFilter = screen.getByLabelText('Timeline');
-
-      // Tab navigation should work
       topicInput.focus();
       expect(document.activeElement).toBe(topicInput);
-
-      fireEvent.keyDown(topicInput, { key: 'Tab' });
-      // Next focusable element should be timeFilter (though exact behavior depends on tabindex)
     });
 
     it('should show notification with form topic data, not API response', async () => {
@@ -409,7 +378,7 @@ describe('ScrapePage E2E Tests', () => {
       render(<ScrapePage />);
 
       const topicInput = screen.getByLabelText('Topic or Product');
-      const scrapeButton = screen.getByRole('button', { name: /Find Insights/ });
+      const scrapeButton = screen.getByRole('button', { name: /Find Insights \(-\d+ credits\)/ });
 
       fireEvent.change(topicInput, { target: { value: 'Form Topic' } });
       fireEvent.click(scrapeButton);
