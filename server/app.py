@@ -1,15 +1,23 @@
 import os
 import logging
 import uuid
-from flask import Flask, request, g
+import time
+from threading import Thread
+from flask import Flask, request, g, jsonify, make_response
 from flask_cors import CORS
 from flask_restful import Api
+from flask_socketio import SocketIO, join_room, leave_room
 import nltk
 from dotenv import load_dotenv
 from security import secure_headers, validate_jwt_secret
 
 # Load environment variables
 load_dotenv()
+
+# Use NLTK data from buildpack path when present (DO/Heroku download to this dir at build time)
+_nltk_data = os.environ.get("NLTK_DATA", "/app/.heroku/python/nltk_data")
+if os.path.isdir(_nltk_data):
+    nltk.data.path.insert(0, _nltk_data)
 
 # Safe download if not already available
 try:
@@ -54,6 +62,15 @@ CORS(app,
 # Initialize Flask-RESTful API
 api = Api(app)
 
+# Initialize SocketIO for real-time pipeline logs (CORS same as REST API)
+# eventlet when installed (production/gunicorn); threading for local dev when eventlet not installed
+try:
+    import eventlet  # noqa: F401
+    _socketio_async_mode = "eventlet"
+except ImportError:
+    _socketio_async_mode = "threading"
+socketio = SocketIO(app, cors_allowed_origins=cors_origins, async_mode=_socketio_async_mode)
+
 # Import and initialize MongoDB store
 from mongodb_store import MongoDBStore
 
@@ -61,6 +78,36 @@ from mongodb_store import MongoDBStore
 data_store = MongoDBStore(os.getenv("MONGODB_URI"))
 data_store.scrape_in_progress = False
 data_store.update_metadata(scrape_in_progress=False)
+
+
+def _emit_job_log(job_id, entry):
+    """Emit a job log entry to clients subscribed to this job (room = job_id)."""
+    try:
+        socketio.emit("job_log", {"job_id": str(job_id), "log": entry}, room=str(job_id))
+    except Exception as e:
+        logger.debug("SocketIO emit job_log: %s", e)
+
+
+data_store.on_job_log = _emit_job_log
+
+
+@socketio.on("subscribe_job")
+def handle_subscribe_job(data):
+    """Add this client to the room for job_id so they receive job_log events."""
+    job_id = data.get("job_id") if isinstance(data, dict) else None
+    if job_id:
+        join_room(str(job_id))
+        logger.debug("Socket joined room job_id=%s", job_id)
+
+
+@socketio.on("unsubscribe_job")
+def handle_unsubscribe_job(data):
+    """Remove this client from the room for job_id."""
+    job_id = data.get("job_id") if isinstance(data, dict) else None
+    if job_id:
+        leave_room(str(job_id))
+        logger.debug("Socket left room job_id=%s", job_id)
+
 
 # Import and register routes
 from routes import initialize_routes
@@ -141,5 +188,52 @@ def add_security_headers(response):
     if hasattr(g, 'request_id'):
         response.headers['X-Request-ID'] = g.request_id
     return secure_headers(response)
+
+
+@app.errorhandler(500)
+def handle_500(error):
+    """Return 500 with CORS headers so the frontend receives the error instead of a CORS block."""
+    response = make_response(
+        jsonify({"status": "error", "message": "Internal server error"}),
+        500
+    )
+    origin = request.headers.get("Origin")
+    if origin and origin in cors_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    if hasattr(g, "request_id"):
+        response.headers["X-Request-ID"] = g.request_id
+    response = secure_headers(response)
+    return response
+
+
+def check_stuck_jobs_periodically():
+    """Background thread to periodically check for stuck jobs"""
+    check_interval = 300  # Check every 5 minutes
+    timeout_minutes = 30  # Mark jobs as failed if stuck for >30 minutes
+    
+    logger.info(f"Started background job timeout checker (checking every {check_interval}s, timeout: {timeout_minutes} minutes)")
+    
+    while True:
+        try:
+            time.sleep(check_interval)
+            
+            if data_store.db is not None:
+                marked_count = data_store.check_stuck_jobs(timeout_minutes=timeout_minutes)
+                if marked_count > 0:
+                    logger.warning(f"Job timeout checker marked {marked_count} stuck job(s) as failed")
+            else:
+                logger.debug("Job timeout checker skipped - database not connected")
+                
+        except Exception as e:
+            logger.error(f"Error in job timeout checker: {str(e)}", exc_info=True)
+            # Continue running even if there's an error
+
+# Start background thread for checking stuck jobs
+job_timeout_thread = Thread(target=check_stuck_jobs_periodically, daemon=True)
+job_timeout_thread.start()
+logger.info("Background job timeout checker thread started")
 
 logger.info("App initialized successfully")

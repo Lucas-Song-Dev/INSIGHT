@@ -1,5 +1,7 @@
 @use "../../styles/variables" as *;
 
+$border-opacity-15: rgba(0, 0, 0, 0.15) !default;
+
 .confirm-modal-overlay {
   position: fixed;
   inset: 0;

@@ -1,0 +1,210 @@
+@use "../../styles/variables" as *;
+
+$border-opacity-08: rgba(0, 0, 0, 0.08) !default;
+$border-opacity-12: rgba(0, 0, 0, 0.12) !default;
+$border-opacity-15: rgba(0, 0, 0, 0.15) !default;
+
+.jobs-page {
+  padding: $spacing-xl;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: $papyrus-bg;
+  min-height: 100%;
+
+  .filters-section {
+    margin-bottom: $spacing-xl;
+
+    .filters-container {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: $spacing-md $spacing-sm $spacing-lg $spacing-sm;
+
+      .filter-tab {
+        padding: 0.6rem 1.2rem;
+        background: transparent;
+        border: 1px solid $border-opacity-08;
+        border-radius: $border-radius-sm;
+        cursor: pointer;
+        font-size: $font-size-sm;
+        color: $text-tertiary;
+        transition: all $transition-speed ease;
+        font-weight: $font-weight-normal;
+        letter-spacing: -0.01em;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.02);
+          border-color: $border-opacity-12;
+          color: $text-secondary;
+        }
+
+        &.active {
+          background: rgba(0, 0, 0, 0.04);
+          border-color: $border-opacity-15;
+          color: $text-primary;
+          font-weight: $font-weight-medium;
+        }
+
+        .filter-count {
+          margin-left: 0.5rem;
+          font-size: 0.85em;
+          opacity: 0.6;
+          font-weight: 400;
+        }
+      }
+    }
+  }
+
+  .error-message {
+    background: $error-bg;
+    color: $error-text;
+    padding: $spacing-md;
+    border-radius: $border-radius-sm;
+    margin-bottom: $spacing-md;
+    border-left: 4px solid $error-border;
+  }
+
+  .jobs-list-container {
+    .jobs-count {
+      margin-bottom: 1.5rem;
+      color: var(--text-secondary, $text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .no-jobs {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-secondary, $text-secondary);
+
+      p {
+        margin: 0.5rem 0;
+        font-size: 1.1rem;
+      }
+
+      .no-jobs-subtitle {
+        font-size: 0.95rem;
+        opacity: 0.7;
+      }
+    }
+  }
+
+  // Cancel Confirmation Modal
+  .cancel-confirm-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
+
+  .cancel-confirm-dialog {
+    background: $bg-card;
+    border-radius: $border-radius-lg;
+    padding: $spacing-xl;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: $shadow-xl;
+
+    h2 {
+      margin: 0 0 $spacing-md 0;
+      color: $text-primary;
+      font-size: $font-size-2xl;
+      font-weight: $font-weight-semibold;
+    }
+
+    p {
+      color: $medium-text;
+      margin-bottom: $spacing-md;
+      line-height: $line-height-relaxed;
+
+      &.cancel-info {
+        background: $bg-secondary;
+        padding: $spacing-md;
+        border-radius: $border-radius-sm;
+        border-left: 3px solid $accent-color;
+        margin: $spacing-md 0;
+      }
+    }
+
+    .cancel-confirm-actions {
+      display: flex;
+      gap: $spacing-md;
+      justify-content: flex-end;
+      margin-top: $spacing-lg;
+
+      .cancel-button-secondary {
+        @include button-base;
+        background: $bg-secondary;
+        color: $text-primary;
+        border: 1px solid $border-color;
+
+        &:hover:not(:disabled) {
+          background: $bg-hover;
+        }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+
+      .cancel-button-primary {
+        @include button-base;
+        background: $error-color;
+        color: $text-lightest;
+        border: 1px solid $error-color;
+
+        &:hover:not(:disabled) {
+          background: color.adjust($error-color, $lightness: -10%);
+          border-color: color.adjust($error-color, $lightness: -10%);
+        }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .jobs-page {
+    padding: 1rem;
+
+    .filters-section {
+      .filters-container {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 0.5rem;
+
+        .filter-tab {
+          padding: 0.5rem 1rem;
+          font-size: 0.9rem;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .jobs-list-container {
+      .jobs-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+    }
+  }
+}
+

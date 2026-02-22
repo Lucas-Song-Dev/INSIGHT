@@ -16,6 +16,8 @@ export default defineConfig({
           @use "sass:color";
           @use "/src/styles/variables" as *;
         `,
+        // Avoid build failure from deprecated global color functions (e.g. darken) in deps or legacy code
+        silenceDeprecations: ['color-functions'],
       },
     },
   },

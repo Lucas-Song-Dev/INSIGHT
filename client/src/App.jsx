@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import "./App.scss";
 import Post from "./pages/postsPage/PostsPage";
 import AnalysisPage from "./pages/analysisPage/AnalysisPage";
 import ScrapePage from "./pages/scrapePage/ScrapePage";
-import RecomendationPage from "./pages/recommendationPage/RecomendationPage";
 import AboutPage from "./pages/aboutPage/AboutPage";
 import ResultsPage from "./pages/resultsPage/ResultsPage";
 import ProductDetailPage from "./pages/productDetailPage/ProductDetailPage";
@@ -13,6 +13,8 @@ import Sidebar from "./components/Sidebar/Sidebar";
 import ProfilePage from "./pages/profilePage/ProfilePage";
 import StatusPage from "./pages/statusPage/StatusPage";
 import LoginPage from "./pages/auth/LoginPage";
+import JobsPage from "./pages/jobsPage/JobsPage";
+import JobDetailPage from "./pages/jobsPage/JobDetailPage";
 import { useAuth } from "./context/AuthContext";
 import { logoutUser, fetchPosts, fetchClaudeAnalysis, fetchAllProducts } from "./api/api";
 import Notification from "./components/Notification/Notification";
@@ -52,10 +54,9 @@ function AppContent() {
   const { isAuthenticated, isLoading, login, logout, user } = useAuth();
 
   // Periodic API polling for debugging - logs posts and analysis data
-  // PERFORMANCE FIX: Only enable polling in development mode
+  // PERFORMANCE FIX: Only enable polling in development mode (skip in production and test)
   useEffect(() => {
-    // Skip polling in production
-    if (import.meta.env.MODE === 'production') return;
+    if (import.meta.env.MODE === 'production' || import.meta.env.MODE === 'test') return;
     if (!isAuthenticated) return;
 
     const pollAPIs = async () => {
@@ -219,10 +220,8 @@ function AppContent() {
                   className="insights-button"
                   onClick={() => setActivePage("insights")}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: '8px'}}>
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                  </svg>
-                  Learn About Real User Insights →
+                  <ArrowRight size={16} aria-hidden style={{ marginRight: "8px" }} />
+                  Learn About Real User Insights
                 </button>
               </div>
             </div>
@@ -280,6 +279,8 @@ function AppContent() {
             <Route path="/find-insights" element={<ScrapePage />} />
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/products/:productName" element={<ProductDetailPage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:jobId" element={<JobDetailPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/status" element={<StatusPage />} />
