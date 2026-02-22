@@ -1,0 +1,68 @@
+@use "../../styles/variables" as *;
+
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: $border-opacity-15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirm-modal {
+  background: $terminal-panel;
+  border-radius: $border-radius;
+  padding: $spacing-lg $spacing-lg;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: $shadow-lg;
+  border: 1px solid $terminal-border;
+}
+
+.confirm-modal-title {
+  margin: 0 0 $spacing-sm;
+  font-size: $font-size-lg;
+  color: $dark-text;
+}
+
+.confirm-modal-body {
+  margin-bottom: $spacing-md;
+  color: $medium-text;
+  font-size: $font-size-sm;
+  line-height: $line-height-base;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+}
+
+.confirm-modal-cancel,
+.confirm-modal-confirm {
+  padding: $input-padding-y-sm $input-padding-x-md;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-sm;
+  cursor: pointer;
+  border: none;
+}
+
+.confirm-modal-cancel {
+  background: transparent;
+  color: $medium-text;
+  border: 1px solid $border-color;
+}
+
+.confirm-modal-cancel:hover {
+  background: $bg-hover;
+}
+
+.confirm-modal-confirm {
+  background: $accent-color;
+  color: $bg-card;
+}
+
+.confirm-modal-confirm:hover {
+  background: $accent-hover;
+}

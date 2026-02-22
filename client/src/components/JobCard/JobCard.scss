@@ -1,0 +1,137 @@
+@use "../../styles/variables" as *;
+
+.job-card {
+  background: var(--card-bg, $bg-card);
+  border: 1px solid var(--border-color, $papyrus-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: $shadow-sm;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-md;
+    border-color: var(--primary-color, $primary-indigo);
+  }
+
+  .job-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+
+    .job-topic {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary, $text-primary);
+      flex: 1;
+      margin-right: 1rem;
+      word-break: break-word;
+    }
+
+    .job-header-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+    }
+
+    .status-badge {
+      padding: 0.35rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: capitalize;
+      white-space: nowrap;
+
+      &.pending {
+        background: $status-pending-bg;
+        color: $status-pending-text;
+      }
+
+      &.in-progress {
+        background: $status-in-progress-bg;
+        color: $status-in-progress-text;
+      }
+
+      &.completed {
+        background: $status-completed-bg;
+        color: $status-completed-text;
+      }
+
+      &.failed {
+        background: $status-failed-bg;
+        color: $status-failed-text;
+      }
+
+      &.cancelled {
+        background: $status-failed-bg;
+        color: $status-failed-text;
+        opacity: 0.7;
+      }
+    }
+
+    .cancel-job-button {
+      padding: 0.35rem 0.75rem;
+      background: transparent;
+      border: 1px solid $error-color;
+      border-radius: $border-radius-sm;
+      color: $error-color;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all $transition-speed ease;
+      white-space: nowrap;
+
+      &:hover:not(:disabled) {
+        background: $error-color;
+        color: $text-lightest;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .job-card-body {
+    .job-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+
+      .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+
+        .info-label {
+          color: var(--text-secondary, $text-secondary);
+          font-weight: 500;
+        }
+
+        .info-value {
+          color: var(--text-primary, $text-primary);
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  .job-card-footer {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color, $border-color);
+
+    .view-details {
+      display: inline-flex;
+      align-items: center;
+      color: var(--primary-color, $primary-indigo);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+  }
+}
