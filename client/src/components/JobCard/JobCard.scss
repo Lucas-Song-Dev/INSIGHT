@@ -1,5 +1,8 @@
 @use "../../styles/variables" as *;
 
+// Ensure papyrus border is available (fallback if variables load order differs in build)
+$papyrus-border: rgba(139, 119, 101, 0.2) !default;
+
 .job-card {
   background: var(--card-bg, $bg-card);
   border: 1px solid var(--border-color, $papyrus-border);
