@@ -342,24 +342,73 @@
 }
 
 // Stylish Scrape Button
-.scrape-button {
-  @include button-primary;
+.button-with-tooltip {
+  position: relative;
   width: 100%;
-  
-  // Ensure dark background for white text (accessibility)
-  background: $accent-color;
-  color: $text-lightest;
-  
-  &:hover:not(:disabled) {
-    background: $accent-hover;
+
+  .scrape-button {
+    @include button-primary;
+    width: 100%;
+    
+    // Ensure dark background for white text (accessibility)
+    background: $accent-color;
+    color: $text-lightest;
+    
+    &:hover:not(:disabled) {
+      background: $accent-hover;
+    }
+    
+    &:disabled {
+      background: $dark-500;
+      color: $muted-text;
+      cursor: not-allowed;
+    }
+
+    &.insufficient-credits {
+      background: $bg-tertiary;
+      color: $text-secondary;
+      opacity: 0.6;
+      cursor: not-allowed;
+      
+      &:hover {
+        background: $bg-tertiary;
+      }
+    }
   }
-  
-  &:disabled {
-    background: $dark-500;
-    color: $muted-text;
-    cursor: not-allowed;
+
+  .tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: $spacing-xs;
+    padding: $spacing-xs $spacing-sm;
+    background: $text-primary;
+    color: $text-lightest;
+    font-size: $font-size-sm;
+    border-radius: $border-radius-sm;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity $transition-speed ease;
+    z-index: 1000;
+
+    // Arrow pointing down
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: $text-primary;
+    }
   }
-  
+
+  // Show tooltip on hover when button is disabled
+  &:hover .tooltip {
+    opacity: 1;
+  }
 }
 
 .actions-container {
@@ -470,7 +519,7 @@
     padding: 20px;
   }
   
-  .scrape-button {
+  .button-with-tooltip .scrape-button {
     padding: 12px;
   }
   

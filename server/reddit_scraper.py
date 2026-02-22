@@ -1,8 +1,11 @@
 import praw
+import prawcore.exceptions as prawcore_exceptions
 import logging
 import time
 from datetime import datetime
 from models import RedditPost
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from threading import Timer
 # Don't import data_store here to avoid circular imports
 # Access it when needed
 
@@ -62,40 +65,28 @@ class RedditScraper:
             logger.error(f"Error initializing Reddit client: {str(e)}")
             return False
         
-    def search_reddit(self, query, subreddits=None, limit=100, time_filter="month"):
+    def _search_subreddit_with_timeout(self, subreddit_obj, query, limit, time_filter, timeout_seconds=300):
         """
-        Search Reddit for posts containing specific keywords
+        Search a single subreddit with timeout protection
         
         Args:
-            query (str): The search query
-            subreddits (list): List of subreddits to search
-            limit (int): Maximum number of results to return
-            time_filter (str): 'day', 'week', 'month', 'year', 'all'
+            subreddit_obj: PRAW subreddit object
+            query (str): Search query
+            limit (int): Maximum results
+            time_filter (str): Time filter
+            timeout_seconds (int): Timeout in seconds (default 5 minutes)
             
         Returns:
             list: List of RedditPost objects
         """
-        if not subreddits:
-            subreddits = self.default_subreddits
-            
-        logger.info(f"Searching Reddit for '{query}' in {subreddits}")
-        
-        # Track which subreddits have been scraped (lazy import to avoid circular dependencies)
-        try:
-            from app import data_store as ds
-            for subreddit in subreddits:
-                ds.subreddits_scraped.add(subreddit)
-        except (ImportError, AttributeError):
-            pass  # Skip if data_store not available
-            
-        # Create subreddit objects
-        subreddit_objects = [self.reddit.subreddit(sub) for sub in subreddits]
-        
-        # Use PRAW to search for posts
         posts = []
-        for subreddit in subreddit_objects:
-            try:
-                for submission in subreddit.search(query, limit=limit, time_filter=time_filter):
+        start_time = time.time()
+        
+        try:
+            # Use ThreadPoolExecutor to enforce timeout
+            def search_operation():
+                subreddit_posts = []
+                for submission in subreddit_obj.search(query, limit=limit, time_filter=time_filter):
                     # Convert to our internal model
                     post = RedditPost(
                         id=submission.id,
@@ -108,7 +99,7 @@ class RedditScraper:
                         score=submission.score,
                         num_comments=submission.num_comments
                     )
-                    posts.append(post)
+                    subreddit_posts.append(post)
                     
                     # Add to store (lazy import to avoid circular dependencies)
                     try:
@@ -117,24 +108,99 @@ class RedditScraper:
                             ds.raw_posts.append(post)
                     except (ImportError, AttributeError):
                         pass  # Skip if data_store not available
-                        
+                return subreddit_posts
+            
+            # Execute with timeout
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(search_operation)
+                try:
+                    posts = future.result(timeout=timeout_seconds)
+                    elapsed = time.time() - start_time
+                    logger.info(f"Completed search in subreddit {subreddit_obj} in {elapsed:.2f}s")
+                except FutureTimeoutError:
+                    logger.warning(f"Search in subreddit {subreddit_obj} timed out after {timeout_seconds}s")
+                    future.cancel()
+                    raise TimeoutError(f"Subreddit search timed out after {timeout_seconds} seconds")
+                    
+        except TimeoutError:
+            raise  # Re-raise timeout errors
+        except praw.exceptions.RedditAPIException as e:
+            logger.error(f"Reddit API error searching subreddit {subreddit_obj}: {str(e)}")
+            raise  # Re-raise to be handled by caller
+        except prawcore_exceptions.ResponseException as e:
+            logger.warning(f"Subreddit {subreddit_obj} returned HTTP error (e.g. 404), skipping: {e}")
+            raise  # Re-raise so caller can skip this subreddit
+        except prawcore_exceptions.RequestException as e:
+            logger.error(f"Network error searching subreddit {subreddit_obj}: {str(e)}")
+            raise  # Re-raise to be handled by caller
+        except Exception as e:
+            logger.error(f"Unexpected error searching subreddit {subreddit_obj}: {str(e)}", exc_info=True)
+            raise  # Re-raise to be handled by caller
+            
+        return posts
+    
+    def search_reddit(self, query, subreddits=None, limit=100, time_filter="month", timeout_per_subreddit=300):
+        """
+        Search Reddit for posts containing specific keywords
+        
+        Args:
+            query (str): The search query
+            subreddits (list): List of subreddits to search
+            limit (int): Maximum number of results to return
+            time_filter (str): 'day', 'week', 'month', 'year', 'all'
+            timeout_per_subreddit (int): Timeout in seconds per subreddit (default 5 minutes)
+            
+        Returns:
+            list: List of RedditPost objects
+        """
+        if not subreddits:
+            subreddits = self.default_subreddits
+            
+        logger.info(f"Searching Reddit for '{query}' in {subreddits} (timeout: {timeout_per_subreddit}s per subreddit)")
+        
+        # Track which subreddits have been scraped (lazy import to avoid circular dependencies)
+        try:
+            from app import data_store as ds
+            for subreddit in subreddits:
+                ds.subreddits_scraped.add(subreddit)
+        except (ImportError, AttributeError):
+            pass  # Skip if data_store not available
+            
+        # Create subreddit objects
+        subreddit_objects = [self.reddit.subreddit(sub) for sub in subreddits]
+        
+        # Use PRAW to search for posts with timeout protection
+        posts = []
+        for subreddit_obj in subreddit_objects:
+            try:
+                subreddit_posts = self._search_subreddit_with_timeout(
+                    subreddit_obj, query, limit, time_filter, timeout_per_subreddit
+                )
+                posts.extend(subreddit_posts)
+                
                 # Apply rate limiting to avoid hitting the Reddit API too hard
                 time.sleep(2)
                     
-            except praw.exceptions.RedditAPIException as e:
-                logger.error(f"Reddit API error searching subreddit {subreddit}: {str(e)}")
+            except TimeoutError as e:
+                logger.error(f"Timeout searching subreddit {subreddit_obj}: {str(e)}")
                 # Continue with other subreddits
-            except praw.exceptions.RequestException as e:
-                logger.error(f"Network error searching subreddit {subreddit}: {str(e)}")
+            except praw.exceptions.RedditAPIException as e:
+                logger.error(f"Reddit API error searching subreddit {subreddit_obj}: {str(e)}")
+                # Continue with other subreddits
+            except prawcore_exceptions.ResponseException as e:
+                logger.warning(f"Subreddit {subreddit_obj} returned 404 or other HTTP error, skipping: {e}")
+                # Continue with other subreddits
+            except prawcore_exceptions.RequestException as e:
+                logger.error(f"Network error searching subreddit {subreddit_obj}: {str(e)}")
                 # Continue with other subreddits
             except Exception as e:
-                logger.error(f"Unexpected error searching subreddit {subreddit}: {str(e)}", exc_info=True)
+                logger.error(f"Unexpected error searching subreddit {subreddit_obj}: {str(e)}", exc_info=True)
                 # Continue with other subreddits
                 
         logger.info(f"Found {len(posts)} posts for query '{query}'")
         return posts
     
-    def scrape_product_mentions(self, product_name, limit=100, subreddits=None, time_filter="month"):
+    def scrape_product_mentions(self, product_name, limit=100, subreddits=None, time_filter="month", timeout_per_subreddit=300):
         """
         Scrape mentions of a specific product
         
@@ -143,6 +209,7 @@ class RedditScraper:
             limit (int): Maximum number of posts to retrieve
             subreddits (list): List of subreddits to search (optional)
             time_filter (str): Time filter for search ('day', 'week', 'month', 'year', 'all')
+            timeout_per_subreddit (int): Timeout in seconds per subreddit (default 5 minutes)
             
         Returns:
             list: List of RedditPost objects
@@ -164,13 +231,21 @@ class RedditScraper:
         
         all_posts = []
         for query in queries:
-            posts = self.search_reddit(
-                query=query, 
-                subreddits=search_subreddits, 
-                limit=limit//len(queries), 
-                time_filter=time_filter
-            )
-            all_posts.extend(posts)
+            try:
+                posts = self.search_reddit(
+                    query=query, 
+                    subreddits=search_subreddits, 
+                    limit=limit//len(queries), 
+                    time_filter=time_filter,
+                    timeout_per_subreddit=timeout_per_subreddit
+                )
+                all_posts.extend(posts)
+            except TimeoutError as e:
+                logger.warning(f"Timeout while searching for '{query}': {str(e)}")
+                # Continue with other queries
+            except Exception as e:
+                logger.error(f"Error searching for '{query}': {str(e)}", exc_info=True)
+                # Continue with other queries
             
         # Update the timestamp for the last scrape (lazy import to avoid circular dependencies)
         try:

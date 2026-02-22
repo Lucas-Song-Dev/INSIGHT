@@ -5,7 +5,8 @@ from api import (
     GetPainPoints, GetPosts, GetStatus, ResetScrapeStatus,
     GetClaudeAnalysis, GetAllProducts, RunAnalysis,
     GetUserProfile, UpdateUserCredits, DeleteAccount,
-    RequestPasswordReset, ResetPassword, ChangePassword
+    RequestPasswordReset, ResetPassword, ChangePassword,
+    GetUserJobs, GetJobDetails, GetAnalytics, CancelJob
 )
 
 # Create blueprint for main routes
@@ -37,3 +38,7 @@ def initialize_routes(api):
     api.add_resource(RequestPasswordReset, '/api/password/reset-request')
     api.add_resource(ResetPassword, '/api/password/reset')
     api.add_resource(ChangePassword, '/api/user/password')
+    api.add_resource(GetUserJobs, '/api/jobs')
+    api.add_resource(GetJobDetails, '/api/jobs/<job_id>')
+    api.add_resource(CancelJob, '/api/jobs/<job_id>/cancel')
+    api.add_resource(GetAnalytics, '/api/analytics')

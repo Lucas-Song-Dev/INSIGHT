@@ -62,10 +62,51 @@ $border-hover: rgba(107, 114, 128, 0.2); // Matte gray hover
 $error-color: #dc2626; // Matte red
 $error-color-bright: #e53e3e; // Brighter error red
 $error-color-alert: #ff4444; // Alert red
-$success-color: #525252; // Matte gray (replacing green)
-$warning-color: #a16207; // Matte amber
+$success-color: #059669; // Success green (emerald)
+$warning-color: #d97706; // Warning amber
 $warning-color-bright: #ed8936; // Brighter warning orange
 $info-color: $primary-indigo;
+
+// Status Badge Colors (Job Statuses)
+$status-pending-bg: rgba(251, 191, 36, 0.15); // Amber background
+$status-pending-text: #92400e; // Dark amber text
+$status-in-progress-bg: rgba(59, 130, 246, 0.15); // Blue background
+$status-in-progress-text: #1e40af; // Dark blue text
+$status-completed-bg: rgba(5, 150, 105, 0.15); // Green background
+$status-completed-text: #065f46; // Dark green text
+$status-failed-bg: rgba(220, 38, 38, 0.15); // Red background
+$status-failed-text: #991b1b; // Dark red text
+
+// Analytics/Stats Colors
+$stat-success-color: $success-color; // Green for success stats
+$stat-warning-color: $warning-color; // Amber for warning stats
+$stat-error-color: $error-color; // Red for error stats
+$stat-primary-color: $text-primary; // Dark for primary stats
+
+// Progress Bar Colors
+$progress-bg: rgba(0, 0, 0, 0.06);
+$progress-fill: $success-color; // Green progress fill
+
+// Card/Background Opacities
+$card-bg-opacity-40: rgba(255, 255, 255, 0.4);
+$card-bg-opacity-60: rgba(255, 255, 255, 0.6);
+$card-bg-opacity-90: rgba(255, 255, 255, 0.9);
+
+// Border Opacities
+$border-opacity-06: rgba(0, 0, 0, 0.06);
+$border-opacity-08: rgba(0, 0, 0, 0.08);
+$border-opacity-12: rgba(0, 0, 0, 0.12);
+$border-opacity-15: rgba(0, 0, 0, 0.15);
+
+// Shadow Opacities
+$shadow-opacity-05: rgba(0, 0, 0, 0.05);
+$shadow-opacity-08: rgba(0, 0, 0, 0.08);
+$shadow-opacity-10: rgba(0, 0, 0, 0.1);
+
+// Error Message Colors
+$error-bg: rgba(220, 38, 38, 0.1);
+$error-text: $error-color;
+$error-border: rgba(220, 38, 38, 0.2);
 
 // RGBA variants for matte colors (replacing all greens, blues, and yellows)
 // Matte gray rgba variants (replacing blue: rgba(74, 144, 226, ...) and indigo: rgba(99, 102, 241, ...))
@@ -135,6 +176,11 @@ $line-height-base: 1.5;
 $line-height-tight: 1.25;
 $line-height-relaxed: 1.75;
 
+// Papyrus aesthetic (jobs / log panel - warm paper-like)
+$papyrus-bg: #f5f0e8;
+$papyrus-border: rgba(139, 119, 101, 0.2);
+$font-family-serif: Georgia, "Times New Roman", serif;
+
 // Smooth animations
 $transition-speed: 0.2s;
 $transition-speed-fast: 0.15s;
@@ -172,6 +218,9 @@ $spacing-lg: 24px;
 $spacing-xl: 32px;
 $spacing-2xl: 48px;
 $spacing-3xl: 64px;
+
+// Border Radius Sizes
+$border-radius-xs: 4px;
 
 // Component spacing
 $component-gap-sm: $spacing-sm;   // 8px

@@ -8,7 +8,8 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  Briefcase
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import "./Sidebar.scss";
@@ -29,16 +30,20 @@ const Sidebar = ({ handleLogout, onCollapseChange }) => {
 
   const buildItems = [
     { path: "/find-insights", label: "Find Insights", icon: Search },
-    { path: "/results", label: "Results", icon: FileText },
-    { path: "/about", label: "About", icon: Info },
+    { path: "/results", label: "Products", icon: FileText },
   ];
 
   const analyticsItems = [
+    { path: "/jobs", label: "Jobs", icon: Briefcase },
     { path: "/status", label: "Status", icon: Activity },
   ];
 
   const manageItems = [
     { path: "/profile", label: "Profile", icon: User },
+  ];
+
+  const aboutItems = [
+    { path: "/about", label: "About", icon: Info },
   ];
 
   return (
@@ -102,6 +107,25 @@ const Sidebar = ({ handleLogout, onCollapseChange }) => {
         <div className="nav-section">
           <div className="nav-section-label">MANAGE</div>
           {manageItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nav-item ${isActive ? "active" : ""}`}
+                title={collapsed ? item.label : undefined}
+              >
+                <Icon size={18} className="nav-icon" />
+                {!collapsed && <span className="nav-label">{item.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="nav-section">
+          <div className="nav-section-label">INFO</div>
+          {aboutItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (

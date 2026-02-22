@@ -2,31 +2,207 @@
 
 .status-page {
   padding: $spacing-xl;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 
-  .status-page-header {
-    margin-bottom: $spacing-xl;
-
-    h1 {
-      font-size: $font-size-3xl;
-      font-weight: $font-weight-semibold;
-      color: $text-primary;
-      margin: 0 0 $spacing-sm 0;
-    }
-
-    .status-page-subtitle {
-      font-size: $font-size-base;
-      color: $text-secondary;
-      margin: 0;
-    }
+  .error-message {
+    background: $error-bg;
+    color: $error-text;
+    padding: $spacing-md;
+    border-radius: $border-radius-sm;
+    margin: $spacing-xl 0;
+    border: 1px solid $error-border;
   }
 
-  .status-page-content {
-    background: $bg-card;
-    border-radius: $border-radius-lg;
-    padding: $spacing-xl;
-    box-shadow: $shadow-md;
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+
+    .analytics-card {
+      background: $card-bg-opacity-40;
+      border: 1px solid $border-opacity-08;
+      border-radius: $border-radius-md;
+      padding: $spacing-lg;
+      transition: all $transition-speed ease;
+
+      &:hover {
+        box-shadow: 0 4px 12px $shadow-opacity-08;
+        transform: translateY(-2px);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: $spacing-lg;
+        padding-bottom: $spacing-md;
+        border-bottom: 1px solid $border-opacity-08;
+
+        .card-icon {
+          color: $text-tertiary;
+        }
+
+        h2 {
+          margin: 0;
+          font-size: $font-size-lg;
+          font-weight: $font-weight-semibold;
+          color: $text-primary;
+          letter-spacing: -0.01em;
+        }
+      }
+
+      .card-content {
+        .active-jobs-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+
+          .active-job-item {
+            padding: $spacing-md;
+            background: $card-bg-opacity-60;
+            border: 1px solid $border-opacity-06;
+            border-radius: $border-radius-sm;
+
+            .job-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: $spacing-xs;
+
+              .job-topic {
+                font-weight: $font-weight-medium;
+                color: $text-primary;
+              }
+
+              .job-status {
+                display: flex;
+                align-items: center;
+                gap: $spacing-xs;
+                padding: $spacing-xs 0.75rem;
+                border-radius: $border-radius-lg;
+                font-size: $font-size-sm;
+                font-weight: $font-weight-medium;
+                text-transform: capitalize;
+
+                &.pending {
+                  background: $status-pending-bg;
+                  color: $status-pending-text;
+                }
+
+                &.in_progress {
+                  background: $status-in-progress-bg;
+                  color: $status-in-progress-text;
+                }
+              }
+            }
+
+            .job-time {
+              font-size: $font-size-sm;
+              color: $text-secondary;
+            }
+          }
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: $spacing-xl;
+          color: $text-secondary;
+
+          p {
+            margin-top: $spacing-xs;
+            font-size: $font-size-sm;
+          }
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+
+          .stat-item {
+            text-align: center;
+            padding: $spacing-md;
+            background: $card-bg-opacity-60;
+            border-radius: $border-radius-sm;
+            border: 1px solid $border-opacity-06;
+
+            .stat-value {
+              font-size: $font-size-2xl;
+              font-weight: $font-weight-semibold;
+              color: $stat-primary-color;
+              margin-bottom: $spacing-xs;
+            }
+
+            .stat-label {
+              font-size: $font-size-sm;
+              color: $text-secondary;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+
+            &.success .stat-value {
+              color: $stat-success-color;
+            }
+
+            &.warning .stat-value {
+              color: $stat-warning-color;
+            }
+
+            &.error .stat-value {
+              color: $stat-error-color;
+            }
+          }
+        }
+
+        .posts-stats {
+          display: flex;
+          justify-content: space-around;
+          margin-bottom: 1.5rem;
+
+          .posts-stat-item {
+            text-align: center;
+
+            .posts-stat-value {
+              font-size: $font-size-xl;
+              font-weight: $font-weight-semibold;
+              color: $text-primary;
+              margin-bottom: $spacing-xs;
+            }
+
+            .posts-stat-label {
+              font-size: $font-size-sm;
+              color: $text-secondary;
+            }
+          }
+        }
+
+        .progress-bar {
+          height: 8px;
+          background: $progress-bg;
+          border-radius: $border-radius-xs;
+          overflow: hidden;
+
+          .progress-fill {
+            height: 100%;
+            background: $progress-fill;
+            transition: width $transition-speed-slow ease;
+          }
+        }
+      }
+    }
   }
 }
 
+// Responsive
+@media (max-width: 768px) {
+  .status-page {
+    padding: 1rem;
+
+    .analytics-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+  }
+}

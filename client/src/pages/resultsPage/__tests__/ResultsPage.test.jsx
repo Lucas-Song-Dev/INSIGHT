@@ -99,10 +99,10 @@ describe('ResultsPage - Comprehensive Tests', () => {
         expect(screen.getByText('react')).toBeInTheDocument();
       });
 
-      // Verify analysis badges
-      expect(screen.getByText(/✓ Analysis/i)).toBeInTheDocument();
-      expect(screen.getByText(/✓ Recommendations/i)).toBeInTheDocument();
-      expect(screen.getByText(/⏳ Analysis/i)).toBeInTheDocument();
+      // Verify analysis badges (icons + text)
+      expect(screen.getByText("Analysis")).toBeInTheDocument();
+      expect(screen.getByText("Recommendations")).toBeInTheDocument();
+      expect(screen.getByText("Posts")).toBeInTheDocument();
     });
 
     it('should handle empty products array', async () => {

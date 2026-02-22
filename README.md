@@ -4,20 +4,41 @@ A comprehensive platform for analyzing user discussions and generating actionabl
 
 ## 🚀 Features
 
-### Core Functionality
-- **AI-Powered Discovery**: Automatically find and analyze relevant discussions using Claude AI
-- **Advanced NLP Analysis**: Sentiment analysis with 94% accuracy using state-of-the-art models
-- **Insight Detection**: Identify and categorize user pain points and feedback patterns
-- **Smart Recommendations**: Generate actionable recommendations using Claude AI
-- **Credits System**: Fair usage system with credit-based operations
-- **Real-time Dashboard**: Monitor analysis progress and results
+### Discovery & Scraping
+- **Find Insights**: Start Reddit discovery by topic/product or by custom prompt (e.g. market gaps, pain points in a niche). Cost in credits shown before submitting.
+- **AI-suggested strategy**: Claude suggests subreddits and search queries for your topic or custom prompt.
+- **Scrape jobs**: Runs asynchronously; track status, logs, and results per job. Cancel in-flight jobs.
+- **Posts from DB**: Analysis uses stored Reddit posts (MongoDB). Posts are indexed by product and subreddit; no Reddit calls during analysis.
 
-### User Experience
-- **Professional UI**: Modern, clean interface with excellent readability
-- **Error Boundaries**: Robust error handling to prevent crashes
-- **Responsive Design**: Works seamlessly on desktop and mobile
-- **User Profiles**: Track credits and usage history
-- **Comprehensive Testing**: Extensive test coverage for reliability
+### Analysis & Insights
+- **Run analysis**: For a product, run Claude-powered analysis on its posts. Produces a summary plus **three synthesized pain points** (group-level, in-depth descriptions with user voice). Optionally skip recommendations.
+- **Regenerate analysis**: Clear existing analysis and re-run for 1 credit. Confirmation modal explains cost and clearing; credit refunded if the job fails.
+- **Pain points**: Name, severity, in-depth description (with representative quotes), potential solutions, related keywords. No post/upvote counts shown.
+- **Recommendations**: AI-generated recommendations tied to pain points; stored per product and user.
+
+### User & Data Scope
+- **User-scoped products**: Product list comes from the current user’s jobs only (no cross-user visibility).
+- **User-scoped analysis**: Analysis and recommendations are stored with `user_id`; each user sees only their own.
+- **Credits**: New users get 5 credits. Scrape and regenerate consume credits; failed jobs refund credits where applicable.
+- **Profile**: View credits, update profile; delete account; password reset and change.
+
+### Jobs & Status
+- **Jobs list**: View your scrape and analysis jobs, filter by status, open job details and logs.
+- **Job details**: Status, parameters, logs, and results (e.g. posts count, products found) per job.
+- **Cancel job**: Cancel a running job via API; credits refunded for cancelled scrape/analysis as configured.
+- **Status**: System/API status and whether the current user has an active scrape.
+
+### Frontend & UX
+- **Pages**: Find Insights (scrape), Products/Results, Product Detail (Discussions, Analysis, Recommendations), Jobs, Job Detail, Status, Profile, About, Info.
+- **Design system**: Dark theme, global SCSS variables, minimal aesthetic, accessible components.
+- **Error boundaries**: Graceful handling of React errors to avoid full-app crashes.
+- **Notifications**: Toasts for success, error, and info (e.g. analysis started, insufficient credits).
+- **Responsive layout**: Sidebar navigation, works on desktop and mobile.
+
+### Security & API
+- **JWT auth**: Login/logout with HTTP-only cookies; protected routes require authentication.
+- **CORS**: Configured for allowed origins (e.g. dev frontend).
+- **Rate limiting**: Applied where configured to protect APIs.
 
 ## 🛠 Tech Stack
 
@@ -128,29 +149,26 @@ The frontend will be available at `http://localhost:5173`
 ## 💡 How to Use
 
 ### 1. Getting Started
-- **Register**: Create a new account (receives 5 credits automatically)
-- **Login**: Access your dashboard and view your credit balance
+- **Register**: Create a new account (receives 5 credits automatically).
+- **Login**: Access your dashboard; credit balance is shown in the sidebar.
 
 ### 2. Discover Insights
-- Navigate to "Find Insights"
-- Enter a topic or product name (e.g., "React", "JavaScript", "VS Code")
-- Select analysis scope (time period and discussion limit)
-- **Note**: Operations cost credits based on scope and complexity
+- Go to **Find Insights**.
+- **Product Insights**: Enter a topic or product (e.g. "VS Code", "React"). Estimated credit cost is shown on the button.
+- **Custom Insights**: Switch to the custom tab and describe what you want to discover (e.g. market gaps, pain points); cost is shown before submitting.
+- Scrape runs in the background; you can open **Jobs** to see status and logs.
 
-### 3. View Results
-- Browse all analyzed products in the "Results" section
-- Filter and search through discovered insights
-- View discussion details, sentiment analysis, and identified patterns
+### 3. View Results & Products
+- **Products** (or Results): Lists products from **your** jobs only. Click a product to open its detail page.
+- **Product Detail**: **Discussions** tab shows scraped posts; **Analysis** tab shows the AI summary and three synthesized pain points (with descriptions, severity, solutions, keywords). **Recommendations** tab shows AI suggestions. Use **Regenerate** to clear and re-run analysis (1 credit; confirmation modal).
 
-### 4. Explore Product Details
-- Click any product to view comprehensive analysis
-- **Discussions Tab**: All collected discussions with metadata
-- **Analysis Tab**: AI-generated insights and pain point categorization
-- **Recommendations Tab**: Actionable improvement suggestions
+### 4. Jobs & Status
+- **Jobs**: List of your scrape and analysis jobs; filter by status, open a job for details and logs.
+- **Status**: Quick view of system status and whether a scrape is in progress.
 
-### 5. Manage Your Account
-- Click your profile to view credit balance and usage history
-- Monitor your analysis history and results
+### 5. Profile & Account
+- **Profile**: View and edit profile, see credit balance and usage.
+- **Delete account** and **password** reset/change are available from profile or account endpoints.
 
 ## 📦 Data storage (MongoDB)
 
@@ -158,53 +176,66 @@ All data is stored in the MongoDB database named in `MONGODB_URI` (e.g. `reddit_
 
 | Collection | Purpose |
 |------------|--------|
-| **posts** | Scraped Reddit posts; `product` = topic/product name from the scrape job. |
-| **jobs** | Scrape and analysis jobs (status, logs, parameters, results). |
-| **anthropic_analysis** | Full Claude analysis per product: `_id` = normalized product name (lowercase), document includes `analysis` (common_pain_points, analysis_summary, etc.) and `created_at`. |
-| **pain_points** | Individual pain points; each doc has `product`, `topic` (pain point name), `description`, `severity`, etc. |
-| **recommendations** | Saved recommendations per product; `_id` / `product` and `recommendations` array. |
+| **posts** | Scraped Reddit posts; `product`, `subreddit`; compound index `(product, subreddit)` for analysis queries. Shared across users. |
+| **jobs** | Scrape and analysis jobs; `user_id`, status, parameters, logs, results (e.g. posts_count, products_found). |
+| **anthropic_analysis** | Claude analysis per product and user: keyed by `user_id` + product; `analysis` (common_pain_points, analysis_summary, etc.), `created_at`. |
+| **pain_points** | Pain points per product and user; `user_id`, `product`, topic, description, severity, potential_solutions, related_keywords. |
+| **recommendations** | Recommendations per product and user; `user_id`, `product`, `recommendations` array. |
 | **users** | User accounts, credits, auth data. |
 | **metadata** | Scraper metadata (e.g. scrape_in_progress). |
 
-Analysis flow: **run-analysis** loads posts → Claude extracts pain points → results are written to **anthropic_analysis** and **pain_points**; then (unless `skip_recommendations`) recommendations are generated and written to **recommendations**.
+Analysis flow: **run-analysis** loads posts from DB (by product, no Reddit call) → Claude synthesizes three pain points and summary → results written to **anthropic_analysis** and **pain_points** with `user_id`; then (unless `skip_recommendations`) recommendations are generated and written to **recommendations**. **Regenerate** clears existing analysis/pain_points/recommendations for that user and product, then runs the same flow (1 credit; refund on failure).
 
 ## 🔧 API Reference
 
-### Authentication
+### Health & Auth
 ```http
-POST /api/register    # Register new user
-POST /api/login       # User authentication
-POST /api/logout      # Secure logout
+GET  /api/health          # Health check (no auth)
+POST /api/register        # Register new user
+POST /api/login           # User authentication (sets HTTP-only cookie)
+POST /api/logout           # Secure logout
 ```
 
-### User Management
+### User & Account
 ```http
-GET  /api/user/profile     # Get user profile and credits (fixed: proper Flask-RESTful Resource handling)
-POST /api/user/credits     # Update user credits (admin)
+GET    /api/user/profile   # Get profile and credits (auth)
+POST   /api/user/credits   # Update user credits (admin)
+DELETE /api/user           # Delete account (auth)
+PUT    /api/user/password  # Change password (auth)
+POST   /api/password/reset-request  # Request password reset
+POST   /api/password/reset # Reset password with token
 ```
 
-**Note**: The user profile endpoint has been fixed to properly handle Flask-RESTful Resource methods with comprehensive logging for debugging.
-
-### Analysis Operations
+### Discovery & Posts
 ```http
-POST /api/scrape           # Start insight discovery (costs credits)
-GET  /api/posts           # Retrieve discussions with filters
-GET  /api/pain-points     # Get identified pain points
-POST /api/run-analysis    # Run AI analysis (creates job). Body: { product, max_posts?, skip_recommendations? }
-GET  /api/claude-analysis # Get AI analysis results
-```
-- **run-analysis** options: `product` (required), `max_posts` (optional, 1–1000, default 500), `skip_recommendations` (optional, boolean; if true, only pain-point analysis is run and recommendations are not generated).
-
-### Recommendations
-```http
-GET  /api/recommendations  # Get saved recommendations
-POST /api/recommendations  # Generate new recommendations
+POST /api/scrape           # Start insight discovery (auth; costs credits). Body: topic, limit?, subreddits?, time_filter?, is_custom?, etc.
+GET  /api/posts            # Get scraped posts (auth). Query: product?, limit?, sort_by?
+GET  /api/status           # System status + user scrape-in-progress (auth)
+POST /api/reset-status    # Reset scrape status (admin/dev)
 ```
 
-### System
+### Analysis & Insights
 ```http
-GET /api/status           # System status and statistics
-GET /api/all-products     # List all analyzed products
+POST /api/run-analysis     # Run AI analysis (auth). Body: product (required), max_posts?, skip_recommendations?, regenerate?
+GET  /api/claude-analysis  # Get analysis for a product (auth; user-scoped). Query: product
+GET  /api/all-products     # List products from current user's jobs only (auth)
+GET  /api/pain-points      # Get pain points (auth). Query: product?, min_severity?
+GET  /api/recommendations  # Get recommendations (auth; user-scoped). Query: product
+POST /api/recommendations  # Generate recommendations (auth)
+```
+
+- **run-analysis**: `product` (required), `max_posts` (optional, 1–1000, default 500), `skip_recommendations` (optional), `regenerate` (optional). If `regenerate: true`, 1 credit is deducted, existing analysis/pain_points/recommendations for that user and product are deleted, then analysis runs (credit refunded on job failure).
+
+### Jobs
+```http
+GET  /api/jobs             # List current user's jobs (auth). Query: status?
+GET  /api/jobs/<job_id>    # Job details and logs (auth)
+POST /api/jobs/<job_id>/cancel  # Cancel a running job (auth; may refund credits)
+```
+
+### Analytics
+```http
+GET  /api/analytics        # Status/analytics (auth)
 ```
 
 ## 🧪 Testing
@@ -247,17 +278,14 @@ The application uses a modern dark theme with rounded aesthetics:
 ## 💳 Credits System
 
 ### How Credits Work
-- **New Users**: Receive 5 credits upon registration
-- **Cost Structure**: Based on analysis scope and complexity
-  - Small analysis (≤50 discussions, week): 2 credits
-  - Medium analysis (≤100 discussions, month): 6 credits
-  - Large analysis (≤200 discussions, year): 12 credits
-  - Comprehensive analysis (200+ discussions, all time): 20 credits
+- **New users**: Receive 5 credits upon registration.
+- **Find Insights (scrape)**: Cost depends on scope (time range, limit); shown on the button before submit. Deducted when the job starts; refunded if the job fails or is cancelled where applicable.
+- **Regenerate analysis**: 1 credit per regenerate. Deducted before the job runs; refunded if the analysis job fails.
+- **Run analysis** (first time for a product): No extra credit beyond the scrape that collected the posts; analysis runs as a job.
 
 ### Credit Management
-- View balance in navigation sidebar
-- Track usage in user profile
-- Admins can adjust credits via API
+- View balance in the navigation sidebar and on the Profile page.
+- Admins can adjust credits via `POST /api/user/credits`.
 
 ## 🚀 Deployment
 

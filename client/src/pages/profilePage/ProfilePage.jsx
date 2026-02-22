@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUserProfile, deleteAccount } from '../../api/api';
+import { fetchUserProfile, deleteAccount, updateUserCredits } from '../../api/api';
 import { logoutUser } from '../../api/api';
 import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ const ProfilePage = () => {
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [addingCredits, setAddingCredits] = useState(false);
   const { showNotification } = useNotification();
   const { logout } = useAuth();
 
@@ -96,6 +97,50 @@ const ProfilePage = () => {
     } finally {
       console.log('[PROFILE PAGE] Step 5: Setting loading state to false');
       setLoading(false);
+    }
+  };
+
+  const handleAddCredits = async () => {
+    console.log('[PROFILE PAGE] ========== ADD CREDITS CALLED ==========');
+    setAddingCredits(true);
+    
+    try {
+      console.log('[PROFILE PAGE] Step 1: Calling updateUserCredits API...');
+      const response = await updateUserCredits({
+        username: profile.username,
+        credits: 3,
+        operation: 'add'
+      });
+      
+      console.log('[PROFILE PAGE] Step 2: Add credits response:', {
+        status: response?.status,
+        old_credits: response?.old_credits,
+        new_credits: response?.new_credits
+      });
+      
+      if (response.status === 'success') {
+        console.log('[PROFILE PAGE] Step 3: Credits added successfully');
+        showNotification(`Added 3 credits! New balance: ${response.new_credits}`, 'success');
+        
+        // Reload profile to get updated credits
+        await loadProfile();
+        console.log('[PROFILE PAGE] ========== ADD CREDITS COMPLETE ==========');
+      } else {
+        console.warn('[PROFILE PAGE] Add credits returned non-success status:', response.status);
+        showNotification(response.message || 'Failed to add credits', 'error');
+      }
+    } catch (err) {
+      console.error('[PROFILE PAGE] ========== ADD CREDITS ERROR ==========');
+      console.error('[PROFILE PAGE] Error type:', err.constructor.name);
+      console.error('[PROFILE PAGE] Error message:', err.message);
+      console.error('[PROFILE PAGE] Error details:', {
+        message: err.message,
+        responseStatus: err.response?.status,
+        responseData: err.response?.data
+      });
+      showNotification(err.message || 'Failed to add credits', 'error');
+    } finally {
+      setAddingCredits(false);
     }
   };
 
@@ -187,8 +232,9 @@ const ProfilePage = () => {
       {profile && (
         <div className="profile-form">
           <div className="form-field">
-            <label>Full Name</label>
+            <label htmlFor="profile-full-name">Full Name</label>
             <input 
+              id="profile-full-name"
               type="text" 
               value={profile.full_name || profile.username || 'Not set'}
               readOnly
@@ -197,8 +243,9 @@ const ProfilePage = () => {
           </div>
           
           <div className="form-field">
-            <label>What should we call you?</label>
+            <label htmlFor="profile-preferred-name">What should we call you?</label>
             <input 
+              id="profile-preferred-name"
               type="text" 
               value={profile.preferred_name || profile.full_name || profile.username || 'Not set'}
               readOnly
@@ -208,8 +255,9 @@ const ProfilePage = () => {
 
           {profile.email && (
             <div className="form-field">
-              <label>Email</label>
+              <label htmlFor="profile-email">Email</label>
               <input 
+                id="profile-email"
                 type="email" 
                 value={profile.email}
                 readOnly
@@ -219,18 +267,29 @@ const ProfilePage = () => {
           )}
 
           <div className="form-field">
-            <label>Credits</label>
-            <input 
-              type="text" 
-              value={`${profile.credits} credits available`}
-              readOnly
-              className="form-input"
-            />
+            <label htmlFor="profile-credits">Credits</label>
+            <div className="credits-field-container">
+              <input 
+                id="profile-credits"
+                type="text" 
+                value={`${profile.credits} credits available`}
+                readOnly
+                className="form-input"
+              />
+              <button
+                className="add-credits-button"
+                onClick={handleAddCredits}
+                disabled={addingCredits}
+              >
+                {addingCredits ? 'Adding...' : '+ Add 3 Credits'}
+              </button>
+            </div>
           </div>
 
           <div className="form-field">
-            <label>Member Since</label>
+            <label htmlFor="profile-member-since">Member Since</label>
             <input 
+              id="profile-member-since"
               type="text" 
               value={profile.created_at 
                 ? new Date(profile.created_at).toLocaleDateString()
@@ -243,8 +302,9 @@ const ProfilePage = () => {
 
           {profile.birthday && (
             <div className="form-field">
-              <label>Birthday</label>
+              <label htmlFor="profile-birthday">Birthday</label>
               <input 
+                id="profile-birthday"
                 type="text" 
                 value={new Date(profile.birthday).toLocaleDateString()}
                 readOnly
@@ -255,8 +315,9 @@ const ProfilePage = () => {
 
           {profile.last_login && (
             <div className="form-field">
-              <label>Last Login</label>
+              <label htmlFor="profile-last-login">Last Login</label>
               <input 
+                id="profile-last-login"
                 type="text" 
                 value={new Date(profile.last_login).toLocaleString()}
                 readOnly

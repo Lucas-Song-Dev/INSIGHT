@@ -6,45 +6,6 @@
   padding: 25px;
 }
 
-// Glass Header
-.recommendations-header {
-  margin-bottom: 30px;
-  padding: 0 25px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  position: relative;
-  overflow: hidden;
-  transition: all $transition-speed;
-  
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  }
-  
-  // Gradient animation
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(to right, transparent, $accent-color, transparent);
-    animation: shimmer 3s infinite;
-  }
-  
-  @keyframes shimmer {
-    0% { opacity: 0; transform: translateX(-100%); }
-    20% { opacity: 1; }
-    80% { opacity: 1; }
-    100% { opacity: 0; transform: translateX(100%); }
-  }
-}
-
 // Glass Products Section
 .products-section {
   background: rgba(255, 255, 255, 0.2);
@@ -592,69 +553,10 @@
   gap: 30px;
 }
 
-// Glass Card for Product Recommendations
-.product-card {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  overflow: hidden;
-  transition: all 0.3s;
-  
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  }
-}
-
-.product-card-header {
-  background: linear-gradient(to right, $matte-blue-10, $matte-blue-10);
-  padding: 20px 25px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 1px;
-    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.5), transparent);
-    bottom: 0;
-    left: 0;
-  }
-  
-  h3 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
-    color: $accent-color;
-    position: relative;
-    display: inline-block;
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: -5px;
-      left: 0;
-      width: 40px;
-      height: 2px;
-      background: $accent-color;
-      transition: width 0.3s;
-    }
-    
-    &:hover::after {
-      width: 100%;
-    }
-  }
-}
-
-// Summary and Recommendations Sections
-.summary-section, .recommendations-section {
+// Recommendations Section (Action Items)
+.recommendations-section {
   padding: 25px;
-  
+
   h4 {
     font-size: 18px;
     font-weight: 600;
@@ -662,7 +564,7 @@
     color: $dark-text;
     display: inline-block;
     position: relative;
-    
+
     &::after {
       content: '';
       position: absolute;
@@ -673,21 +575,17 @@
       background: $accent-color;
       transition: width 0.3s;
     }
-    
+
     &:hover::after {
       width: 100%;
     }
   }
-  
+
   p {
     margin: 0;
     line-height: 1.6;
     color: $medium-text;
   }
-}
-
-.summary-section {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 // Recommendation Items
@@ -777,7 +675,7 @@
   
   &.severity-low {
     background-color: rgba(107, 114, 128, 0.1); // Matte gray (replacing green)
-    color: #6b7280; // Matte gray
+    color: $primary-indigo; // Matte gray
     border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
@@ -789,7 +687,7 @@
   
   &.date-badge {
     background-color: rgba(107, 114, 128, 0.1); // Matte gray
-    color: #6b7280; // Matte gray
+    color: $primary-indigo; // Matte gray
     border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
 }
@@ -862,7 +760,7 @@
   
   .pain-point-tag {
     background: rgba(107, 114, 128, 0.1); // Matte gray
-    color: #6b7280; // Matte gray
+    color: $primary-indigo; // Matte gray
     padding: 6px 12px;
     border-radius: 4px;
     font-size: 13px;
