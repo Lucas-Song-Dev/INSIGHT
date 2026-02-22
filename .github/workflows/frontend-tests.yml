@@ -28,7 +28,7 @@ jobs:
     
     - name: Run tests
       env:
-        NODE_OPTIONS: --max-old-space-size=4096
+        NODE_OPTIONS: --max-old-space-size=8192
       run: |
         cd client
         npm test -- run
