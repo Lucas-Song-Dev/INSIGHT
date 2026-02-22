@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
-// Mock the AuthContext with the correct path
-const mockUseAuth = vi.fn();
+// Mock the AuthContext (no top-level refs in factory so hoisting works in CI)
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => mockUseAuth(),
+  useAuth: vi.fn(),
   AuthProvider: ({ children }) => children,
 }));
 
@@ -18,14 +17,19 @@ vi.mock('../context/NotificationContext', () => ({
   NotificationProvider: ({ children }) => children,
 }));
 
-// Import App after mocking
+// Mock Background to avoid WebGL/canvas in jsdom (use alias so resolution matches App)
+vi.mock('@/components/Background/Background', () => ({
+  default: () => require('react').createElement('div', { 'data-testid': 'background' }, 'Background'),
+}));
+
+// Import App and AuthContext after mocking
 import App from '../App';
+import * as AuthContext from '../context/AuthContext';
 
 describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default mock
-    mockUseAuth.mockReturnValue({
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
       user: null,
@@ -51,8 +55,8 @@ describe('App Component', () => {
     expect(navElements.length).toBeGreaterThan(0);
   });
 
-  it('displays preferred name in home page greeting when available', () => {
-    mockUseAuth.mockReturnValue({
+  it('displays preferred name in home page greeting when available', async () => {
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
       user: {
@@ -65,13 +69,14 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    
-    // The greeting should show the preferred name
-    expect(screen.getByText(/Good (morning|afternoon|evening), Test Preferred Name/i)).toBeInTheDocument();
+    // Greeting is in a typewriter; wait for it to appear
+    await waitFor(() => {
+      expect(screen.getByText(/Good (morning|afternoon|evening), Test Preferred Name/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 
-  it('displays full name in greeting when preferred name is not available', () => {
-    mockUseAuth.mockReturnValue({
+  it('displays full name in greeting when preferred name is not available', async () => {
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
       user: {
@@ -84,13 +89,13 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    
-    // The greeting should show the full name
-    expect(screen.getByText(/Good (morning|afternoon|evening), Test User Full Name/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Good (morning|afternoon|evening), Test User Full Name/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 
-  it('displays username in greeting when neither preferred nor full name is available', () => {
-    mockUseAuth.mockReturnValue({
+  it('displays username in greeting when neither preferred nor full name is available', async () => {
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
       user: {
@@ -103,13 +108,13 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    
-    // The greeting should show the username
-    expect(screen.getByText(/Good (morning|afternoon|evening), testuser/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Good (morning|afternoon|evening), testuser/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 
-  it('displays "User" in greeting when no user data is available', () => {
-    mockUseAuth.mockReturnValue({
+  it('displays "User" in greeting when no user data is available', async () => {
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
       user: null,
@@ -118,8 +123,8 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    
-    // The greeting should show "User" as fallback
-    expect(screen.getByText(/Good (morning|afternoon|evening), User/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Good (morning|afternoon|evening), User/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 }); 

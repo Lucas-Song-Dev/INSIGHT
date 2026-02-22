@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ResultsPage from '../ResultsPage';
 import * as api from '../../../api/api';
 
@@ -23,10 +24,18 @@ vi.mock('../../../components/LoadingState/LoadingState', () => ({
   default: () => <div data-testid="loading-state">Loading...</div>
 }));
 
-describe('ResultsPage - Comprehensive Tests', () => {
-  const mockSetActivePage = vi.fn();
-  const mockSetSelectedProduct = vi.fn();
+function renderWithRouter(ui = <ResultsPage />) {
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={ui} />
+        <Route path="/products/:productName" element={<div data-testid="product-detail">Product Detail</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
 
+describe('ResultsPage - Comprehensive Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     console.log = vi.fn();
@@ -51,12 +60,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       // Verify loading state
       expect(screen.getByTestId('loading-state')).toBeInTheDocument();
@@ -89,12 +93,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -112,12 +111,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: []
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText(/No products have posts yet/i)).toBeInTheDocument();
@@ -135,12 +129,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         message: 'Authentication token is missing'
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText(/authentication required/i)).toBeInTheDocument();
@@ -162,12 +151,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         message: 'Internal server error'
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText(/server error/i)).toBeInTheDocument();
@@ -177,12 +161,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
     it('should handle network errors gracefully', async () => {
       api.fetchAllProducts.mockRejectedValue(new Error('Network Error'));
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText(/network error/i)).toBeInTheDocument();
@@ -196,12 +175,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
 
       api.fetchAllProducts.mockRejectedValue(corsError);
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText(/network error/i)).toBeInTheDocument();
@@ -217,12 +191,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         message: 'Bad request'
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText(/bad request/i)).toBeInTheDocument();
@@ -240,12 +209,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -269,12 +233,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -297,12 +256,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -336,12 +290,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -350,8 +299,9 @@ describe('ResultsPage - Comprehensive Tests', () => {
       const productCard = screen.getByText('react').closest('.product-card');
       await user.click(productCard);
 
-      expect(mockSetSelectedProduct).toHaveBeenCalledWith('react');
-      expect(mockSetActivePage).toHaveBeenCalledWith('productDetail');
+      await waitFor(() => {
+        expect(screen.getByTestId('product-detail')).toBeInTheDocument();
+      });
     });
 
     it('should handle string product names correctly', async () => {
@@ -363,12 +313,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -377,8 +322,9 @@ describe('ResultsPage - Comprehensive Tests', () => {
       const productCard = screen.getByText('react').closest('.product-card');
       await user.click(productCard);
 
-      expect(mockSetSelectedProduct).toHaveBeenCalledWith('react');
-      expect(mockSetActivePage).toHaveBeenCalledWith('productDetail');
+      await waitFor(() => {
+        expect(screen.getByTestId('product-detail')).toBeInTheDocument();
+      });
     });
   });
 
@@ -392,12 +338,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         }), 100))
       );
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       // Verify loading state is shown
       expect(screen.getByTestId('loading-state')).toBeInTheDocument();
@@ -414,12 +355,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: ['react']
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.queryByTestId('loading-state')).not.toBeInTheDocument();
@@ -429,12 +365,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
     it('should hide loading state after error', async () => {
       api.fetchAllProducts.mockRejectedValue(new Error('Network Error'));
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.queryByTestId('loading-state')).not.toBeInTheDocument();
@@ -449,12 +380,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: []
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(console.log).toHaveBeenCalledWith(
@@ -470,12 +396,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(console.log).toHaveBeenCalledWith(
@@ -495,12 +416,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
 
       api.fetchAllProducts.mockRejectedValue(error);
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         // Check that console.error was called with error-related content
@@ -523,12 +439,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -554,12 +465,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();
@@ -584,12 +490,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: []
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(api.fetchAllProducts).toHaveBeenCalled();
@@ -618,12 +519,7 @@ describe('ResultsPage - Comprehensive Tests', () => {
         products: mockProducts
       });
 
-      render(
-        <ResultsPage 
-          setActivePage={mockSetActivePage}
-          setSelectedProduct={mockSetSelectedProduct}
-        />
-      );
+      renderWithRouter();
 
       await waitFor(() => {
         expect(screen.getByText('react')).toBeInTheDocument();

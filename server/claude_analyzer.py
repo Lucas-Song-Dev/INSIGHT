@@ -209,40 +209,40 @@ Make search queries diverse to capture different angles: pain points, opportunit
             post_texts.append(post_data)
         
         # Create a prompt for Claude
-        prompt = f"""Analyze the following Reddit posts that may be related to {product_name}. Your task is to identify up to 10 distinct pain points that users have *clearly* associated with {product_name}. Do not include general complaints unless they are specifically tied to {product_name}.
+        prompt = f"""Analyze the following Reddit posts as a single group related to {product_name}. Each post has "title", "content", "score" (upvotes), and "num_comments". Your task is to synthesize across ALL posts and identify exactly 3 high-level pain points (themes) that users have *clearly* associated with {product_name}. Do not list one pain point per post—merge similar issues into three overarching themes. Do not include general complaints unless they are specifically tied to {product_name}.
 
 {json.dumps(post_texts, indent=2)}
 
-From these posts, extract only the pain points that are genuinely and explicitly relevant to {product_name}.
+From these posts, extract only pain points that are genuinely and explicitly relevant to {product_name}. Output exactly 3 pain points.
 
-For each pain point, provide:
-1. A concise name (max 3-5 words)
-2. A detailed description of the issue
-3. The severity level (high, medium, low)
-4. Potential solutions or workarounds
-5. Related keywords or phrases that frequently appear
+For each of the 3 pain points you MUST:
+1. **Name**: A concise name (max 3-5 words).
+2. **Description**: Write an IN-DEPTH paragraph (3–5 sentences) that: (a) explains the topic/theme as discussed across the group of posts, (b) describes what is going wrong and how it shows up in practice, (c) weaves in what users actually said—include at least one direct quote or close paraphrase from the posts. Do not write a single-sentence summary; give a substantive description of the issue and how users talk about it.
+3. **Severity**: high, medium, or low.
+4. **Potential solutions**: Specific suggestions (not generic).
+5. **Related keywords**: Phrases that appear in the posts.
 
 Respond with valid JSON in this exact format:
 {{
     "common_pain_points": [
         {{
             "name": "Pain point name",
-            "description": "Detailed description",
+            "description": "In-depth paragraph explaining the theme, what goes wrong, how it shows up, and including a representative user quote or paraphrase.",
             "severity": "high|medium|low",
-            "potential_solutions": "Suggestions for addressing this issue",
+            "potential_solutions": "Specific suggestions",
             "related_keywords": ["keyword1", "keyword2"]
         }}
     ],
-    "analysis_summary": "Brief overview of your findings"
+    "analysis_summary": "A full paragraph (not just 2–3 sentences) that synthesizes the overall picture from the posts: main themes, how they connect, and what users are asking for."
 }}
 
-Skip any that are not clearly connected to {product_name}."""
+Skip any pain point not clearly connected to {product_name}. Return exactly 3 pain points."""
         
         try:
             logger.info(f"Sending request to Claude to analyze pain points for {product_name}")
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=2000,
+                max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
             

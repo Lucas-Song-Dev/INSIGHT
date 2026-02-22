@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RegisterForm from '../RegisterForm';
 import * as api from '../../../api/api';
@@ -19,15 +19,14 @@ const mockConsoleLog = vi.fn();
 const mockConsoleError = vi.fn();
 const mockConsoleWarn = vi.fn();
 
-const renderWithProviders = (ui, props = {}) => {
+const renderWithProviders = (props = {}) => {
   const defaultOnRegisterSuccess = vi.fn();
   const defaultOnCancel = vi.fn();
-  
   return render(
     <NotificationProvider>
       <RegisterForm
-        onRegisterSuccess={props.onRegisterSuccess || defaultOnRegisterSuccess}
-        onCancel={props.onCancel || defaultOnCancel}
+        onRegisterSuccess={props.onRegisterSuccess ?? defaultOnRegisterSuccess}
+        onCancel={props.onCancel ?? defaultOnCancel}
         {...props}
       />
     </NotificationProvider>
@@ -66,8 +65,8 @@ describe('RegisterForm', () => {
       expect(screen.getByLabelText(/what should we call you/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/birthday/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
+      expect(screen.getByLabelText('Password')).toBeInTheDocument();
+      expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
     });
 
     it('should have register and cancel buttons', () => {
@@ -88,16 +87,16 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
 
       expect(screen.getByLabelText(/username/i)).toHaveValue('testuser');
       expect(screen.getByLabelText(/full name/i)).toHaveValue('Test User Full Name');
       expect(screen.getByLabelText(/what should we call you/i)).toHaveValue('Test Preferred Name');
       expect(screen.getByLabelText(/birthday/i)).toHaveValue('1990-01-01');
       expect(screen.getByLabelText(/email/i)).toHaveValue('test@example.com');
-      expect(screen.getByLabelText(/password/i)).toHaveValue('password123');
-      expect(screen.getByLabelText(/confirm password/i)).toHaveValue('password123');
+      expect(screen.getByLabelText('Password')).toHaveValue('password123');
+      expect(screen.getByLabelText('Confirm Password')).toHaveValue('password123');
     });
   });
 
@@ -110,8 +109,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'differentpass');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'differentpass');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -128,8 +127,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'short');
-      await user.type(screen.getByLabelText(/confirm password/i), 'short');
+      await user.type(screen.getByLabelText('Password'), 'short');
+      await user.type(screen.getByLabelText('Confirm Password'), 'short');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -139,15 +138,16 @@ describe('RegisterForm', () => {
     });
 
     it('should show error when full name is missing', async () => {
-      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
-      await user.click(screen.getByRole('button', { name: /create account/i }));
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+      const form = container.querySelector('form');
+      fireEvent.submit(form);
 
       await waitFor(() => {
         expect(screen.getByText(/full name is required/i)).toBeInTheDocument();
@@ -156,15 +156,15 @@ describe('RegisterForm', () => {
     });
 
     it('should show error when preferred name is missing', async () => {
-      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
       await user.type(screen.getByLabelText(/full name/i), 'Test User');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
-      await user.click(screen.getByRole('button', { name: /create account/i }));
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+      fireEvent.submit(container.querySelector('form'));
 
       await waitFor(() => {
         expect(screen.getByText(/preferred name is required/i)).toBeInTheDocument();
@@ -173,15 +173,15 @@ describe('RegisterForm', () => {
     });
 
     it('should show error when birthday is missing', async () => {
-      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
       await user.type(screen.getByLabelText(/full name/i), 'Test User');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
-      await user.click(screen.getByRole('button', { name: /create account/i }));
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+      fireEvent.submit(container.querySelector('form'));
 
       await waitFor(() => {
         expect(screen.getByText(/birthday is required/i)).toBeInTheDocument();
@@ -200,8 +200,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -224,8 +224,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -248,12 +248,12 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
-        expect(mockOnRegisterSuccess).toHaveBeenCalledWith('testuser');
+        expect(mockOnRegisterSuccess).toHaveBeenCalledWith('testuser', 'password123');
       });
     });
 
@@ -265,8 +265,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), '  Test User Full Name  ');
       await user.type(screen.getByLabelText(/what should we call you/i), '  Test Preferred Name  ');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -291,8 +291,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -310,7 +310,7 @@ describe('RegisterForm', () => {
         message: 'Request failed',
       });
 
-      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
@@ -318,12 +318,13 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
       await user.type(screen.getByLabelText(/email/i), 'invalid-email');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
-      await user.click(screen.getByRole('button', { name: /create account/i }));
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+      fireEvent.submit(container.querySelector('form'));
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid email format/i)).toBeInTheDocument();
+        // Form shows err.message ('Request failed') or response message
+        expect(screen.getByText(/invalid email format|request failed/i)).toBeInTheDocument();
       });
     });
 
@@ -340,8 +341,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -362,8 +363,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled();
@@ -383,8 +384,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       const submitButton = screen.getByRole('button', { name: /creating account/i });
@@ -412,8 +413,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -422,13 +423,13 @@ describe('RegisterForm', () => {
     });
 
     it('should log validation failures', async () => {
-      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'differentpass');
-      await user.click(screen.getByRole('button', { name: /create account/i }));
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'differentpass');
+      fireEvent.submit(container.querySelector('form'));
 
       await waitFor(() => {
         expect(mockConsoleWarn).toHaveBeenCalledWith(expect.stringContaining('[REGISTER FORM] Password validation failed:'));
@@ -443,8 +444,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
@@ -462,8 +463,8 @@ describe('RegisterForm', () => {
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {

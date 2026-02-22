@@ -36,7 +36,6 @@ describe('AuthContext - Comprehensive Tests', () => {
 
   describe('Initial Authentication Check', () => {
     it('should check authentication status on mount', async () => {
-      api.fetchStatus.mockResolvedValue({ status: 'success' });
       api.fetchUserProfile.mockResolvedValue({
         status: 'success',
         user: { username: 'testuser', email: 'test@example.com' }
@@ -48,24 +47,18 @@ describe('AuthContext - Comprehensive Tests', () => {
         </AuthProvider>
       );
 
-      // Verify fetchStatus was called
+      // Verify user is authenticated after checkAuth runs (fetchUserProfile may be called via dynamic import)
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
-      });
-
-      // Verify fetchUserProfile was called after successful status check
-      await waitFor(() => {
-        expect(api.fetchUserProfile).toHaveBeenCalled();
-      });
-
-      // Verify user is authenticated
+        expect(screen.getByTestId('is-loading')).toHaveTextContent('false');
+      }, { timeout: 3000 });
       await waitFor(() => {
         expect(screen.getByTestId('is-authenticated')).toHaveTextContent('true');
-      });
+        expect(screen.getByTestId('username')).toHaveTextContent('testuser');
+      }, { timeout: 2000 });
     });
 
     it('should handle unauthenticated state when status check fails', async () => {
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         response: { status: 401 },
         message: 'Unauthorized'
       });
@@ -77,11 +70,8 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
-
-      // Verify fetchUserProfile was NOT called
-      expect(api.fetchUserProfile).not.toHaveBeenCalled();
 
       // Verify user is not authenticated
       await waitFor(() => {
@@ -240,12 +230,14 @@ describe('AuthContext - Comprehensive Tests', () => {
         expect(result.current.isAuthenticated).toBe(true);
       });
 
-      // Call logout
+      // Call logout (state updates are async)
       result.current.logout();
 
-      // Verify not authenticated
-      expect(result.current.isAuthenticated).toBe(false);
-      expect(result.current.user).toBe(null);
+      // Verify not authenticated after state flush
+      await waitFor(() => {
+        expect(result.current.isAuthenticated).toBe(false);
+        expect(result.current.user).toBe(null);
+      });
     });
   });
 
@@ -295,7 +287,7 @@ describe('AuthContext - Comprehensive Tests', () => {
     });
 
     it('should log errors with detailed information', async () => {
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         response: { status: 401 },
         message: 'Unauthorized'
       });
@@ -318,7 +310,7 @@ describe('AuthContext - Comprehensive Tests', () => {
   describe('CORS/Network Error Handling Fix', () => {
     it('should handle CORS errors without causing false authentication failure', async () => {
       // Simulate CORS error (no response object, Network Error message)
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         message: 'Network Error',
         // No response object indicates network/CORS error
       });
@@ -330,7 +322,7 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
 
       // Should still set isAuthenticated to false (to show login page)
@@ -342,16 +334,16 @@ describe('AuthContext - Comprehensive Tests', () => {
 
       // Verify it logged as network error, not auth error
       await waitFor(() => {
-        expect(console.warn).toHaveBeenCalledWith(
-          expect.stringContaining('[AUTH] Network/CORS error'),
-          expect.anything()
+        const hasNetworkWarn = console.warn.mock.calls.some(
+          call => call[0] && String(call[0]).includes('[AUTH] Network/CORS error')
         );
+        expect(hasNetworkWarn).toBe(true);
       });
     });
 
     it('should distinguish between 401 auth error and network error', async () => {
       // Test 401 error (actual auth failure)
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         response: { status: 401 },
         message: 'Unauthorized'
       });
@@ -363,7 +355,7 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
 
       await waitFor(() => {
@@ -372,16 +364,16 @@ describe('AuthContext - Comprehensive Tests', () => {
 
       // Should log as authentication error, not network error
       await waitFor(() => {
-        expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('[AUTH] Authentication error (401/403)'),
-          expect.anything()
+        const hasAuthErrorLog = console.log.mock.calls.some(
+          call => call[0] && String(call[0]).includes('[AUTH] Authentication error (401/403)')
         );
+        expect(hasAuthErrorLog).toBe(true);
       });
     });
 
     it('should handle network errors with CORS message', async () => {
       // Simulate CORS error with explicit CORS message
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         message: 'CORS policy: No Access-Control-Allow-Origin header',
         // No response object
       });
@@ -393,7 +385,7 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
 
       // Should set isAuthenticated to false but log as network error
@@ -403,16 +395,16 @@ describe('AuthContext - Comprehensive Tests', () => {
 
       // Should warn about network/CORS error
       await waitFor(() => {
-        expect(console.warn).toHaveBeenCalledWith(
-          expect.stringContaining('[AUTH] Network/CORS error'),
-          expect.anything()
+        const hasNetworkWarn = console.warn.mock.calls.some(
+          call => call[0] && String(call[0]).includes('[AUTH] Network/CORS error')
         );
+        expect(hasNetworkWarn).toBe(true);
       });
     });
 
     it('should handle errors without response object as network errors', async () => {
       // Error without response object (network/CORS issue)
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         message: 'Failed to fetch',
         // No response property
       });
@@ -424,7 +416,7 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
 
       await waitFor(() => {
@@ -433,16 +425,16 @@ describe('AuthContext - Comprehensive Tests', () => {
 
       // Should be treated as network error
       await waitFor(() => {
-        expect(console.warn).toHaveBeenCalledWith(
-          expect.stringContaining('[AUTH] Network/CORS error'),
-          expect.anything()
+        const hasNetworkWarn = console.warn.mock.calls.some(
+          call => call[0] && String(call[0]).includes('[AUTH] Network/CORS error')
         );
+        expect(hasNetworkWarn).toBe(true);
       });
     });
 
     it('should handle 403 errors as authentication failures', async () => {
       // Test 403 error (forbidden - auth failure)
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         response: { status: 403 },
         message: 'Forbidden'
       });
@@ -454,7 +446,7 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
 
       await waitFor(() => {
@@ -463,16 +455,16 @@ describe('AuthContext - Comprehensive Tests', () => {
 
       // Should log as authentication error
       await waitFor(() => {
-        expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('[AUTH] Authentication error (401/403)'),
-          expect.anything()
+        const hasAuthErrorLog = console.log.mock.calls.some(
+          call => call[0] && String(call[0]).includes('[AUTH] Authentication error (401/403)')
         );
+        expect(hasAuthErrorLog).toBe(true);
       });
     });
 
     it('should handle other errors (non-auth, non-network) as not authenticated', async () => {
       // Test other error (e.g., 500 server error)
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         response: { status: 500 },
         message: 'Internal Server Error'
       });
@@ -484,25 +476,25 @@ describe('AuthContext - Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        expect(api.fetchStatus).toHaveBeenCalled();
+        expect(api.fetchUserProfile).toHaveBeenCalled();
       });
 
       await waitFor(() => {
         expect(screen.getByTestId('is-authenticated')).toHaveTextContent('false');
       });
 
-      // Should log as other error
+      // Should log as other error (message may be single arg)
       await waitFor(() => {
-        expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('[AUTH] Other error during auth check'),
-          expect.anything()
+        const hasOtherErrorLog = console.log.mock.calls.some(
+          call => call[0] && String(call[0]).includes('[AUTH] Other error during auth check')
         );
+        expect(hasOtherErrorLog).toBe(true);
       });
     });
 
     it('should prevent redirect loops by properly handling network errors', async () => {
       // Simulate network error that would previously cause redirect loop
-      api.fetchStatus.mockRejectedValue({
+      api.fetchUserProfile.mockRejectedValue({
         message: 'Network Error',
       });
 
@@ -518,14 +510,14 @@ describe('AuthContext - Comprehensive Tests', () => {
       // Verify isAuthenticated is false (to show login page)
       expect(result.current.isAuthenticated).toBe(false);
 
-      // Verify it only called fetchStatus once (no loop)
-      expect(api.fetchStatus).toHaveBeenCalledTimes(1);
+      // Verify it only called fetchUserProfile once (no loop)
+      expect(api.fetchUserProfile).toHaveBeenCalledTimes(1);
 
       // Wait a bit to ensure no additional calls
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Should still be only 1 call (no loop)
-      expect(api.fetchStatus).toHaveBeenCalledTimes(1);
+      expect(api.fetchUserProfile).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -279,3 +279,71 @@ def sanitize_error_message(error):
     
     return error_str
 
+
+def token_required(f):
+    """
+    Decorator to require JWT token authentication for API endpoints.
+    
+    The token can be provided in:
+    1. Cookie named 'access_token'
+    2. Authorization header as 'Bearer <token>'
+    
+    Args:
+        f: Function to decorate (should be a Flask-RESTful resource method)
+    
+    Returns:
+        Decorated function that validates token and passes current_user to the original function.
+        The decorated function signature should be: def method(self, current_user, ...)
+        where ... are any URL parameters from Flask-RESTful.
+    """
+    @wraps(f)
+    def decorated_function(self, *args, **kwargs):
+        # Get JWT secret from environment
+        jwt_secret = os.getenv("JWT_SECRET_KEY")
+        if not jwt_secret:
+            logger.error("JWT_SECRET_KEY not configured")
+            return {"status": "error", "message": "Authentication not configured"}, 500
+        
+        # Try to get token from cookie first (preferred method)
+        token = request.cookies.get('access_token')
+        
+        # If not in cookie, try Authorization header
+        if not token:
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]  # Remove 'Bearer ' prefix
+        
+        # If still no token, return 401
+        if not token:
+            return {"status": "error", "message": "Authentication required"}, 401
+        
+        try:
+            # Decode and verify the token
+            payload = jwt.decode(token, jwt_secret, algorithms=['HS256'])
+            
+            # Extract user information from token
+            current_user = {
+                'username': payload.get('username'),
+                'exp': payload.get('exp')
+            }
+            
+            # Check if token is expired (jwt.decode already does this, but double-check)
+            if 'exp' in payload:
+                exp_timestamp = payload['exp']
+                if datetime.now(timezone.utc).timestamp() > exp_timestamp:
+                    return {"status": "error", "message": "Token has expired"}, 401
+            
+            # Call the original function with self, current_user, and then any URL parameters
+            # Flask-RESTful passes URL parameters as positional args after self
+            return f(self, current_user, *args, **kwargs)
+                
+        except jwt.ExpiredSignatureError:
+            return {"status": "error", "message": "Token has expired"}, 401
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid token: {str(e)}")
+            return {"status": "error", "message": "Invalid token"}, 401
+        except Exception as e:
+            logger.error(f"Error validating token: {str(e)}", exc_info=True)
+            return {"status": "error", "message": "Authentication error"}, 500
+
+    return decorated_function

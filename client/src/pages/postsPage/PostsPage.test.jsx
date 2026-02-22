@@ -98,7 +98,7 @@ describe('PostsPage', () => {
       expect(screen.getByText('Test Discussion 1')).toBeInTheDocument();
     });
     
-    const minScoreInput = screen.getByLabelText('Min Score').closest('div').querySelector('input');
+    const minScoreInput = screen.getByRole('spinbutton', { name: /min score/i });
     await userEvent.type(minScoreInput, '75');
     
     expect(screen.getByText('Test Discussion 1')).toBeInTheDocument();
@@ -112,16 +112,21 @@ describe('PostsPage', () => {
       expect(screen.getByText('Test Discussion 1')).toBeInTheDocument();
     });
     
-    const gridViewButton = screen.getByTitle('Grid View');
+    const gridViewButton = screen.getByRole('button', { name: /grid view/i });
+    const listViewButton = screen.getByRole('button', { name: /list view/i });
     await userEvent.click(gridViewButton);
-    
-    const discussionsContainer = document.querySelector('.discussions-container');
-    expect(discussionsContainer).toHaveClass('grid-view');
-    
-    const listViewButton = screen.getByTitle('List View');
+
+    await waitFor(() => {
+      expect(gridViewButton).toHaveClass('active');
+      expect(listViewButton).not.toHaveClass('active');
+    });
+
     await userEvent.click(listViewButton);
-    
-    expect(discussionsContainer).toHaveClass('list-view');
+
+    await waitFor(() => {
+      expect(listViewButton).toHaveClass('active');
+      expect(gridViewButton).not.toHaveClass('active');
+    });
   });
 
   it('clears all filters when clear button is clicked', async () => {
@@ -135,7 +140,7 @@ describe('PostsPage', () => {
     const searchInput = screen.getByPlaceholderText('Search in posts, titles, sources...');
     await userEvent.type(searchInput, 'React');
     
-    const minScoreInput = screen.getByLabelText('Min Score').closest('div').querySelector('input');
+    const minScoreInput = screen.getByRole('spinbutton', { name: /min score/i });
     await userEvent.type(minScoreInput, '75');
     
     // Clear filters
