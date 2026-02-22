@@ -47,6 +47,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          TEST_MONGODB_URI: mongodb://localhost:27017/test_ci
         run: |
           cd server
           pytest tests/test_basic.py -v
+          pytest tests/test_api_endpoints.py tests/test_mongodb_store.py -v

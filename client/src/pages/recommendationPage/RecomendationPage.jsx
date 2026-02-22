@@ -4,9 +4,15 @@ import {
   fetchSavedRecommendations,
   generateRecommendations,
 } from "@/api/api.js";
+import DetailCard from "@/components/DetailCard/DetailCard";
 import "./recommendation.scss";
 
-const Recommendations = ({ productData = null }) => {
+const Recommendations = ({
+  productData = null,
+  embedded = false,
+  onRegenerate = null,
+  isRegenerating = false,
+}) => {
   // State management
   const [recommendations, setRecommendations] = useState(productData ? [productData] : []);
   const [filteredRecommendations, setFilteredRecommendations] = useState(productData ? [productData] : []);
@@ -38,7 +44,6 @@ const Recommendations = ({ productData = null }) => {
 
   // UI state
   const [expandedRecs, setExpandedRecs] = useState({});
-  const [showFilters, setShowFilters] = useState(false);
 
   // Save products to localStorage whenever they change
   useEffect(() => {
@@ -94,7 +99,21 @@ const Recommendations = ({ productData = null }) => {
     }
   };
 
-  // Initial fetch on component mount
+  // Sync state when productData changes (e.g. parent switched recommendation type tab)
+  useEffect(() => {
+    if (productData) {
+      setRecommendations([productData]);
+      setFilteredRecommendations([productData]);
+      setLoading(false);
+      setError(null);
+    } else {
+      setRecommendations([]);
+      setFilteredRecommendations([]);
+      setLoading(true);
+    }
+  }, [productData]);
+
+  // Initial fetch on component mount when no productData (standalone page)
   useEffect(() => {
     if (!productData) {
       fetchData();
@@ -276,31 +295,6 @@ const Recommendations = ({ productData = null }) => {
     fetchData(forceGenerate);
   };
 
-  // Handle sort criteria change
-  const handleSortChange = (e) => {
-    setSortCriteria(e.target.value);
-  };
-
-  // Handle sort direction change
-  const toggleSortDirection = () => {
-    setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-  };
-
-  // Handle complexity filter change
-  const handleComplexityFilterChange = (e) => {
-    setComplexityFilter(e.target.value);
-  };
-
-  // Handle impact filter change
-  const handleImpactFilterChange = (e) => {
-    setImpactFilter(e.target.value);
-  };
-
-  // Toggle advanced filters visibility
-  const toggleFilters = () => {
-    setShowFilters((prev) => !prev);
-  };
-
   // Helper function to get severity class based on complexity or impact
   const getSeverityClass = (value) => {
     switch (value?.toLowerCase()) {
@@ -317,113 +311,110 @@ const Recommendations = ({ productData = null }) => {
 
   return (
     <div className="recommendations-container">
-      <div className="recommendations-header">
-        <h2>Product Recommendations</h2>
-        <p>AI-generated suggestions to address user pain points</p>
-      </div>
+      {/* Products Selection – hidden when embedded (product already selected from page) */}
+      {!embedded && (
+        <div className="products-section">
+          <form onSubmit={addProduct} className="product-form">
+            <div className="input-group">
+              <label>Add Product</label>
+              <div className="product-input-container">
+                <input
+                  type="text"
+                  value={productInput}
+                  onChange={handleProductInputChange}
+                  placeholder="Enter product name"
+                />
+                <button type="submit">Add</button>
+              </div>
+            </div>
+          </form>
 
-      {/* Products Selection */}
-      <div className="products-section">
-        <form onSubmit={addProduct} className="product-form">
-          <div className="input-group">
-            <label>Add Product</label>
-            <div className="product-input-container">
-              <input
-                type="text"
-                value={productInput}
-                onChange={handleProductInputChange}
-                placeholder="Enter product name"
-              />
-              <button type="submit">Add</button>
+          <div className="selected-products">
+            <label>Selected Products</label>
+            <div className="product-tags">
+              {products.map((prod, index) => (
+                <div key={index} className="product-tag">
+                  <span>{prod}</span>
+                  <button
+                    className="remove-product"
+                    onClick={() => removeProduct(prod)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
-        </form>
 
-        <div className="selected-products">
-          <label>Selected Products</label>
-          <div className="product-tags">
-            {products.map((prod, index) => (
-              <div key={index} className="product-tag">
-                <span>{prod}</span>
-                <button
-                  className="remove-product"
-                  onClick={() => removeProduct(prod)}
+          <div className="severity-filter-container">
+            <label>Severity Filters</label>
+            <div className="checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={severityFilters.low}
+                  onChange={() => handleSeverityCheckboxChange("low")}
+                />
+                <span
+                  className={`severity-checkbox severity-low ${
+                    severityFilters.low ? "checked" : ""
+                  }`}
                 >
-                  ×
-                </button>
-              </div>
-            ))}
+                  Low
+                </span>
+              </label>
+
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={severityFilters.medium}
+                  onChange={() => handleSeverityCheckboxChange("medium")}
+                />
+                <span
+                  className={`severity-checkbox severity-medium ${
+                    severityFilters.medium ? "checked" : ""
+                  }`}
+                >
+                  Medium
+                </span>
+              </label>
+
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={severityFilters.high}
+                  onChange={() => handleSeverityCheckboxChange("high")}
+                />
+                <span
+                  className={`severity-checkbox severity-high ${
+                    severityFilters.high ? "checked" : ""
+                  }`}
+                >
+                  High
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div className="button-group">
+            <button
+              onClick={() => handleSubmit(false)}
+              disabled={loading || products.length === 0}
+              className="analyze-button"
+            >
+              {loading ? "Loading..." : "Get Recommendations"}
+            </button>
+
+            <button
+              onClick={() => handleSubmit(true)}
+              disabled={loading || products.length === 0}
+              className="regenerate-button"
+            >
+              {loading ? "Loading..." : "Generate New Recommendations"}
+            </button>
           </div>
         </div>
-
-        <div className="severity-filter-container">
-          <label>Severity Filters</label>
-          <div className="checkbox-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={severityFilters.low}
-                onChange={() => handleSeverityCheckboxChange("low")}
-              />
-              <span
-                className={`severity-checkbox severity-low ${
-                  severityFilters.low ? "checked" : ""
-                }`}
-              >
-                Low
-              </span>
-            </label>
-
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={severityFilters.medium}
-                onChange={() => handleSeverityCheckboxChange("medium")}
-              />
-              <span
-                className={`severity-checkbox severity-medium ${
-                  severityFilters.medium ? "checked" : ""
-                }`}
-              >
-                Medium
-              </span>
-            </label>
-
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={severityFilters.high}
-                onChange={() => handleSeverityCheckboxChange("high")}
-              />
-              <span
-                className={`severity-checkbox severity-high ${
-                  severityFilters.high ? "checked" : ""
-                }`}
-              >
-                High
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div className="button-group">
-          <button
-            onClick={() => handleSubmit(false)}
-            disabled={loading || products.length === 0}
-            className="analyze-button"
-          >
-            {loading ? "Loading..." : "Get Recommendations"}
-          </button>
-
-          <button
-            onClick={() => handleSubmit(true)}
-            disabled={loading || products.length === 0}
-            className="regenerate-button"
-          >
-            {loading ? "Loading..." : "Generate New Recommendations"}
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Search */}
       <div className="search-section">
@@ -444,70 +435,6 @@ const Recommendations = ({ productData = null }) => {
         </div>
       </div>
 
-      {/* Advanced Filters Button */}
-      <button className="toggle-filters-button" onClick={toggleFilters}>
-        {showFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
-      </button>
-
-      {/* Advanced Filters */}
-      {showFilters && (
-        <div className="advanced-filters">
-          <div className="filter-row">
-            <div className="filter-group">
-              <label>Complexity</label>
-              <select
-                value={complexityFilter}
-                onChange={handleComplexityFilterChange}
-                className="filter-select"
-              >
-                <option value="all">All Complexity</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>Impact</label>
-              <select
-                value={impactFilter}
-                onChange={handleImpactFilterChange}
-                className="filter-select"
-              >
-                <option value="all">All Impact Levels</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>Sort By</label>
-              <select
-                value={sortCriteria}
-                onChange={handleSortChange}
-                className="filter-select"
-              >
-                <option value="title">Title</option>
-                <option value="complexity">Complexity</option>
-                <option value="impact">Impact</option>
-                <option value="recency">Most Recent Occurrence</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>Sort Direction</label>
-              <button
-                className="sort-direction-button"
-                onClick={toggleSortDirection}
-              >
-                {sortDirection === "asc" ? "Ascending ↑" : "Descending ↓"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Error Message */}
       {error && <div className="error-message">{error}</div>}
 
@@ -523,45 +450,19 @@ const Recommendations = ({ productData = null }) => {
         </div>
       ) : (
         <>
-          {/* Results Metadata */}
-          {filteredRecommendations.length > 0 && (
-            <div className="results-meta">
-              Found {filteredRecommendations.length} product
-              {filteredRecommendations.length !== 1 ? "s" : ""} with
-              recommendations
-              {/* Recommendation count */}
-              {filteredRecommendations.reduce(
-                (total, item) => total + (item.recommendations?.length || 0),
-                0
-              ) > 0 && (
-                <span className="recommendations-count">
-                  {" "}
-                  with{" "}
-                  {filteredRecommendations.reduce(
-                    (total, item) =>
-                      total + (item.recommendations?.length || 0),
-                    0
-                  )}{" "}
-                  total recommendations
-                </span>
-              )}
-            </div>
-          )}
-
           {/* Recommendations Results */}
           <div className="recommendations-results">
             {filteredRecommendations.length > 0 ? (
               filteredRecommendations.map((item, productIndex) => (
-                <div className="product-card" key={productIndex}>
-                  <div className="product-card-header">
-                    <h3>{item.product}</h3>
-                  </div>
-
-                  <div className="summary-section">
-                    <h4>Recommendations Summary</h4>
-                    <p>{item.summary}</p>
-                  </div>
-
+                <DetailCard
+                  key={productIndex}
+                  embedded={embedded}
+                  productName={item.product}
+                  onRegenerate={onRegenerate}
+                  isRegenerating={isRegenerating}
+                  summaryTitle="Recommendations Summary"
+                  summary={item.summary}
+                >
                   <div className="recommendations-section">
                     <h4>Action Items</h4>
                     {item.recommendations && item.recommendations.length > 0 ? (
@@ -590,11 +491,6 @@ const Recommendations = ({ productData = null }) => {
                                     >
                                       Impact: {rec.impact || "Unknown"}
                                     </span>
-                                    {rec.most_recent_occurence && (
-                                      <span className="badge date-badge">
-                                        Last seen: {rec.most_recent_occurence}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                                 <button
@@ -648,7 +544,7 @@ const Recommendations = ({ productData = null }) => {
                       </div>
                     )}
                   </div>
-                </div>
+                </DetailCard>
               ))
             ) : (
               <div className="no-results">
