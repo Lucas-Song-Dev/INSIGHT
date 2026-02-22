@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { fetchJobDetails } from "@/api/api";
-import { subscribeJobLogs, unsubscribeJobLogs } from "@/api/socket";
+import { subscribeJobLogs, unsubscribeJobLogs } from "@/api/socket.js";
 import "./jobDetailPage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import LoadingState from "@/components/LoadingState/LoadingState";
