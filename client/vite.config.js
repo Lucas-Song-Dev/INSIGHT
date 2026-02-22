@@ -10,6 +10,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Force resolution so Rollup finds socket.io-client in DO/build environments
+      "socket.io-client": path.resolve(__dirname, "node_modules/socket.io-client"),
+    },
+  },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
     },
   },
   css: {
