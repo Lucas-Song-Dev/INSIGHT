@@ -227,8 +227,9 @@ const PostsPage = ({ productFilter = null }) => {
             </div>
 
             <div className="filter-item">
-              <label>Min Score</label>
+              <label htmlFor="posts-min-score">Min Score</label>
               <input
+                id="posts-min-score"
                 type="number"
                 name="minScore"
                 value={localFilters.minScore}
@@ -238,8 +239,9 @@ const PostsPage = ({ productFilter = null }) => {
             </div>
 
             <div className="filter-item">
-              <label>Max Score</label>
+              <label htmlFor="posts-max-score">Max Score</label>
               <input
+                id="posts-max-score"
                 type="number"
                 name="maxScore"
                 value={localFilters.maxScore}
@@ -249,8 +251,9 @@ const PostsPage = ({ productFilter = null }) => {
             </div>
 
             <div className="filter-item">
-              <label>Source</label>
+              <label htmlFor="posts-source">Source</label>
               <select
+                id="posts-source"
                 name="subreddit"
                 value={localFilters.subreddit}
                 onChange={handleLocalFilterChange}
@@ -314,6 +317,7 @@ const PostsPage = ({ productFilter = null }) => {
               }`}
               onClick={() => setViewMode("list")}
               title="List View"
+              aria-label="List View"
             >
               <span className="icon">☰</span>
             </button>
@@ -323,6 +327,7 @@ const PostsPage = ({ productFilter = null }) => {
               }`}
               onClick={() => setViewMode("grid")}
               title="Grid View"
+              aria-label="Grid View"
             >
               <span className="icon">⊞</span>
             </button>

@@ -56,7 +56,8 @@ describe('ProfilePage', () => {
       expect(screen.getByDisplayValue('Test User Full Name')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Test Preferred Name')).toBeInTheDocument();
       expect(screen.getByDisplayValue('test@example.com')).toBeInTheDocument();
-      expect(screen.getByText('10 credits available')).toBeInTheDocument();
+      // Credits are in an input value, not text content
+      expect(screen.getByDisplayValue('10 credits available')).toBeInTheDocument();
     });
   });
 
@@ -64,9 +65,9 @@ describe('ProfilePage', () => {
     render(<ProfilePage />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/what should we call you/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/birthday/i)).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /full name/i })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /what should we call you/i })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /birthday/i })).toBeInTheDocument();
       expect(screen.getByDisplayValue('Test User Full Name')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Test Preferred Name')).toBeInTheDocument();
     });
@@ -90,8 +91,10 @@ describe('ProfilePage', () => {
     render(<ProfilePage />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('testuser')).toBeInTheDocument();
-      expect(screen.getByText('10 credits available')).toBeInTheDocument();
+      // Full name and preferred name both fall back to username, so multiple inputs show 'testuser'
+      const fullNameInput = screen.getByRole('textbox', { name: /full name/i });
+      expect(fullNameInput).toHaveValue('testuser');
+      expect(screen.getByDisplayValue('10 credits available')).toBeInTheDocument();
     });
   });
 
@@ -196,6 +199,8 @@ describe('ProfilePage', () => {
     });
   });
 });
+
+
 
 
 

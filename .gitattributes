@@ -1,0 +1,2 @@
+# Ensure requirements.txt is always stored and checked out with LF (avoids encoding/line-ending issues in CI)
+server/requirements.txt text eol=lf

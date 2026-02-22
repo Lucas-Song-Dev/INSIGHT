@@ -208,14 +208,14 @@ describe('ScrapePage', () => {
     it('form inputs have proper labels', () => {
       render(<ScrapePage />);
       
-      // Product mode: topic input has aria-label
-      expect(screen.getByLabelText('Topic or Product')).toBeInTheDocument();
+      // Product mode: topic input uses aria-label (use role + name)
+      expect(screen.getByRole('textbox', { name: /topic or product/i })).toBeInTheDocument();
       
       // Custom mode
       const customToggle = screen.getByText('Custom Insights');
       fireEvent.click(customToggle);
       
-      expect(screen.getByLabelText('Custom Insights Prompt')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /custom insights prompt/i })).toBeInTheDocument();
     });
 
     it('buttons have sufficient color contrast', async () => {
@@ -233,8 +233,8 @@ describe('ScrapePage', () => {
     it('switches between product and custom modes', () => {
       render(<ScrapePage />);
       
-      // Initially product mode
-      expect(screen.getByLabelText('Topic or Product')).toBeInTheDocument();
+      // Initially product mode (input has aria-label)
+      expect(screen.getByRole('textbox', { name: /topic or product/i })).toBeInTheDocument();
       
       // Switch to custom
       const customToggle = screen.getByText('Custom Insights');
