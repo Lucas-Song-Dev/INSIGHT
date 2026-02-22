@@ -1,6 +1,6 @@
 @use "../../styles/variables" as *;
 
-// Ensure papyrus border is available (fallback if variables load order differs in build)
+// Fallback so build always has this (variables partial may load in different order on some pipelines)
 $papyrus-border: rgba(139, 119, 101, 0.2) !default;
 
 .job-card {
