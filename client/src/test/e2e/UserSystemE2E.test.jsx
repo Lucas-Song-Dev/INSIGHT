@@ -37,7 +37,9 @@ const cleanupTestUser = async (username) => {
   }
 };
 
-describe('User System E2E Tests', () => {
+// E2E tests require a running backend; skip unless VITE_E2E=true
+const isE2E = process.env.VITE_E2E === 'true';
+describe.skipIf(!isE2E)('User System E2E Tests', () => {
   let testUser;
   let createdUsers = [];
 

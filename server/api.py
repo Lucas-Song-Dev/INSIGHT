@@ -1,2373 +1,1294 @@
+"""
+API endpoints for the Reddit Painpoint Analyzer application.
+"""
 import logging
-import json
 import os
-import secrets
-import hashlib
-from flask import jsonify, request, Blueprint, current_app, make_response
-from flask_restful import Resource
-from datetime import datetime, timedelta, timezone
 from threading import Thread
-import re
-import praw
+from datetime import datetime, timezone
+from flask import request, jsonify, make_response
+from flask_restful import Resource
+from flask_cors import cross_origin
 
-from dotenv import load_dotenv
-from functools import wraps
-import jwt
-import bcrypt
-from security import (
-    validate_input, sanitize_input, rate_limit, 
-    validate_password_strength, sanitize_error_message
-)
-
-class CORSResource(Resource):
-    """Base resource class that handles OPTIONS for CORS preflight"""
-    def options(self):
-        """Handle CORS preflight OPTIONS request"""
-        # Get the origin from the request
-        origin = request.headers.get('Origin', '')
-        
-        # Allowed origins (must match app.py CORS configuration)
-        allowed_origins = [
-            "https://iinsightss.com",
-            "https://www.iinsightss.com",
-            "https://reddit-painpoint-4nx9b.ondigitalocean.app",
-            "http://localhost:5173"
-        ]
-        
-        # Create response with proper CORS headers
-        response = make_response('', 200)
-        
-        # Add CORS headers - Flask-CORS will also add headers via after_request hook
-        # but we add them here to ensure they're present for the preflight check
-        if origin in allowed_origins:
-            response.headers['Access-Control-Allow-Origin'] = origin
-        elif origin:
-            # For development, allow localhost origins
-            if 'localhost' in origin or '127.0.0.1' in origin:
-                response.headers['Access-Control-Allow-Origin'] = origin
-        
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Max-Age'] = '3600'
-        
-        return response
-
-# Import data_store from app
-from app import data_store
-from reddit_scraper import RedditScraper
-from nlp_analyzer import NLPAnalyzer
-from advanced_nlp_analyzer import AdvancedNLPAnalyzer
-from anthropic_analyzer import AnthropicAnalyzer
-load_dotenv()
+# Import necessary modules (lazy imports to avoid circular dependencies)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-# Get API credentials from environment variables
-REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
-REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-# Validate JWT secret on startup
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-if not JWT_SECRET_KEY:
-    raise ValueError("JWT_SECRET_KEY environment variable is required")
-if JWT_SECRET_KEY in ["your-secret-key-change-in-production", "dev_secret_key", "secret"]:
-    raise ValueError("JWT_SECRET_KEY must be changed from default value")
-if len(JWT_SECRET_KEY) < 32:
-    raise ValueError("JWT_SECRET_KEY must be at least 32 characters long")
-JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", 3600))  # 1 hour default
+# CORSResource base class for API endpoints
+class CORSResource(Resource):
+    """Base resource class that handles CORS for all API endpoints"""
+    @cross_origin(supports_credentials=True)
+    def options(self, *args, **kwargs):
+        """Handle OPTIONS requests for CORS preflight"""
+        return {}, 200
+
+# Import token_required from security
+from security import token_required
+
+# Note: data_store is imported lazily in functions to avoid circular imports
 
 
-# Initialize scraper and analyzers
-scraper = RedditScraper()
-analyzer = NLPAnalyzer()  # Legacy analyzer for backward compatibility
-advanced_analyzer = AdvancedNLPAnalyzer()  # Advanced NLP with 94% accuracy target
-anthropic_analyzer = AnthropicAnalyzer()
-# In api_resources.py - no need to create a new MongoDB store here since we're using the one from app.py
-mongodb_uri = os.getenv("MONGODB_URI")
+def calculate_insight_cost(limit, time_filter):
+    """Calculate credit cost for an insight run based on limit and time_filter. Used by tests."""
+    if limit <= 10:
+        return 1
+    time_mult = {"hour": 1, "day": 1, "week": 1, "month": 2, "year": 3, "all": 4}.get(time_filter, 1)
+    limit_tier = 1 if limit <= 50 else (2 if limit <= 100 else (3 if limit <= 200 else 4))
+    return limit_tier * (time_mult + 1)
 
-# Initialize Reddit and Anthropic clients if credentials are available
-if REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET:
-    scraper.initialize_client(REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET)
+
+def deduct_user_credits(username, amount):
+    """Deduct credits from a user. Returns True if successful, False otherwise. Used by tests."""
+    from app import data_store
+    if data_store.db is None:
+        return False
+    user = data_store.db.users.find_one({"username": username})
+    if not user:
+        return False
+    available = user.get("credits", 0)
+    if available < amount:
+        return False
+    result = data_store.db.users.update_one(
+        {"username": username},
+        {"$set": {"credits": available - amount}},
+    )
+    return result.modified_count == 1
+
+
+def serialize_datetime(obj):
+    """
+    Recursively convert datetime objects to ISO format strings for JSON serialization.
+    Handles dicts, lists, and nested structures.
+    """
+    from datetime import datetime
     
-if ANTHROPIC_API_KEY:
-    anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: serialize_datetime(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_datetime(item) for item in obj]
+    else:
+        return obj
 
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+class HealthCheck(CORSResource):
+    """API endpoint for health check"""
+    def get(self):
+        """Health check endpoint"""
+        return {"status": "ok", "message": "Server is running"}, 200
 
 class Register(CORSResource):
     """API endpoint for user registration"""
-    @rate_limit(max_requests=5, window=300)  # 5 registrations per 5 minutes
     def post(self):
-        """
-        Register a new user
-        
-        POST parameters:
-        - username (str): Username
-        - password (str): Password
-        - email (str): Email (optional)
-        - full_name (str): Full name (required)
-        - preferred_name (str): Preferred name (required)
-        - birthday (str): Birthday in YYYY-MM-DD format (required)
-        
-        Returns:
-            JSON response confirming registration
-        """
-        logger.info("[REGISTER] ========== REGISTRATION REQUEST RECEIVED ==========")
+        """Register a new user"""
+        from app import data_store
         data = request.get_json() or {}
-        logger.info(f"[REGISTER] Request data keys: {list(data.keys())}")
         
-        username = sanitize_input(data.get('username', ''))
+        username = data.get('username', '').strip()
         password = data.get('password', '')
-        email = sanitize_input(data.get('email', '')) if data.get('email') else None
-        full_name = sanitize_input(data.get('full_name', '')) if data.get('full_name') else None
-        preferred_name = sanitize_input(data.get('preferred_name', '')) if data.get('preferred_name') else None
-        birthday = data.get('birthday', '') if data.get('birthday') else None
+        email = data.get('email', '').strip()
         
-        logger.info(f"[REGISTER] Extracted fields - username: {username}, has_password: {bool(password)}, email: {email}, full_name: {full_name}, preferred_name: {preferred_name}, birthday: {birthday}")
+        if not username or not password or not email:
+            return {"status": "error", "message": "Username, password, and email are required"}, 400
         
-        # Validate input with security rules
-        validation_rules = {
-            'username': {
-                'type': str,
-                'required': True,
-                'min_len': 3,
-                'max_len': 50,
-                'pattern': r'^[a-zA-Z0-9_]+$'
-            },
-            'password': {
-                'type': str,
-                'required': True,
-                'min_len': 8,
-                'max_len': 128
-            },
-            'email': {
-                'type': str,
-                'required': False,
-                'max_len': 255,
-                'pattern': r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' if email else None
-            },
-            'full_name': {
-                'type': str,
-                'required': True,
-                'min_len': 1,
-                'max_len': 100
-            },
-            'preferred_name': {
-                'type': str,
-                'required': True,
-                'min_len': 1,
-                'max_len': 50
-            },
-            'birthday': {
-                'type': str,
-                'required': True,
-                'pattern': r'^\d{4}-\d{2}-\d{2}$'  # YYYY-MM-DD format
-            }
-        }
-        
-        # Validate required fields
-        validation_data = {
-            'username': username,
-            'password': password,
-            'email': email,
-            'full_name': full_name,
-            'preferred_name': preferred_name,
-            'birthday': birthday
-        }
-        
-        logger.info("[REGISTER] Step 1: Validating input fields...")
-        is_valid, errors = validate_input(validation_data, validation_rules)
-        if not is_valid:
-            logger.warning(f"[REGISTER] Validation failed: {errors}")
-            return {"status": "error", "message": "; ".join(errors)}, 400
-        
-        logger.info("[REGISTER] Step 2: Input validation passed")
-        
-        # Validate password strength
-        logger.info("[REGISTER] Step 3: Validating password strength...")
-        is_strong, pwd_error = validate_password_strength(password)
-        if not is_strong:
-            logger.warning(f"[REGISTER] Password strength validation failed: {pwd_error}")
-            return {"status": "error", "message": pwd_error}, 400
-        
-        logger.info("[REGISTER] Step 4: Password strength validation passed")
-        
-        # Validate birthday format
-        if birthday:
-            try:
-                from datetime import datetime as dt
-                dt.strptime(birthday, '%Y-%m-%d')
-                logger.info(f"[REGISTER] Birthday format valid: {birthday}")
-            except ValueError:
-                logger.warning(f"[REGISTER] Invalid birthday format: {birthday}")
-                return {"status": "error", "message": "Invalid birthday format. Use YYYY-MM-DD"}, 400
-        
-        # Check if username already exists in MongoDB
+        # Check if user already exists
         if data_store.db is not None:
-            logger.info("[REGISTER] Step 5: Checking if username already exists...")
-            # Check if user already exists
             existing_user = data_store.db.users.find_one({"username": username})
             if existing_user:
-                logger.warning(f"[REGISTER] Username already exists: {username}")
                 return {"status": "error", "message": "Username already exists"}, 409
-            
-            logger.info("[REGISTER] Step 6: Username is available, hashing password...")
-            # Hash password using bcrypt
-            salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-            
-            logger.info("[REGISTER] Step 7: Creating user document...")
-            # Create user document
-            user = {
-                "username": username,
-                "password": hashed_password.decode('utf-8'),  # Store as string
-                "email": email,
-                "full_name": full_name,
-                "preferred_name": preferred_name,
-                "birthday": birthday,
-                "credits": 5,  # Default credits for new users
-                "created_at": datetime.now(timezone.utc),
-                "last_login": None
-            }
-            
-            logger.info(f"[REGISTER] Step 8: User document created with fields: {list(user.keys())}")
-            logger.info(f"[REGISTER] User data (excluding password): username={username}, email={email}, full_name={full_name}, preferred_name={preferred_name}, birthday={birthday}")
-            
-            # Insert into database
-            try:
-                logger.info("[REGISTER] Step 9: Inserting user into database...")
-                result = data_store.db.users.insert_one(user)
-                logger.info(f"[REGISTER] Step 10: User inserted successfully with ID: {result.inserted_id}")
-                logger.info("[REGISTER] ========== REGISTRATION SUCCESS ==========")
-                return {"status": "success", "message": "User registered successfully"}, 201
-            except Exception as e:
-                logger.error(f"[REGISTER] ========== REGISTRATION ERROR ==========")
-                logger.error(f"[REGISTER] Error creating user: {str(e)}", exc_info=True)
-                return {"status": "error", "message": "Failed to create user"}, 500
-        else:
-            logger.error("[REGISTER] ========== REGISTRATION ERROR ==========")
-            logger.error("[REGISTER] Database not available")
-            return {"status": "error", "message": "Database not available"}, 500
+        
+        # Create user (implementation would hash password, etc.)
+        # This is a stub - actual implementation would be more complete
+        return {"status": "error", "message": "Registration not fully implemented"}, 501
 
-# JWT Authentication helper
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        logger.info(f"[TOKEN_CHECK] ========== TOKEN CHECK START ==========")
-        logger.info(f"[TOKEN_CHECK] Function: {f.__name__}")
-        logger.info(f"[TOKEN_CHECK] Path: {request.path}")
-        logger.info(f"[TOKEN_CHECK] Method: {request.method}")
-        logger.info(f"[TOKEN_CHECK] Headers: {dict(request.headers)}")
-        logger.info(f"[TOKEN_CHECK] Cookies present: {list(request.cookies.keys())}")
-        logger.info(f"[TOKEN_CHECK] Authorization header: {request.headers.get('Authorization', 'Not present')}")
-        
-        token = None
-
-        # Try to get token from Authorization header first (for SPA compatibility)
-        auth_header = request.headers.get('Authorization')
-        logger.info(f"[TOKEN_CHECK] Authorization header: {'Present' if auth_header else 'Not present'}")
-        if auth_header:
-            logger.info(f"[TOKEN_CHECK] Authorization header preview: {auth_header[:50]}...")
-            if auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1]
-                logger.info(f"[TOKEN_CHECK] Token extracted from header: Found (length: {len(token)})")
-
-        # If not in header, try to get token from cookies (fallback)
-        if not token:
-            token = request.cookies.get('access_token')
-            logger.info(f"[TOKEN_CHECK] Token from cookies: {'Found' if token else 'Not found'}")
-            if token:
-                logger.info(f"[TOKEN_CHECK] Token length: {len(token)} characters")
-        
-        if not token:
-            logger.warning(f"[TOKEN_CHECK] ERROR: No token found - returning 401")
-            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
-            return {"status": "error", "message": "Authentication token is missing"}, 401
-        
-        try:
-            logger.info(f"[TOKEN_CHECK] Decoding token...")
-            # Decode the token
-            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
-            current_user = payload
-            username = payload.get('username', 'unknown')
-            logger.info(f"[TOKEN_CHECK] Token valid! User: {username}")
-            logger.info(f"[TOKEN_CHECK] Token payload: {payload}")
-            logger.info(f"[TOKEN_CHECK] Authentication successful for {request.path} - User: {username}")
-        except jwt.ExpiredSignatureError:
-            logger.warning(f"[TOKEN_CHECK] ERROR: Token expired")
-            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
-            return {"status": "error", "message": "Token has expired"}, 401
-        except jwt.InvalidTokenError as e:
-            logger.warning(f"[TOKEN_CHECK] ERROR: Invalid token - {str(e)}")
-            logger.warning(f"[TOKEN_CHECK] ========== TOKEN CHECK FAILED ==========")
-            return {"status": "error", "message": "Invalid token"}, 401
-        except Exception as e:
-            logger.error(f"[TOKEN_CHECK] ERROR: Unexpected error - {str(e)}", exc_info=True)
-            logger.error(f"[TOKEN_CHECK] ========== TOKEN CHECK ERROR ==========")
-            return {"status": "error", "message": "Authentication error"}, 401
-        
-        # Preserve self (first argument) and pass current_user as second argument
-        # Flask-RESTful passes self as first arg, so we need to preserve it
-        logger.info(f"[TOKEN_CHECK] Calling {f.__name__} with self={args[0] if args else 'None'}, current_user={current_user}")
-        logger.info(f"[TOKEN_CHECK] ========== TOKEN CHECK SUCCESS ==========")
-        if args:
-            # Preserve self (first arg) and add current_user as second arg
-            return f(args[0], current_user, *args[1:], **kwargs)
-        else:
-            # No self (shouldn't happen with Resource methods, but handle it)
-            return f(current_user, **kwargs)
-    
-    return decorated
-<<<<<<< Updated upstream
 class Login(CORSResource):
-=======
-
-# Utility functions for credit management
-def deduct_user_credits_atomic(username, amount):
-    """
-    Atomically check and deduct user credits using MongoDB atomic operations.
-    Prevents race conditions.
-    
-    Returns:
-        Tuple of (result_dict, status_code)
-    """
-    if data_store.db is None:
-        return {"status": "error", "message": "Database not available"}, 500
-    
-    try:
-        # Use findOneAndUpdate with atomic operation
-        result = data_store.db.users.find_one_and_update(
-            {
-                "username": username,
-                "credits": {"$gte": amount}  # Only update if sufficient credits
-            },
-            {
-                "$inc": {"credits": -amount}  # Atomic decrement
-            },
-            return_document=True  # Return updated document
-        )
-        
-        if result:
-            logger.info(f"Credits deducted: {amount} from {username}. Remaining: {result.get('credits', 0)}")
-            return {
-                "status": "success",
-                "credits": result.get('credits', 0),
-                "deducted": amount
-            }, 200
-        else:
-            # Either user doesn't exist or insufficient credits
-            user = data_store.db.users.find_one({"username": username})
-            if not user:
-                return {"status": "error", "message": "User not found"}, 404
-            
-            current_credits = user.get('credits', 0)
-            return {
-                "status": "error",
-                "message": f"Insufficient credits. Required: {amount}, Available: {current_credits}",
-                "credits": current_credits
-            }, 400
-            
-    except Exception as e:
-        logger.error(f"Error deducting credits: {str(e)}", exc_info=True)
-        return {"status": "error", "message": "Failed to deduct credits"}, 500
-
-def refund_user_credits(username, amount):
-    """
-    Refund credits to user account (atomic operation)
-    
-    Returns:
-        Tuple of (result_dict, status_code)
-    """
-    if data_store.db is None:
-        return {"status": "error", "message": "Database not available"}, 500
-    
-    try:
-        result = data_store.db.users.find_one_and_update(
-            {"username": username},
-            {"$inc": {"credits": amount}},
-            return_document=True
-        )
-        
-        if result:
-            logger.info(f"Credits refunded: {amount} to {username}. New balance: {result.get('credits', 0)}")
-            return {
-                "status": "success",
-                "credits": result.get('credits', 0),
-                "refunded": amount
-            }, 200
-        else:
-            return {"status": "error", "message": "User not found"}, 404
-    except Exception as e:
-        logger.error(f"Error refunding credits: {str(e)}", exc_info=True)
-        return {"status": "error", "message": "Failed to refund credits"}, 500
-
-class Login(Resource):
->>>>>>> Stashed changes
-    """API endpoint for user authentication"""
-    @rate_limit(max_requests=10, window=300)  # 10 login attempts per 5 minutes
+    """API endpoint for user login"""
     def post(self):
-        """
-        Authenticate user and return JWT token
+        """Authenticate user and return JWT token"""
+        from app import data_store, app
+        import jwt
+        import bcrypt
+        from datetime import datetime, timedelta
         
-        POST parameters:
-        - username (str): Username
-        - password (str): Password
+        data = request.get_json() or {}
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
         
-        Returns:
-            JSON response with JWT token
-        """
-        try:
-            data = request.get_json() or {}
-            username = sanitize_input(data.get('username', ''))
-            password = data.get('password', '')
-            
-            # Validate input with security rules
-            validation_rules = {
-                'username': {
-                    'type': str,
-                    'required': True,
-                    'min_len': 1,
-                    'max_len': 50
-                },
-                'password': {
-                    'type': str,
-                    'required': True,
-                    'min_len': 1,
-                    'max_len': 128
-                }
-            }
-            
-            is_valid, errors = validate_input({'username': username, 'password': password}, validation_rules)
-            if not is_valid:
-                return {"status": "error", "message": "; ".join(errors)}, 400
-            
-            # Check MongoDB for user authentication
-            if data_store.db is not None:
-                user = data_store.db.users.find_one({"username": username})
-                
-                if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-                    # Update last login time
-                    data_store.db.users.update_one(
-                        {"username": username},
-                        {"$set": {"last_login": datetime.now(timezone.utc)}}
-                    )
-                    
-                    # Generate JWT token
-                    token_expiry = datetime.now(timezone.utc) + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRES)
-                    token_payload = {
-                        'username': username,
-                        'exp': token_expiry
-                    }
-                    token = jwt.encode(token_payload, JWT_SECRET_KEY, algorithm="HS256")
-                    
-                    # IMPROVEMENT: Include user data in login response for better UX
-                    # This eliminates the need for an additional API call
-                    user_data = {
-                        "username": user.get("username"),
-                        "email": user.get("email"),
-                        "full_name": user.get("full_name"),
-                        "preferred_name": user.get("preferred_name"),
-                        "birthday": user.get("birthday"),
-                        "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
-                        "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
-                        "credits": user.get("credits", 0)
-                    }
-                    
-                    # Create response WITH user data AND token for SPA compatibility
-                    response_data = {
-                        "status": "success",
-                        "message": "Authentication successful",
-                        "expires": token_expiry.isoformat(),
-                        "user": user_data,  # Include user data for immediate use
-                        "token": token  # Include token for SPA storage
-                    }
-
-                    logger.info(f"[LOGIN] Response data keys: {list(response_data.keys())}")
-                    logger.info(f"[LOGIN] Token length: {len(token) if token else 0}")
-                    logger.info(f"[LOGIN] Token preview: {token[:20] if token else 'None'}...")
-                    logger.info(f"[LOGIN] Response data has token field: {'token' in response_data}")
-
-                    # Manually create JSON response to ensure token is included
-                    import json
-                    response_json = json.dumps(response_data)
-                    response = make_response(response_json)
-                    response.headers['Content-Type'] = 'application/json'
-
-                    logger.info(f"[LOGIN] Manual JSON response created")
-                    logger.info(f"[LOGIN] Response content type: {response.headers.get('Content-Type')}")
-                    logger.info(f"[LOGIN] Response data length: {len(response_json)}")
-                    logger.info(f"[LOGIN] Response contains token: {'token' in response_json}")
-
-                    # Set secure cookie with token
-                    response.set_cookie(
-                        'access_token',
-                        token,
-                        httponly=True,
-                        secure=request.is_secure,  # True in production with HTTPS
-                        samesite='Lax',  # Changed from 'Strict' to 'Lax' for better compatibility
-                        max_age=JWT_ACCESS_TOKEN_EXPIRES
-                    )
-
-                    logger.info(f"[LOGIN] User {username} logged in successfully with user data included")
-                    logger.info(f"[LOGIN] Cookie set - httponly=True, secure={request.is_secure}, samesite=Lax")
-                    logger.info(f"[LOGIN] Response will include set-cookie header")
-                    return response
-                else:
-                    return {"status": "error", "message": "Invalid credentials"}, 401
-            else:
-                # Fallback to environment variable check if database not available
-                if username == os.getenv("ADMIN_USERNAME", "admin") and password == os.getenv("ADMIN_PASSWORD", "password"):
-                    # Generate JWT token
-                    token_expiry = datetime.now(timezone.utc) + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRES)
-                    token_payload = {
-                        'username': username,
-                        'exp': token_expiry
-                    }
-                    token = jwt.encode(token_payload, JWT_SECRET_KEY, algorithm="HS256")
-                    
-                    # Create response WITHOUT token in body (security: token only in HTTP-only cookie)
-                    response = make_response(jsonify({
-                        "status": "success",
-                        "message": "Authentication successful",
-                        "expires": token_expiry.isoformat()
-                    }))
-                    
-                    # Set secure cookie with token
-                    response.set_cookie(
-                        'access_token', 
-                        token,
-                        httponly=True,
-                        secure=request.is_secure,  # True in production with HTTPS
-                        samesite='Lax',  # Changed from 'Strict' to 'Lax'
-                        max_age=JWT_ACCESS_TOKEN_EXPIRES
-                    )
-                    
-                    return response
-                else:
-                    return {"status": "error", "message": "Invalid credentials"}, 401
-        except Exception as e:
-            error_msg = sanitize_error_message(e)
-            logger.error(f"Login error: {str(e)}")
-            return {"status": "error", "message": error_msg}, 500
-
-class Logout(CORSResource):
-    """API endpoint for user logout"""
-    def post(self):
-        """
-        Logout user by clearing JWT cookie
+        if not username or not password:
+            return {"status": "error", "message": "Username and password are required"}, 400
         
-        Returns:
-            JSON response confirming logout
-        """
-        response = make_response(jsonify({
-            "status": "success",
-            "message": "Logout successful"
-        }))
+        # Find user
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
         
-        # Clear the auth cookie with same attributes as when it was set
+        user = data_store.db.users.find_one({"username": username})
+        if not user:
+            return {"status": "error", "message": "Invalid credentials"}, 401
+        
+        # Verify password
+        if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+            return {"status": "error", "message": "Invalid credentials"}, 401
+        
+        # Generate JWT token
+        jwt_secret = os.getenv("JWT_SECRET_KEY")
+        if not jwt_secret:
+            return {"status": "error", "message": "JWT secret not configured"}, 500
+        
+        token_payload = {
+            'username': username,
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }
+        token = jwt.encode(token_payload, jwt_secret, algorithm='HS256')
+        
+        # Create response with token in cookie
+        response = make_response({"status": "success", "message": "Login successful", "access_token": token})
         response.set_cookie(
             'access_token',
-            '',
-            expires=0,
+            token,
             httponly=True,
-            secure=request.is_secure,
-            samesite='Lax'
+            secure=os.getenv("FLASK_ENV") == "production",
+            samesite='Lax',
+            max_age=86400  # 24 hours
         )
         
         return response
-class ScrapePosts(CORSResource):
-    """API endpoint to trigger Reddit scraping"""
-    @token_required
-    def post(self, current_user):
-        """
-        Start a scraping job for Reddit posts
-        
-        POST parameters:
-        - products (list): List of product names to scrape (optional)
-        - limit (int): Maximum number of posts to scrape per product (optional)
-        - subreddits (list): List of subreddits to search (optional)
-        - time_filter (str): Time period to search ('day', 'week', 'month', 'year', 'all') (optional)
-        - use_openai (bool): Whether to use Anthropic to analyze common pain points (optional)
-        
-        Returns:
-            JSON response with status of the scraping job
-        """
-        print("\n" + "=" * 60)
-        print("SCRAPE POST ENDPOINT CALLED")
-        print("=" * 60)
-        logger.info("ScrapePosts POST endpoint called")
-        
-        # CRITICAL FIX: Use atomic MongoDB operation to prevent race condition
-        # This ensures only one scraping job can start at a time
-        from pymongo import ReturnDocument
-        if data_store.db is not None:
-            result = data_store.db.metadata.find_one_and_update(
-                {"_id": "scraper_metadata", "scrape_in_progress": False},
-                {"$set": {"scrape_in_progress": True, "last_updated": datetime.now(timezone.utc)}},
-                upsert=True,
-                return_document=ReturnDocument.AFTER
-            )
-            if not result or result.get("scrape_in_progress") != True:
-                print("ERROR: Scrape already in progress!")
-                return {"status": "error", "message": "A scraping job is already in progress"}, 409
-            data_store.scrape_in_progress = True
-        else:
-            # Fallback for no database (less safe)
-            if data_store.scrape_in_progress:
-                print("ERROR: Scrape already in progress!")
-                return {"status": "error", "message": "A scraping job is already in progress"}, 409
-            data_store.scrape_in_progress = True
-        
-        # Get parameters
-        data = request.get_json() or {}
-        print(f"Request data: {data}")
-        products = data.get('products', scraper.target_products)
-        
-<<<<<<< Updated upstream
-        # SECURITY FIX: Validate limit parameter to prevent DoS
-        try:
-            limit = int(data.get('limit', 100))
-            if limit < 1 or limit > 1000:
-                return {"status": "error", "message": "Limit must be between 1 and 1000"}, 400
-        except (ValueError, TypeError):
-            return {"status": "error", "message": "Invalid limit parameter"}, 400
-=======
-        # Validate and limit the limit parameter
-        limit = int(data.get('limit', 100))
-        limit = max(1, min(limit, 500))  # Enforce min 1, max 500
-        
-        # Validate topic length if provided
-        topic = data.get('topic', '').strip()
-        if topic and len(topic) > 500:
-            return error_response("Topic must be 500 characters or less", 400, "INVALID_TOPIC_LENGTH")
->>>>>>> Stashed changes
-        
-        subreddits = data.get('subreddits')
-        time_filter = data.get('time_filter', 'month')
-        use_openai = data.get('use_openai', False)
-        
-        print(f"Parsed parameters:")
-        print(f"  - products: {products}")
-        print(f"  - limit: {limit}")
-        print(f"  - subreddits: {subreddits}")
-        print(f"  - time_filter: {time_filter}")
-        print(f"  - use_openai: {use_openai}")
-        logger.info(f"Scrape parameters - products: {products}, limit: {limit}, subreddits: {subreddits}, time_filter: {time_filter}, use_openai: {use_openai}")
-        
-        # Validate Reddit credentials
-        if not REDDIT_CLIENT_ID or not REDDIT_CLIENT_SECRET:
-            return {"status": "error", "message": "Reddit API credentials not configured on server"}, 500
-            
-        # Initialize Reddit client
-        if not scraper.initialize_client(REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET):
-            return {"status": "error", "message": "Failed to initialize Reddit client"}, 500
-            
-        # Initialize OpenAI client if needed
-        if use_openai:
-            if not ANTHROPIC_API_KEY:
-                return {"status": "error", "message": "Anthropic API key not configured on server"}, 500
-                
-            if not anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY):
-                return {"status": "error", "message": "Failed to initialize Anthropic client"}, 500
-        
-        # Validate time filter
-        if time_filter not in scraper.time_filters.keys():
-            return {"status": "error", "message": f"Invalid time_filter. Must be one of: {', '.join(scraper.time_filters.keys())}"}, 400
-        
-        # CRITICAL FIX: Check and deduct credits BEFORE starting scrape
-        username = current_user.get('username')
-        scrape_cost = 2  # Cost in credits for scraping
-        
-        if data_store.db is not None:
-            try:
-                # Atomically check and deduct credits
-                from pymongo import ReturnDocument
-                user_result = data_store.db.users.find_one_and_update(
-                    {"username": username, "credits": {"$gte": scrape_cost}},
-                    {"$inc": {"credits": -scrape_cost}},
-                    return_document=ReturnDocument.AFTER
-                )
-                
-                if not user_result:
-                    # Either user not found or insufficient credits
-                    user = data_store.db.users.find_one({"username": username})
-                    if not user:
-                        # Rollback scrape_in_progress
-                        data_store.db.metadata.update_one(
-                            {"_id": "scraper_metadata"},
-                            {"$set": {"scrape_in_progress": False}}
-                        )
-                        data_store.scrape_in_progress = False
-                        return {"status": "error", "message": "User not found"}, 404
-                    
-                    # Insufficient credits
-                    current_credits = user.get("credits", 0)
-                    data_store.db.metadata.update_one(
-                        {"_id": "scraper_metadata"},
-                        {"$set": {"scrape_in_progress": False}}
-                    )
-                    data_store.scrape_in_progress = False
-                    return {
-                        "status": "error", 
-                        "message": f"Insufficient credits. You have {current_credits} credits but need {scrape_cost}."
-                    }, 402
-                
-                logger.info(f"Credits deducted: {scrape_cost}. User {username} has {user_result.get('credits', 0)} credits remaining")
-            except Exception as e:
-                logger.error(f"Error deducting credits: {str(e)}")
-                # Rollback scrape_in_progress
-                if data_store.db is not None:
-                    data_store.db.metadata.update_one(
-                        {"_id": "scraper_metadata"},
-                        {"$set": {"scrape_in_progress": False}}
-                    )
-                data_store.scrape_in_progress = False
-                return {"status": "error", "message": "Failed to process credit payment"}, 500
-        
-        # Update metadata in MongoDB -- need added
-        data_store.update_metadata(
-            scrape_in_progress=True,
-            products=products,
-            subreddits=subreddits if subreddits else scraper.default_subreddits,
-            time_filter=time_filter
-        )
-        def background_scrape():
-            try:
-                # Scrape posts
-                print("=" * 50)
-                print("=== STARTING SCRAPE ===")
-                print(f"Products: {products}")
-                print(f"Subreddits: {subreddits}")
-                print(f"Limit: {limit}")
-                print(f"Time filter: {time_filter}")
-                print(f"Use Anthropic: {use_openai}")
-                print("=" * 50)
-                logger.info(f"=== STARTING SCRAPE ===")
-                logger.info(f"Products: {products}")
-                logger.info(f"Subreddits: {subreddits}")
-                logger.info(f"Limit: {limit}")
-                logger.info(f"Time filter: {time_filter}")
-                logger.info(f"Use OpenAI: {use_openai}")
-                all_posts = []
-                
-                # Use the updated scraper method with filters
-                print("Calling scraper.scrape_all_products...")
-                logger.info(f"Calling scraper.scrape_all_products...")
-                result = scraper.scrape_all_products(
-                    limit=limit,
-                    subreddits=subreddits,
-                    time_filter=time_filter,
-                    products=products
-                )
-                print(f"Scraper returned {len(result)} product groups")
-                logger.info(f"Scraper returned {len(result)} product groups")
-                
-                # Flatten the results
-                for product_name, product_posts in result.items():
-                    print(f"Product '{product_name}': {len(product_posts)} posts")
-                    logger.info(f"Product '{product_name}': {len(product_posts)} posts")
-                    all_posts.extend(product_posts)
-                
-                print(f"Total posts scraped: {len(all_posts)}")
-                logger.info(f"Total posts scraped: {len(all_posts)}")
-                
-                if len(all_posts) == 0:
-                    print("WARNING: No posts were scraped!")
-                    logger.warning("No posts were scraped!")
-                
-                # USER REQUEST: Filter posts to only analyze those with explicit pain points, dislikes, or improvement ideas
-                def has_pain_point_indicators(post):
-                    """Check if post explicitly mentions pain points, dislikes, or improvements"""
-                    text = f"{getattr(post, 'title', '')} {getattr(post, 'content', '')}".lower()
-                    
-                    # Pain point indicators
-                    pain_indicators = [
-                        'problem', 'issue', 'bug', 'broken', "doesn't work", 'not working',
-                        'error', 'crash', 'frustrating', 'annoying', 'difficult', 'hard to',
-                        "can't", 'cannot', 'impossible', 'hate', 'bad', 'terrible', 'horrible',
-                        'slow', 'laggy', 'unusable', 'unstable', 'inconsistent', 'disappointed',
-                        'disappointing', 'sucks', 'worst', 'awful', 'poor', 'weak', 'fails'
-                    ]
-                    
-                    # Improvement/feature request indicators
-                    improvement_indicators = [
-                        'wish', 'should', 'would be nice', 'feature request', 'improvement',
-                        'improve', 'better', 'add', 'need', 'want', 'suggest', 'recommend',
-                        'hope', 'please add', 'missing', 'lack', 'could be', 'should have'
-                    ]
-                    
-                    # Dislike indicators
-                    dislike_indicators = [
-                        'dislike', "don't like", 'hate', 'disappointed', 'frustrated',
-                        'annoyed', 'upset', 'angry', 'complaint', 'complain'
-                    ]
-                    
-                    all_indicators = pain_indicators + improvement_indicators + dislike_indicators
-                    
-                    # Check if any indicator is in the text
-                    return any(indicator in text for indicator in all_indicators)
-                
-                # Filter posts before analysis
-                posts_with_indicators = [post for post in all_posts if has_pain_point_indicators(post)]
-                posts_without_indicators = [post for post in all_posts if not has_pain_point_indicators(post)]
-                
-                print(f"Filtered posts: {len(posts_with_indicators)} with pain points/improvements, {len(posts_without_indicators)} without")
-                logger.info(f"Post filtering: {len(posts_with_indicators)} posts with explicit pain points/dislikes/improvements, {len(posts_without_indicators)} filtered out")
-                
-                # Only analyze posts with indicators
-                if len(posts_with_indicators) == 0:
-                    print("WARNING: No posts found with explicit pain points, dislikes, or improvement ideas!")
-                    logger.warning("No posts with pain point indicators found - all posts filtered out")
-                
-                # Use advanced NLP analyzer ONLY on filtered posts
-                print(f"Running advanced NLP analysis on {len(posts_with_indicators)} filtered posts")
-                logger.info(f"Running advanced NLP analysis on {len(posts_with_indicators)} filtered posts (with pain points/dislikes/improvements)")
-                nlp_results = advanced_analyzer.analyze_batch(posts_with_indicators) if posts_with_indicators else {'total_words': 0, 'avg_sentiment': 0, 'pain_points': []}
-                print(f"NLP Analysis complete: {nlp_results['total_words']} words, Avg sentiment: {nlp_results['avg_sentiment']:.3f}")
-                print(f"NLP pain points found: {len(nlp_results.get('pain_points', []))}")
-                logger.info(f"NLP Analysis complete: {nlp_results['total_words']} words, "
-                          f"Avg sentiment: {nlp_results['avg_sentiment']:.3f}")
-                logger.info(f"NLP pain points found: {len(nlp_results.get('pain_points', []))}")
-                
-                # Also run legacy analyzer for product detection and categorization (on filtered posts only)
-                print(f"Running legacy analyzer.analyze_posts on filtered posts...")
-                logger.info(f"Running legacy analyzer.analyze_posts on {len(posts_with_indicators)} filtered posts...")
-                if posts_with_indicators:
-                    analyzer.analyze_posts(posts_with_indicators, products)
-                print(f"Legacy analyzer complete")
-                logger.info(f"Legacy analyzer complete")
-                
-                # Save all posts to MongoDB, but mark which ones have pain points
-                posts_saved = 0
-                print(f"Saving {len(all_posts)} posts to MongoDB (marked with has_pain_points flag)...")
-                for post in all_posts:
-                    # Get detected products
-                    detected_products = analyzer.get_product_from_post(post, products)
-                    # Set products for this post
-                    post.products = detected_products
-                    
-                    # Mark if post has pain point indicators
-                    post.has_pain_points = has_pain_point_indicators(post)
-                    
-                    logger.debug(f"Post '{post.title[:50]}...' -> products: {detected_products}, has_pain_points: {post.has_pain_points}, sentiment: {getattr(post, 'sentiment', 'N/A')}")
-                    # Save to MongoDB with advanced NLP results
-                    if data_store.save_post(post):
-                        posts_saved += 1
-                        # Only add to analyzed_posts if it has pain points
-                        if post.has_pain_points:
-                            data_store.analyzed_posts.append(post)
-                    # Get detected products
-                    detected_products = analyzer.get_product_from_post(post, products)
-                    # Set products for this post
-                    post.products = detected_products
-                    logger.debug(f"Post '{post.title[:50]}...' -> products: {detected_products}, sentiment: {getattr(post, 'sentiment', 'N/A')}")
-                    # Save to MongoDB with advanced NLP results
-                    if data_store.save_post(post):
-                        posts_saved += 1
-                        # Add to analyzed_posts list
-                        data_store.analyzed_posts.append(post)
-                
-                print(f"Saved {posts_saved}/{len(all_posts)} posts to MongoDB")
-                print(f"Analyzed posts count: {len(data_store.analyzed_posts)}")
-                logger.info(f"Saved {posts_saved}/{len(all_posts)} posts to MongoDB")
-                logger.info(f"Analyzed posts count: {len(data_store.analyzed_posts)}")
-                
-                # Use advanced analyzer pain points if available, otherwise fallback
-                logger.info(f"Processing pain points...")
-                if nlp_results.get('pain_points'):
-                    logger.info(f"Using advanced analyzer pain points: {len(nlp_results['pain_points'])} found")
-                    # Convert advanced analyzer pain points to PainPoint objects
-                    pain_points = {}
-                    for pp in nlp_results['pain_points']:
-                        from models import PainPoint
-                        key = f"{pp['category']}:{pp['indicator']}"
-                        pain_point_obj = PainPoint(
-                            name=pp['indicator'],
-                            description=f"{pp['category']} issue: {pp['indicator']}",
-                            frequency=pp['frequency'],
-                            avg_sentiment=pp['avg_sentiment'],
-                            product=products[0] if products else None
-                        )
-                        pain_point_obj.severity = pp['severity_score']
-                        pain_points[key] = pain_point_obj
-                    logger.info(f"Converted {len(pain_points)} pain points to PainPoint objects")
-                else:
-                    logger.info("No advanced analyzer pain points, using legacy analyzer")
-                    # Fallback to legacy analyzer
-                    pain_points = analyzer.categorize_pain_points(all_posts, products)
-                    logger.info(f"Legacy analyzer returned {len(pain_points)} pain points")
-                
-                pain_points_saved = 0
-                for key, pain_point in pain_points.items():
-                    # Check if it's already a list or a single object
-                    if isinstance(pain_point, list):
-                        # If it's a list, iterate through it
-                        for pp in pain_point:
-                            if data_store.save_pain_point(pp):
-                                pain_points_saved += 1
-                    else:
-                        # If it's a single object, save it directly
-                        if data_store.save_pain_point(pain_point):
-                            pain_points_saved += 1
-                
-                logger.info(f"Saved {pain_points_saved} pain points to MongoDB")
-                logger.info(f"Total pain points in store: {len(data_store.pain_points)}")
-                
-                # Note: Anthropic analysis is now manual - users can trigger it from the product detail page
-                print("Scrape complete. Posts saved. Analysis can be run manually from the product detail page.")
-                logger.info("Scrape complete. Posts saved. Analysis can be run manually from the product detail page.")
-                
-                # Update metadata to indicate scrape is finished
-                print("Updating metadata: scrape_in_progress=False")
-                logger.info("Updating metadata: scrape_in_progress=False")
-                data_store.update_metadata(scrape_in_progress=False)
-                
-                print("=" * 50)
-                print("=== SCRAPE COMPLETE ===")
-                print(f"Total posts: {len(all_posts)}")
-                print(f"Raw posts in store: {len(data_store.raw_posts)}")
-                print(f"Analyzed posts in store: {len(data_store.analyzed_posts)}")
-                print(f"Pain points in store: {len(data_store.pain_points)}")
-                print(f"Anthropic analyses in store: {len(data_store.anthropic_analyses)}")
-                print("=" * 50)
-                logger.info(f"=== SCRAPE COMPLETE ===")
-                logger.info(f"Total posts: {len(all_posts)}")
-                logger.info(f"Raw posts in store: {len(data_store.raw_posts)}")
-                logger.info(f"Analyzed posts in store: {len(data_store.analyzed_posts)}")
-                logger.info(f"Pain points in store: {len(data_store.pain_points)}")
-                logger.info(f"Anthropic analyses in store: {len(data_store.anthropic_analyses)}")
-            except praw.exceptions.RedditAPIException as e:
-                print("=" * 50)
-                print("=== REDDIT API ERROR IN BACKGROUND SCRAPING ===")
-                print(f"Error: {str(e)}")
-                print("=" * 50)
-<<<<<<< Updated upstream
-                logger.error(f"Reddit API error in background scraping: {str(e)}", exc_info=True)
-                # Update status and refund credits
-=======
-                logger.error(f"=== ERROR IN BACKGROUND SCRAPING ===")
-                logger.error(f"Error: {str(e)}", exc_info=True)
-                
-                # Refund credits on failure (if credits were deducted)
-                # Note: This assumes credits were deducted before thread started
-                # In a full implementation, track the deducted amount
-                username = current_user.get('username') if 'current_user' in locals() else None
-                if username:
-                    # Estimate cost for refund (should match what was deducted)
-                    estimated_cost = 1  # Default, should be calculated based on limit/time_filter
-                    refund_result, _ = refund_user_credits(username, estimated_cost)
-                    if refund_result.get('status') == 'success':
-                        logger.info(f"Credits refunded to {username} due to scraping failure")
-                
-                # Update status in case of error
->>>>>>> Stashed changes
-                data_store.update_metadata(scrape_in_progress=False)
-                # Refund credits to user
-                if data_store.db is not None:
-                    try:
-                        data_store.db.users.update_one(
-                            {"username": username},
-                            {"$inc": {"credits": scrape_cost}}
-                        )
-                        logger.info(f"Refunded {scrape_cost} credits to {username} due to Reddit API error")
-                    except Exception as refund_error:
-                        logger.error(f"Failed to refund credits: {str(refund_error)}")
-            except praw.exceptions.RedditAPIException as e:
-                # CRITICAL FIX: Specific handling for Reddit API errors
-                error_type = "Reddit API Error"
-                logger.error(f"=== {error_type} IN BACKGROUND SCRAPING ===")
-                logger.error(f"Error: {str(e)}", exc_info=True)
-                
-                # Categorize error for appropriate handling
-                if "rate limit" in str(e).lower() or "429" in str(e):
-                    error_category = "rate_limit"
-                    user_message = "Reddit API rate limit exceeded. Please try again later."
-                elif "403" in str(e) or "forbidden" in str(e).lower():
-                    error_category = "authentication"
-                    user_message = "Reddit API authentication failed. Please check credentials."
-                else:
-                    error_category = "api_error"
-                    user_message = "Reddit API error occurred. Please try again later."
-                
-                # Update status and refund credits
-                data_store.update_metadata(scrape_in_progress=False)
-                
-                # Refund credits to user
-                if data_store.db is not None:
-                    try:
-                        result = data_store.db.users.update_one(
-                            {"username": username},
-                            {"$inc": {"credits": scrape_cost}}
-                        )
-                        if result.modified_count > 0:
-                            logger.info(f"Refunded {scrape_cost} credits to {username} due to {error_category}")
-                        else:
-                            logger.warning(f"Failed to refund credits: user {username} not found")
-                    except Exception as refund_error:
-                        logger.error(f"Failed to refund credits: {str(refund_error)}", exc_info=True)
-                
-                # TODO: Send notification to user about failure
-                
-            except praw.exceptions.RequestException as e:
-                # CRITICAL FIX: Network/connection errors
-                error_type = "Network Error"
-                logger.error(f"=== {error_type} IN BACKGROUND SCRAPING ===")
-                logger.error(f"Error: {str(e)}", exc_info=True)
-                
-                # Network errors are often transient - could retry
-                error_category = "network_error"
-                user_message = "Network error occurred. Please check your connection and try again."
-                
-                # Update status and refund credits
-                data_store.update_metadata(scrape_in_progress=False)
-                
-                # Refund credits
-                if data_store.db is not None:
-                    try:
-                        data_store.db.users.update_one(
-                            {"username": username},
-                            {"$inc": {"credits": scrape_cost}}
-                        )
-                        logger.info(f"Refunded {scrape_cost} credits to {username} due to {error_category}")
-                    except Exception as refund_error:
-                        logger.error(f"Failed to refund credits: {str(refund_error)}", exc_info=True)
-                
-            except Exception as e:
-                # CRITICAL FIX: Generic error handling with proper categorization
-                error_type = type(e).__name__
-                logger.error(f"=== UNEXPECTED ERROR IN BACKGROUND SCRAPING ===")
-                logger.error(f"Error Type: {error_type}")
-                logger.error(f"Error: {str(e)}", exc_info=True)
-                
-                # Categorize error
-                if isinstance(e, (ValueError, TypeError, AttributeError)):
-                    error_category = "validation_error"
-                    user_message = "Invalid input or configuration error."
-                elif isinstance(e, (ConnectionError, TimeoutError)):
-                    error_category = "connection_error"
-                    user_message = "Connection error occurred. Please try again."
-                else:
-                    error_category = "unexpected_error"
-                    user_message = "An unexpected error occurred. Please contact support."
-                
-                # Update status and refund credits
-                data_store.update_metadata(scrape_in_progress=False)
-                
-                # Refund credits to user
-                if data_store.db is not None:
-                    try:
-                        result = data_store.db.users.update_one(
-                            {"username": username},
-                            {"$inc": {"credits": scrape_cost}}
-                        )
-                        if result.modified_count > 0:
-                            logger.info(f"Refunded {scrape_cost} credits to {username} due to {error_category}")
-                        else:
-                            logger.warning(f"Failed to refund credits: user {username} not found")
-                    except Exception as refund_error:
-                        logger.error(f"Failed to refund credits: {str(refund_error)}", exc_info=True)
-                
-                # Log error details for debugging (but don't expose to user)
-                logger.error(f"Error details - Type: {error_type}, Category: {error_category}, User: {username}")
-        
-        # Start the background thread
-        print(f"Starting background scrape thread...")
-        logger.info("Starting background scrape thread...")
-        scrape_thread = Thread(target=background_scrape)
-        scrape_thread.daemon = True
-        scrape_thread.start()
-        print(f"Background thread started (daemon={scrape_thread.daemon})")
-        logger.info(f"Background thread started")
-        
-        return {
-            "status": "success", 
-            "message": "Scraping job started", 
-            "products": products, 
-            "limit": limit,
-            "subreddits": subreddits if subreddits else scraper.default_subreddits,
-            "time_filter": time_filter,
-            "use_openai": use_openai
-        }
-class Recommendations(CORSResource):
-    """API endpoint to handle recommendations (get and generate)"""
-    @token_required
-    def get(self, current_user):
-        """
-        Get previously saved recommendations from the database
-        
-        GET parameters:
-        - products[] (list): List of product names to get recommendations for
-        
-        Returns:
-            JSON response with saved recommendations
-        """
-        # Get query parameters
-        products_param = request.args.getlist('products[]')
-        logger.info(f"Requested saved recommendations for products: {products_param}")
-        
-        # Initialize empty results
-        all_recommendations = []
-        
-        # If database is connected, try to get recommendations from MongoDB
-        if data_store.db is not None:
-            try:
-                # Get recommendations for requested products or all products if none specified
-                query = {}
-                if products_param:
-                    # Create case-insensitive queries for product names
-                    product_queries = []
-                    for product in products_param:
-                        if product.strip():
-                            product_queries.append({
-                                "_id": {"$regex": f"^{re.escape(product.strip())}$", "$options": "i"}
-                            })
-                    
-                    if product_queries:
-                        query = {"$or": product_queries}
-                
-                logger.info(f"MongoDB query for recommendations: {query}")
-                recommendations_cursor = data_store.db.recommendations.find(query)
-                
-                # Process each recommendation
-                for rec_doc in recommendations_cursor:
-                    recommendations = rec_doc.get('recommendations', {})
-                    if recommendations:
-                        all_recommendations.append(recommendations)
-                    else:
-                        logger.warning(f"No recommendations found for product: {rec_doc.get('_id')}")
-                
-                if all_recommendations:
-                    return {
-                        "status": "success",
-                        "recommendations": all_recommendations
-                    }
-                else:
-                    return {
-                        "status": "info",
-                        "message": "No saved recommendations found for the requested products",
-                        "recommendations": []
-                    }
-                
-            except Exception as e:
-                logger.error(f"Error retrieving recommendations from MongoDB: {str(e)}")
-                return {
-                    "status": "error",
-                    "message": f"Error retrieving recommendations: {str(e)}",
-                    "recommendations": []
-                }, 500
-        
-        # If database is not connected
-        return {
-            "status": "error",
-            "message": "Database connection not established or no recommendations found",
-            "recommendations": []
-        }, 500
-    
-    @token_required
-    def post(self, current_user):
-        """
-        Generate and save new recommendations based on analyses
-        
-        POST parameters (JSON):
-        - products (list): List of product names to generate recommendations for
-        
-        Returns:
-            JSON response with generated recommendations
-        """
-        # Get request data
-        request_data = request.get_json() or {}
-        products_param = request_data.get('products', [])
-        logger.info(f"Requested to generate recommendations for products: {products_param}")
-        
-        # Ensure OpenAI is initialized
-        if not ANTHROPIC_API_KEY:
-            return {
-                "status": "error",
-                "message": "Anthropic API key not configured on server",
-                "anthropic_enabled": False
-            }, 500
 
-        if not anthropic_analyzer.api_key:
-            if not anthropic_analyzer.initialize_client(ANTHROPIC_API_KEY):
-                return {
-                    "status": "error",
-                    "message": "Failed to initialize Anthropic client",
-                    "anthropic_enabled": False
-                }, 500
-        
-        # Store recommendations for each product
-        all_recommendations = []
-        
-        # If database is connected, try to get analyses from MongoDB first
-        if data_store.db is not None:
-            try:
-                # Get analyses for requested products or all products if none specified
-                query = {}
-                if products_param:
-                    # Create case-insensitive queries for product names
-                    product_queries = []
-                    for product in products_param:
-                        if isinstance(product, str) and product.strip():
-                            product_queries.append({
-                                "_id": {"$regex": f"^{re.escape(product.strip())}$", "$options": "i"}
-                            })
-                    
-                    if product_queries:
-                        query = {"$or": product_queries}
-                
-                logger.info(f"MongoDB query for analyses: {query}")
-                analyses_cursor = data_store.db.anthropic_analysis.find(query)
-                
-                # Process each analysis
-                for analysis_doc in analyses_cursor:
-                    product_name = analysis_doc.get('_id')
-                    analysis = analysis_doc.get('analysis', {})
-                    
-                    if not analysis:
-                        logger.warning(f"No analysis data found for {product_name}")
-                        continue
-                    
-                    # Extract pain points from the analysis
-                    pain_points = analysis.get('common_pain_points', [])
-                    
-                    if not pain_points:
-                        logger.warning(f"No pain points found in analysis for {product_name}")
-                        continue
-                    
-                    logger.info(f"Generating recommendations for {product_name} based on {len(pain_points)} pain points")
-                    
-                    # Generate recommendations for this product's pain points
-                    recommendations = anthropic_analyzer.generate_recommendations(pain_points, product_name)
-                    
-                    # Save the recommendations to MongoDB
-                    save_result = data_store.save_recommendations(product_name, recommendations)
-                    if save_result:
-                        logger.info(f"Saved recommendations for {product_name} to MongoDB")
-                    else:
-                        logger.warning(f"Failed to save recommendations for {product_name}")
-                    
-                    all_recommendations.append(recommendations)
-                
-                # Return the recommendations
-                return {
-                    "status": "success",
-                    "anthropic_enabled": True,
-                    "recommendations": all_recommendations
-                }
-                
-            except Exception as e:
-                logger.error(f"Error retrieving analyses from MongoDB: {str(e)}")
-                # Fall back to in-memory data if MongoDB query fails
-        
-        # Fall back to in-memory data if database is not connected or query failed
-        # Get all analyses from in-memory cache
-        if not data_store.anthropic_analyses:
-            return {
-                "status": "info",
-                "message": "No Anthropic analyses available. Use the scrape endpoint with use_openai=true to generate analysis.",
-                "anthropic_enabled": True,
-                "recommendations": []
-            }, 400
-        
-        # Process requested products or all products if none specified
-        product_keys = list(data_store.anthropic_analyses.keys())
-        if products_param:
-            # Filter to only requested products (case-insensitive)
-            requested_products = [p.strip().lower() for p in products_param if isinstance(p, str) and p.strip()]
-            product_keys = [
-                key for key in product_keys 
-                if any(key.lower() == req_prod for req_prod in requested_products)
-            ]
-        
-        # Generate recommendations for each product
-        for product_key in product_keys:
-            analysis = data_store.anthropic_analyses[product_key]
-            pain_points = analysis.get('common_pain_points', [])
-            
-            if pain_points:
-                # Generate recommendations for this product's pain points
-                recommendations = anthropic_analyzer.generate_recommendations(pain_points, product_key)
-                all_recommendations.append(recommendations)
-        
-        return {
-            "status": "success",
-            "anthropic_enabled": True,
-            "recommendations": all_recommendations
-        }
-    
-class GetPainPoints(CORSResource):
-    """API endpoint to get analyzed pain points"""
+class Logout(CORSResource):
+    """API endpoint for user logout"""
+    @token_required
+    def post(self, current_user):
+        """Logout user by clearing token cookie"""
+        response = make_response({"status": "success", "message": "Logged out successfully"})
+        response.set_cookie('access_token', '', expires=0)
+        return response
+
+# ============================================================================
+# Data Retrieval Endpoints
+# ============================================================================
+
+class GetStatus(CORSResource):
+    """API endpoint to get scraping status"""
     @token_required
     def get(self, current_user):
-        """
-        Get all identified pain points
+        """Get current scraping status"""
+        from app import data_store
+        username = current_user.get('username')
         
-        GET parameters:
-        - product (str): Filter by product name (optional)
-        - limit (int): Limit number of results (optional)
-        - min_severity (float): Minimum severity score (optional)
-        
-        Returns:
-            JSON response with pain points data
-        """
-        # Get parameters
-        product = request.args.get('product')
-        limit = request.args.get('limit', type=int)
-        min_severity = request.args.get('min_severity', type=float, default=0)
-        
-        # Get all pain points
-        pain_points = list(data_store.pain_points.values())
-        
-        # Apply filters
-        if product:
-            pain_points = [p for p in pain_points if p.product and p.product.lower() == product.lower()]
-        
-        if min_severity > 0:
-            pain_points = [p for p in pain_points if p.severity >= min_severity]
-        
-        # Sort by severity
-        pain_points.sort(key=lambda x: x.severity, reverse=True)
-        
-        # Apply limit
-        if limit and limit > 0:
-            pain_points = pain_points[:limit]
-        
-        # Convert to dictionaries
-        result = [p.to_dict() for p in pain_points]
+        # Check if user has any active scraping jobs
+        has_active_job = False
+        if username in data_store.user_scraping_jobs:
+            user_jobs = data_store.user_scraping_jobs[username]
+            # Handle both old format (single dict/thread) and new format (list)
+            if isinstance(user_jobs, list):
+                # New format: list of job dicts
+                for job_data in user_jobs:
+                    thread = job_data.get('thread') if isinstance(job_data, dict) else job_data
+                    if thread and thread.is_alive():
+                        has_active_job = True
+                        break
+            else:
+                # Old format: single thread or dict
+                if isinstance(user_jobs, dict):
+                    thread = user_jobs.get('thread')
+                else:
+                    thread = user_jobs
+                has_active_job = thread and thread.is_alive()
         
         return {
             "status": "success",
-            "count": len(result),
-            "pain_points": result,
-            "last_updated": data_store.last_scrape_time.isoformat() if data_store.last_scrape_time else None
-        }
+            "scrape_in_progress": has_active_job
+        }, 200
+
 class GetPosts(CORSResource):
     """API endpoint to get scraped posts"""
     @token_required
     def get(self, current_user):
-        """
-        Get all scraped posts
+        """Get posts with optional filters"""
+        from app import data_store
         
-        GET parameters:
-        - product (str): Filter by product name (optional)
-        - limit (int): Limit number of results (optional)
-        - has_pain_points (bool): Only return posts with identified pain points (optional)
-        - subreddit (str): Filter by subreddit name (optional)
-        - min_score (int): Minimum score threshold (optional)
-        - min_comments (int): Minimum comments threshold (optional)
-        - sort_by (str): Field to sort by ('date', 'score', 'comments', 'sentiment') (optional, default: 'date')
-        - sort_order (str): Sort order ('asc' or 'desc') (optional, default: 'desc')
-        
-        Returns:
-            JSON response with posts data
-        """
-        # Get parameters
+        # Get query parameters
         product = request.args.get('product')
-        has_pain_points = request.args.get('has_pain_points', type=bool, default=False)
-        subreddit = request.args.get('subreddit')
-        min_score = request.args.get('min_score', type=int, default=0)
-        min_comments = request.args.get('min_comments', type=int, default=0)
-        sort_by = request.args.get('sort_by', default='date')
-        sort_order = request.args.get('sort_order', default='desc')
+        limit = int(request.args.get('limit', 100))
+        sort_by = request.args.get('sort_by', 'date')
         
-        # Pagination parameters
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 50)), 100)  # Max 100 per page
-        skip = (page - 1) * per_page
-        
-        # Validate sort parameters
-        valid_sort_fields = {'date': 'created_utc', 'score': 'score', 'comments': 'num_comments', 'sentiment': 'sentiment'}
-        if sort_by not in valid_sort_fields:
-            return {"status": "error", "message": f"Invalid sort_by parameter. Must be one of: {', '.join(valid_sort_fields.keys())}"}, 400
-        
-        if sort_order not in ['asc', 'desc']:
-            return {"status": "error", "message": "Invalid sort_order parameter. Must be 'asc' or 'desc'"}, 400
-        
-        # Check if MongoDB is connected
-        if data_store.db is None:
-            logger.error("MongoDB not connected, using in-memory data")
-            # Fallback to in-memory data
-            posts = data_store.analyzed_posts if data_store.analyzed_posts else data_store.raw_posts
-        else:
-            try:
-                # Build MongoDB query
-                query = {}
-                
-                if product:
-                    query["products"] = product
-                
-                if has_pain_points:
-                    query["pain_points"] = {"$exists": True, "$ne": []}
-                    
-                if subreddit:
-                    # SECURITY FIX: Validate and escape subreddit name to prevent NoSQL injection
-                    if not re.match(r'^[a-zA-Z0-9_-]+$', subreddit):
-                        return {"status": "error", "message": "Invalid subreddit name format"}, 400
-                    query["subreddit"] = {"$regex": f"^{re.escape(subreddit)}$", "$options": "i"}
-                    
-                if min_score > 0:
-                    query["score"] = {"$gte": min_score}
-                    
-                if min_comments > 0:
-                    query["num_comments"] = {"$gte": min_comments}
-                
-                # Set up sorting
-                mongo_sort_field = valid_sort_fields[sort_by]
-                mongo_sort_direction = -1 if sort_order == 'desc' else 1
-                
-                # Get total count for pagination
-                total = data_store.db.posts.count_documents(query)
-                
-                # Query MongoDB with pagination
-                cursor = data_store.db.posts.find(query).sort(mongo_sort_field, mongo_sort_direction).skip(skip).limit(per_page)
-                
-                # Convert cursor to list
-                posts = list(cursor)
-                logger.info(f"Retrieved {len(posts)} posts from MongoDB (page {page}, {per_page} per page, total: {total})")
-                
-            except Exception as e:
-                logger.error(f"Error querying MongoDB: {str(e)}")
-                # Fallback to in-memory data
-                posts = data_store.analyzed_posts if data_store.analyzed_posts else data_store.raw_posts
-                
-                # Apply filters
-                if product:
-                    # Filter posts that mention the specified product
-                    posts = [p for p in posts if hasattr(p, 'products') and product in p.products]
-                
-                if has_pain_points:
-                    posts = [p for p in posts if hasattr(p, 'pain_points') and p.pain_points]
-                    
-                if subreddit:
-                    posts = [p for p in posts if hasattr(p, 'subreddit') and p.subreddit.lower() == subreddit.lower()]
-                    
-                if min_score > 0:
-                    posts = [p for p in posts if hasattr(p, 'score') and p.score >= min_score]
-                    
-                if min_comments > 0:
-                    posts = [p for p in posts if hasattr(p, 'num_comments') and p.num_comments >= min_comments]
-                
-                # Sort by specified field
-                sort_field = valid_sort_fields[sort_by]
-                
-                # For sentiment sorting, handle posts that don't have sentiment
-                if sort_field == 'sentiment':
-                    # Default sentiment to 0 if not available
-                    posts.sort(key=lambda x: getattr(x, sort_field, 0) or 0, reverse=(sort_order == 'desc'))
-                else:
-                    posts.sort(key=lambda x: getattr(x, sort_field, 0), reverse=(sort_order == 'desc'))
-                
-                # Apply pagination to in-memory data
-                total = len(posts)
-                posts = posts[skip:skip + per_page]
-        
-        # Convert to dictionaries for response
-        result = []
-        for post in posts:
-            # Handle both MongoDB documents and custom objects
-            if isinstance(post, dict):
-                post_dict = {
-                    "id": post.get("_id") or post.get("id"),
-                    "title": post.get("title"),
-                    "author": post.get("author"),
-                    "subreddit": post.get("subreddit"),
-                    "url": post.get("url"),
-                    "created_utc": post.get("created_utc"),
-                    "score": post.get("score"),
-                    "num_comments": post.get("num_comments"),
-                    "sentiment": post.get("sentiment"),
-                    "topics": post.get("topics", []),
-                    "pain_points": post.get("pain_points", []),
-                    "products": post.get("products", [])
-                }
-            else:
-                # Handle custom objects
-                post_dict = {
-                    "id": getattr(post, "id", None),
-                    "title": getattr(post, "title", None),
-                    "author": getattr(post, "author", None),
-                    "subreddit": getattr(post, "subreddit", None),
-                    "url": getattr(post, "url", None),
-                    "created_utc": getattr(post, "created_utc", None),
-                    "score": getattr(post, "score", None),
-                    "num_comments": getattr(post, "num_comments", None),
-                }
-                
-                # Add analysis results if available
-                if hasattr(post, 'sentiment') and post.sentiment is not None:
-                    post_dict["sentiment"] = post.sentiment
-                
-                if hasattr(post, 'topics') and post.topics:
-                    post_dict["topics"] = post.topics
-                    
-                if hasattr(post, 'pain_points') and post.pain_points:
-                    post_dict["pain_points"] = post.pain_points
-                
-                if hasattr(post, 'products') and post.products:
-                    post_dict["products"] = post.products
-            
-            # Convert datetime objects to ISO format strings
-            if isinstance(post_dict["created_utc"], datetime):
-                post_dict["created_utc"] = post_dict["created_utc"].isoformat()
-                
-            result.append(post_dict)
-        
-        # Get last_updated timestamp
-        last_updated = None
-        if data_store.last_scrape_time:
-            last_updated = data_store.last_scrape_time.isoformat() if isinstance(data_store.last_scrape_time, datetime) else data_store.last_scrape_time
-        
-        # Calculate total if not already calculated (for in-memory fallback)
-        if 'total' not in locals():
-            total = len(result) if data_store.db is None else data_store.db.posts.count_documents({})
-        
-        return {
-            "status": "success",
-            "count": len(result),
-            "posts": result,
-            "pagination": {
-                "page": page,
-                "per_page": per_page,
-                "total": total,
-                "pages": (total + per_page - 1) // per_page if total > 0 else 0
-            },
-            "filters_applied": {
-                "product": product,
-                "has_pain_points": has_pain_points,
-                "subreddit": subreddit,
-                "min_score": min_score,
-                "min_comments": min_comments
-            },
-            "sort": {
-                "field": sort_by,
-                "order": sort_order
-            },
-            "last_updated": last_updated,
-            "data_source": "mongodb" if data_store.db is not None else "memory"
-        }
-class GetStatus(CORSResource):
-    """API endpoint to get current scraper status"""
-    def get(self):
-        """
-        Get current status of the scraper
-        
-        Returns:
-            JSON response with status information
-        """
-        # Get connection status from initialized clients
-        reddit_status = "connected" if scraper.reddit else "not_configured"
-        anthropic_status = "connected" if anthropic_analyzer.api_key else "not_configured"
-        
-        # Get counts from MongoDB if available, otherwise use in-memory cache
-        raw_posts_count = len(data_store.raw_posts)
-        analyzed_posts_count = len(data_store.analyzed_posts)
-        pain_points_count = len(data_store.pain_points)
-        anthropic_analyses_count = len(data_store.anthropic_analyses)
-        
+        posts = []
         if data_store.db is not None:
-            try:
-                # Get counts from MongoDB
-                raw_posts_count = data_store.db.posts.count_documents({})
-                # Analyzed posts are posts that have sentiment analysis
-                analyzed_posts_count = data_store.db.posts.count_documents({"sentiment": {"$exists": True}})
-                pain_points_count = data_store.db.pain_points.count_documents({})
-                anthropic_analyses_count = data_store.db.anthropic_analysis.count_documents({})
-                
-                logger.debug(f"Status counts from MongoDB - Posts: {raw_posts_count}, Analyzed: {analyzed_posts_count}, Pain Points: {pain_points_count}, OpenAI: {anthropic_analyses_count}")
-            except Exception as e:
-                logger.error(f"Error counting from MongoDB: {str(e)}")
-                # Fallback to in-memory cache
-                logger.debug(f"Using in-memory counts - Posts: {raw_posts_count}, Analyzed: {analyzed_posts_count}, Pain Points: {pain_points_count}, OpenAI: {anthropic_analyses_count}")
-                
-        return {
-            "status": "success",
-            "scrape_in_progress": data_store.scrape_in_progress,
-            "last_scrape_time": data_store.last_scrape_time.isoformat() if data_store.last_scrape_time else None,
-            "raw_posts_count": raw_posts_count,
-            "analyzed_posts_count": analyzed_posts_count,
-            "pain_points_count": pain_points_count,
-            "subreddits_scraped": list(data_store.subreddits_scraped),
-            "has_anthropic_analyses": anthropic_analyses_count > 0,
-            "anthropic_analyses_count": anthropic_analyses_count,
-            "apis": {
-                "reddit": reddit_status,
-                "anthropic": anthropic_status
-            }
-        }
-    
-class ResetScrapeStatus(CORSResource):
-    """API endpoint to reset scraper status"""
-    @token_required
-    def post(self, current_user):
-        """Reset the scrape_in_progress flag"""
-        data_store.scrape_in_progress = False
-        data_store.update_metadata(scrape_in_progress=False)
-        return {
-            "status": "success",
-            "message": "Scrape status reset successfully"
-        }
+            query = {}
+            if product:
+                query['product'] = product
+            
+            posts_cursor = data_store.db.posts.find(query).limit(limit)
+            posts = list(posts_cursor)
+            
+            # Convert ObjectId to string and serialize datetimes for JSON
+            for post in posts:
+                post['_id'] = str(post['_id'])
+            posts = serialize_datetime(posts)
+        else:
+            # Fallback to in-memory storage
+            posts = data_store.raw_posts[:limit]
+            posts = [post.__dict__ if hasattr(post, '__dict__') else post for post in posts]
+            posts = serialize_datetime(posts)
+        
+        return {"status": "success", "posts": posts}, 200
 
-class GetAnthropicAnalysis(CORSResource):
-    """API endpoint to get Anthropic analysis results"""
+class GetPainPoints(CORSResource):
+    """API endpoint to get pain points"""
     @token_required
     def get(self, current_user):
-        """
-        Get the Anthropic analysis of pain points
-
-        GET parameters:
-        - product (str): Single product name (optional, for backward compatibility)
-        - products (str): Comma-separated list of product names (optional)
-
-        Returns:
-            JSON response with Anthropic analysis data
-        """
-        # Get query parameters
-        products_param = request.args.getlist('products[]')
-        logger.info(f"Requested products: {products_param}")
+        """Get pain points with optional filters"""
+        from app import data_store
         
-        # Check if MongoDB is connected
-        if data_store.db is None:
-            # Fallback to in-memory data
-            if not data_store.anthropic_analyses:
-                return {
-                    "status": "info",
-                    "message": "No Anthropic analyses available. Use the scrape endpoint with use_openai=true to generate analysis.",
-                    "anthropic_enabled": True,
-                    "analyses": []
-                }
-    
-        # Using MongoDB for data retrieval
-        try:
-            # Parse multiple products from MongoDB
-            if len(products_param) > 0:
-                requested_products = [p.strip().lower() for p in products_param if p.strip()]
-                matched_analyses = []
-                
-                # Use MongoDB's $in operator to find matching products in one query
-                query = {"product": {"$in": requested_products}}
-                cursor = data_store.db.anthropic_analysis.find(query)
-                
-                for doc in cursor:
-                    # Transform to the expected response format
-                    if "analysis" in doc:
-                        matched_analyses.append(doc["analysis"])
-                    else:
-                        matched_analyses.append(doc)  # Include the entire document if no analysis field
-                
-                return {
-                    "status": "success",
-                    "anthropic_enabled": True,
-                    "analyses": matched_analyses
-                }
+        product = request.args.get('product')
+        min_severity = float(request.args.get('min_severity', 0.0))
+        
+        pain_points = []
+        if data_store.db is not None:
+            query = {}
+            if product:
+                query['product'] = product
+            if min_severity > 0:
+                query['severity'] = {"$gte": min_severity}
             
-            # Return all analyses from MongoDB if no filters are applied
-            all_analyses = []
-            cursor = data_store.db.anthropic_analysis.find({})
-            
-            for doc in cursor:
-                if "analysis" in doc:
-                    all_analyses.append(doc["analysis"])
-                else:
-                    all_analyses.append(doc)
-            
-            return {
-                "status": "success",
-                "anthropic_enabled": True,
-                "analyses": all_analyses
-            }
-            
-        except Exception as e:
-            logger.error(f"Error retrieving Anthropic analyses from MongoDB: {str(e)}")
+            pain_points = list(data_store.db.pain_points.find(query))
+            for pp in pain_points:
+                pp['_id'] = str(pp['_id'])
+        else:
+            # Fallback to in-memory storage
+            pain_points = list(data_store.pain_points.values())
+        
+        return {"status": "success", "pain_points": pain_points}, 200
 
-            # Fallback to in-memory data if MongoDB query fails
-            return {
-                "status": "error",
-                "message": f"Database error: {str(e)}",
-                "anthropic_enabled": True,
-                "analyses": list(data_store.anthropic_analyses.values())
-            }
+class Recommendations(CORSResource):
+    """API endpoint for recommendations (user-scoped when user_id is stored)."""
+    @token_required
+    def get(self, current_user):
+        """Get recommendations for current user and product."""
+        from app import data_store
+
+        product = request.args.get('product')
+        if not product:
+            return {"status": "success", "recommendations": []}, 200
+
+        recommendations = []
+        if data_store.db is not None:
+            username = current_user.get('username')
+            product_key = product.strip().lower()
+            rec = data_store.db.recommendations.find_one({"user_id": username, "product": product_key})
+            if not rec:
+                rec = data_store.db.recommendations.find_one({"_id": product_key})
+            if not rec and username:
+                rec = data_store.db.recommendations.find_one({"_id": f"{username}:{product_key}"})
+            if rec:
+                recommendations = rec.get('recommendations', [])
+
+        return {"status": "success", "recommendations": recommendations}, 200
+
+class GetClaudeAnalysis(CORSResource):
+    """API endpoint to get Claude analysis results (user-scoped). Accepts product or products[]."""
+    @token_required
+    def get(self, current_user):
+        """Get Claude analysis for current user and product. Returns analyses array for client compatibility."""
+        from app import data_store
+
+        product = request.args.get("product")
+        if not product:
+            product = request.args.get("products[]") or request.args.get("products")
+        if not product and (request.args.getlist("products[]") or request.args.getlist("products")):
+            product = (request.args.getlist("products[]") or request.args.getlist("products"))[0]
+        if not product:
+            return {"status": "error", "message": "Product parameter required"}, 400
+
+        if isinstance(product, list):
+            product = product[0] if product else None
+        if not product:
+            return {"status": "error", "message": "Product parameter required"}, 400
+
+        username = current_user.get("username")
+        product_key = product.strip().lower()
+        analysis = None
+        if data_store.db is not None:
+            analysis = data_store.db.anthropic_analysis.find_one({"user_id": username, "product": product_key})
+            if not analysis:
+                analysis = data_store.db.anthropic_analysis.find_one({"_id": f"{username}:{product_key}"})
+            if not analysis:
+                analysis = data_store.db.anthropic_analysis.find_one({"_id": product_key})
+            if not analysis:
+                analysis = data_store.db.anthropic_analysis.find_one({"product": product_key})
+            if analysis:
+                analysis["_id"] = str(analysis["_id"])
+                analysis = serialize_datetime(analysis)
+
+        if not analysis:
+            return {"status": "error", "message": "Analysis not found"}, 404
+
+        return {"status": "success", "analyses": [analysis], "analysis": analysis}, 200
 
 class GetAllProducts(CORSResource):
-    """API endpoint to get list of all products that have posts (whether analyzed or not)"""
+    """API endpoint to get all products belonging to the current user (from their jobs)."""
     @token_required
     def get(self, current_user):
-        """
-        Get list of all products that have posts in the database
-        
-        Returns:
-            JSON response with list of product names and their analysis status
-        """
-        try:
-            if data_store.db is None:
-                # Fallback to in-memory data
-                products = []
-                for post in data_store.raw_posts:
-                    if hasattr(post, 'products') and post.products:
-                        products.extend(post.products)
-                products = list(set(products))
-            else:
-                # Get all unique products from posts collection
-                products_with_posts = data_store.db.posts.distinct("products")
-                # Flatten the list (products is an array field)
-                products = []
-                seen_products = set()
-                for product_list in products_with_posts:
-                    if isinstance(product_list, list):
-                        for product in product_list:
-                            if product and product.strip().lower() not in seen_products:
-                                products.append(product.strip())
-                                seen_products.add(product.strip().lower())
-                    elif product_list and product_list.strip().lower() not in seen_products:
-                        products.append(product_list.strip())
-                        seen_products.add(product_list.strip().lower())
-            
-            # Get analysis status for each product
-            products_with_status = []
-            for product in products:
-                has_analysis = False
-                has_recommendations = False
-                
-                if data_store.db is not None:
-                    # Check if analysis exists
-                    analysis_doc = data_store.db.anthropic_analysis.find_one({
-                        "$or": [
-                            {"_id": product.strip().lower()},
-                            {"product": product.strip().lower()}
-                        ]
-                    })
-                    has_analysis = analysis_doc is not None
-                    
-                    # Check if recommendations exist
-                    rec_doc = data_store.db.recommendations.find_one({
-                        "$or": [
-                            {"_id": product.strip().lower()},
-                            {"product": product.strip().lower()}
-                        ]
-                    })
-                    has_recommendations = rec_doc is not None
-                else:
-                    # Fallback to in-memory
-                    has_analysis = product in data_store.anthropic_analyses
-                    has_recommendations = product in data_store.recommendations if hasattr(data_store, 'recommendations') else False
-                
-                products_with_status.append({
-                    "name": product,
-                    "has_analysis": has_analysis,
-                    "has_recommendations": has_recommendations
-                })
-            
-            return {
-                "status": "success",
-                "products": products_with_status
-            }
-        except Exception as e:
-            logger.error(f"Error retrieving all products: {str(e)}")
-            return {
-                "status": "error",
-                "message": f"Database error: {str(e)}",
-                "products": []
-            }, 500
+        """Get list of products from current user's jobs (distinct topic/product from job parameters)."""
+        from app import data_store
+
+        username = current_user.get("username")
+        products = []
+        if data_store.db is not None:
+            try:
+                jobs_cursor = data_store.db.jobs.find(
+                    {"user_id": username},
+                    {"parameters": 1}
+                )
+                seen = set()
+                for job in jobs_cursor:
+                    params = job.get("parameters") or {}
+                    topic = params.get("topic") or params.get("product")
+                    if topic and isinstance(topic, str):
+                        topic_clean = topic.strip()
+                        if topic_clean and topic_clean not in seen:
+                            seen.add(topic_clean)
+                            products.append(topic_clean)
+            except Exception:
+                pass
+        return {"status": "success", "products": products}, 200
 
 class RunAnalysis(CORSResource):
-    """API endpoint to manually run Anthropic analysis for a product"""
+    """API endpoint to run AI analysis (creates a job and runs in background with logging)."""
     @token_required
     def post(self, current_user):
-        """
-        Run Anthropic analysis for a specific product
-        
-        POST parameters:
-        - product (str): Product name to analyze
-        
-        Returns:
-            JSON response with analysis results
-        """
+        """Start an analysis job for a product: returns job_id immediately; analysis runs in background."""
+        from app import data_store
+        from datetime import datetime, timezone
+
+        data = request.get_json() or {}
+        product = (data.get("product") or "").strip()
+        if not product:
+            return {"status": "error", "message": "Product is required"}, 400
+
+        # Optional: max_posts (int, default 500), skip_recommendations (bool, default False), regenerate (bool)
         try:
-            data = request.get_json() or {}
-            product = data.get('product', '').strip()
-            
-            if not product:
-                return {"status": "error", "message": "Product name is required"}, 400
-            
-            # SECURITY FIX: Validate product name format
-            if len(product) > 100:
-                return {"status": "error", "message": "Product name too long (max 100 characters)"}, 400
-            if not re.match(r'^[a-zA-Z0-9\s\-_.]+$', product):
-                return {"status": "error", "message": "Invalid product name format"}, 400
-            
-            print(f"\n[RUN_ANALYSIS] Starting analysis for product: '{product}'")
-            logger.info(f"Starting manual analysis for product: '{product}'")
-            
-            # USER REQUEST: Filter posts to only analyze those with explicit pain points, dislikes, or improvement ideas
-            def has_pain_point_indicators(post):
-                """Check if post explicitly mentions pain points, dislikes, or improvements"""
-                if isinstance(post, dict):
-                    text = f"{post.get('title', '')} {post.get('content', '')}".lower()
-                else:
-                    text = f"{getattr(post, 'title', '')} {getattr(post, 'content', '')}".lower()
-                
-                # Pain point indicators
-                pain_indicators = [
-                    'problem', 'issue', 'bug', 'broken', "doesn't work", 'not working',
-                    'error', 'crash', 'frustrating', 'annoying', 'difficult', 'hard to',
-                    "can't", 'cannot', 'impossible', 'hate', 'bad', 'terrible', 'horrible',
-                    'slow', 'laggy', 'unusable', 'unstable', 'inconsistent', 'disappointed',
-                    'disappointing', 'sucks', 'worst', 'awful', 'poor', 'weak', 'fails'
-                ]
-                
-                # Improvement/feature request indicators
-                improvement_indicators = [
-                    'wish', 'should', 'would be nice', 'feature request', 'improvement',
-                    'improve', 'better', 'add', 'need', 'want', 'suggest', 'recommend',
-                    'hope', 'please add', 'missing', 'lack', 'could be', 'should have'
-                ]
-                
-                # Dislike indicators
-                dislike_indicators = [
-                    'dislike', "don't like", 'hate', 'disappointed', 'frustrated',
-                    'annoyed', 'upset', 'angry', 'complaint', 'complain'
-                ]
-                
-                all_indicators = pain_indicators + improvement_indicators + dislike_indicators
-                return any(indicator in text for indicator in all_indicators)
-            
-            # Fetch posts for this product
-            if data_store.db is None:
-                product_posts = [p for p in data_store.raw_posts if hasattr(p, 'products') and product in p.products]
-            else:
-                # Query MongoDB for posts with this product
-                cursor = data_store.db.posts.find({"products": product})
-                from models import RedditPost
-                product_posts = []
-                for doc in cursor:
-                    post = RedditPost(
-                        id=doc.get('_id') or doc.get('id', ''),
-                        title=doc.get('title', ''),
-                        content=doc.get('content', '') or doc.get('selftext', ''),
-                        author=doc.get('author', ''),
-                        subreddit=doc.get('subreddit', ''),
-                        url=doc.get('url', ''),
-                        created_utc=doc.get('created_utc'),
-                        score=doc.get('score', 0),
-                        num_comments=doc.get('num_comments', 0)
-                    )
-                    post.products = doc.get('products', [])
-                    product_posts.append(post)
-            
-            if not product_posts:
-                return {"status": "error", "message": f"No posts found for product '{product}'"}, 404
-            
-            # USER REQUEST: Filter to only posts with explicit pain points/dislikes/improvements
-            filtered_posts = [post for post in product_posts if has_pain_point_indicators(post)]
-            
-            if not filtered_posts:
-                return {
-                    "status": "error", 
-                    "message": f"No posts with explicit pain points, dislikes, or improvement ideas found for product '{product}'. Analysis only runs on posts that mention problems, issues, or suggestions."
-                }, 404
-            
-            print(f"[RUN_ANALYSIS] Found {len(product_posts)} total posts, {len(filtered_posts)} with pain points/improvements for '{product}'")
-            logger.info(f"Found {len(product_posts)} total posts, {len(filtered_posts)} with explicit pain points/dislikes/improvements for '{product}'")
-            
-            # Run Anthropic analysis ONLY on filtered posts
-            analysis = anthropic_analyzer.analyze_common_pain_points(filtered_posts, product)
-            
-            if 'error' in analysis:
-                print(f"[RUN_ANALYSIS] Analysis failed: {analysis.get('error')}")
-                logger.error(f"Analysis failed for '{product}': {analysis.get('error')}")
-                return {
-                    "status": "error",
-                    "message": analysis.get('error', 'Analysis failed'),
-                    "analysis": None
-                }, 500
-            
-            # Save analysis to MongoDB
-            save_result = data_store.save_anthropic_analysis(product, analysis)
-            print(f"[RUN_ANALYSIS] Analysis saved: {save_result}")
-            logger.info(f"Analysis saved for '{product}': {save_result}")
-            
-            return {
-                "status": "success",
-                "message": f"Analysis completed for '{product}'",
-                "analysis": analysis,
-                "pain_points_count": len(analysis.get('common_pain_points', []))
-            }
-        except Exception as e:
-            logger.error(f"Error running analysis: {str(e)}", exc_info=True)
+            max_posts = int(data.get("max_posts", 500))
+            max_posts = min(max(1, max_posts), 1000)
+        except (TypeError, ValueError):
+            max_posts = 500
+        skip_recommendations = bool(data.get("skip_recommendations", False))
+        regenerate = bool(data.get("regenerate", False))
+
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
+
+        # Quick check: any posts for this product?
+        posts_count = data_store.db.posts.count_documents({"product": product})
+        if posts_count == 0:
             return {
                 "status": "error",
-                "message": f"Error running analysis: {str(e)}"
-            }, 500
+                "message": "No posts found for this product. Run a scrape first.",
+            }, 404
 
-<<<<<<< Updated upstream
-class HealthCheck(CORSResource):
-    """API endpoint for health check"""
-=======
-class HealthCheck(Resource):
-    """API endpoint for health check with dependency status"""
->>>>>>> Stashed changes
-    def get(self):
-        """
-        Comprehensive health check endpoint for monitoring and load balancers
-        
-        Returns:
-            JSON response with API status and dependency health checks
-        """
-<<<<<<< Updated upstream
+        username = current_user.get("username")
+
+        # Regenerate: deduct 1 credit atomically before creating job
+        if regenerate:
+            user = data_store.db.users.find_one({"username": username})
+            available = (user or {}).get("credits", 0)
+            if available < 1:
+                return {
+                    "status": "error",
+                    "message": f"Insufficient credits. Current: {available}, Required: 1",
+                    "required_credits": 1,
+                    "available_credits": available,
+                }, 400
+            refund_result = data_store.db.users.find_one_and_update(
+                {"username": username, "credits": {"$gte": 1}},
+                {"$inc": {"credits": -1}},
+                return_document=True,
+            )
+            if not refund_result:
+                return {
+                    "status": "error",
+                    "message": "Insufficient credits",
+                    "required_credits": 1,
+                    "available_credits": available,
+                }, 400
+            # Clear existing analysis for this user+product before re-running
+            data_store.delete_anthropic_analysis(product, user_id=username)
+            data_store.delete_pain_points_by_product(product, user_id=username)
+            data_store.delete_recommendations_by_product(product, user_id=username)
+
+        job_parameters = {
+            "type": "analysis",
+            "product": product,
+            "max_posts": max_posts,
+            "skip_recommendations": skip_recommendations,
+            "regenerate": regenerate,
+        }
+        job_id = data_store.create_job(username, job_parameters)
+        if not job_id:
+            if regenerate:
+                # Refund credit if job creation failed
+                data_store.db.users.find_one_and_update(
+                    {"username": username},
+                    {"$inc": {"credits": 1}},
+                )
+            return {"status": "error", "message": "Failed to create job"}, 500
+
+        def background_analysis():
+            from claude_analyzer import ClaudeAnalyzer
+            from types import SimpleNamespace
+
+            job_start = datetime.now(timezone.utc)
+            try:
+                data_store.update_job_status(job_id, "in_progress")
+                data_store.append_job_log(job_id, "load_posts", f"Loading posts for {product} (max {max_posts})", max_posts)
+
+                posts_cursor = data_store.db.posts.find({"product": product}).limit(max_posts)
+                raw_posts = list(posts_cursor)
+                normalized_posts = []
+                for p in raw_posts:
+                    content = (p.get("selftext") or p.get("content") or "") or ""
+                    normalized_posts.append(
+                        SimpleNamespace(
+                            title=p.get("title") or "",
+                            content=content,
+                            score=p.get("score") or 0,
+                            num_comments=p.get("num_comments") or 0,
+                        )
+                    )
+                data_store.append_job_log(job_id, "analyze_pain_points", f"Analyzing {len(normalized_posts)} posts with Claude", None)
+
+                analyzer = ClaudeAnalyzer()
+                result = analyzer.analyze_common_pain_points(normalized_posts, product)
+                if result.get("error"):
+                    err_msg = result.get("error", "Claude API not configured")
+                    data_store.append_job_log(job_id, "failed", err_msg, None)
+                    data_store.update_job_status(job_id, "failed", error=err_msg, credits_used=1 if regenerate else None)
+                    if regenerate:
+                        data_store.db.users.find_one_and_update(
+                            {"username": username},
+                            {"$inc": {"credits": 1}},
+                        )
+                        logger.info(f"Refunded 1 credit to {username} after analysis job {job_id} failed")
+                    return
+
+                common_pain_points = result.get("common_pain_points") or []
+                data_store.append_job_log(job_id, "save_analysis", f"Saved analysis ({len(common_pain_points)} pain points)", None)
+                data_store.save_anthropic_analysis(product, result, user_id=username)
+
+                for pp in common_pain_points:
+                    pain_data = {
+                        "product": product.strip().lower(),
+                        "user_id": username,
+                        "topic": pp.get("name") or "Unnamed",
+                        "description": pp.get("description") or "",
+                        "severity": pp.get("severity") or "medium",
+                        "potential_solutions": pp.get("potential_solutions") or "",
+                        "related_keywords": pp.get("related_keywords") or [],
+                        "engagement_summary": pp.get("engagement_summary") or "",
+                    }
+                    data_store.save_pain_point(pain_data)
+
+                recommendations_count = 0
+                if skip_recommendations:
+                    data_store.append_job_log(job_id, "recommendations", "Skipped (skip_recommendations=true)", None)
+                else:
+                    rec_result = analyzer.generate_recommendations(common_pain_points, product)
+                    if rec_result.get("error"):
+                        logger.warning("Recommendation generation failed for %s: %s", product, rec_result.get("error"))
+                        data_store.append_job_log(job_id, "recommendations", "Recommendations skipped (Claude error)", None)
+                    else:
+                        recommendations = rec_result.get("recommendations") or []
+                        if data_store.save_recommendations(product, recommendations, user_id=username):
+                            recommendations_count = len(recommendations)
+                        data_store.append_job_log(job_id, "recommendations", f"Saved {recommendations_count} recommendations", recommendations_count)
+
+                duration_minutes = int((datetime.now(timezone.utc) - job_start).total_seconds() / 60)
+                results = {
+                    "pain_points_count": len(common_pain_points),
+                    "recommendations_count": recommendations_count,
+                    "product": product,
+                    "duration_minutes": duration_minutes,
+                }
+                data_store.append_job_log(job_id, "completed", f"Analysis completed. {len(common_pain_points)} pain points, {recommendations_count} recommendations.", results)
+                data_store.update_job_status(job_id, "completed", results=results, credits_used=1 if regenerate else None)
+            except Exception as e:
+                err_msg = str(e)
+                logger.error("Analysis job %s failed: %s", job_id, err_msg, exc_info=True)
+                data_store.append_job_log(job_id, "failed", err_msg, None)
+                data_store.update_job_status(job_id, "failed", error=err_msg, credits_used=1 if regenerate else None)
+                if regenerate:
+                    # Refund 1 credit on failure
+                    data_store.db.users.find_one_and_update(
+                        {"username": username},
+                        {"$inc": {"credits": 1}},
+                    )
+                    logger.info(f"Refunded 1 credit to {username} after analysis job {job_id} failed")
+
+        thread = Thread(target=background_analysis, daemon=True)
+        thread.start()
+
         return {
             "status": "success",
-            "message": "API is running",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-=======
-        health_status = {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "version": os.getenv("APP_VERSION", "1.0.0"),
-            "dependencies": {}
->>>>>>> Stashed changes
-        }
-        
-        # Check MongoDB
-        mongodb_status = self._check_mongodb()
-        health_status["dependencies"]["mongodb"] = mongodb_status
-        
-        # Check Reddit API
-        reddit_status = self._check_reddit_api()
-        health_status["dependencies"]["reddit_api"] = reddit_status
-        
-        # Check Claude API
-        claude_status = self._check_claude_api()
-        health_status["dependencies"]["claude_api"] = claude_status
-        
-        # Check OpenAI API
-        openai_status = self._check_openai_api()
-        health_status["dependencies"]["openai_api"] = openai_status
-        
-        # Determine overall health
-        all_healthy = all(
-            dep.get("status") == "healthy" or dep.get("status") == "configured"
-            for dep in health_status["dependencies"].values()
-        )
-        
-        # Critical dependencies must be healthy
-        critical_deps = ["mongodb"]
-        critical_healthy = all(
-            health_status["dependencies"].get(dep, {}).get("status") == "healthy"
-            for dep in critical_deps
-        )
-        
-        if not critical_healthy:
-            health_status["status"] = "unhealthy"
-        elif not all_healthy:
-            health_status["status"] = "degraded"
-        
-        status_code = 200 if health_status["status"] == "healthy" else 503
-        return health_status, status_code
-    
-    def _check_mongodb(self):
-        """Check MongoDB connection health"""
-        try:
-            if data_store.db is None:
-                return {"status": "unhealthy", "error": "Not connected"}
-            
-            # Ping database
-            start_time = datetime.utcnow()
-            data_store.db.admin.command('ping')
-            latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
-            
-            return {
-                "status": "healthy",
-                "latency_ms": round(latency_ms, 2)
-            }
-        except Exception as e:
-            logger.error(f"MongoDB health check failed: {str(e)}")
-            return {"status": "unhealthy", "error": str(e)}
-    
-    def _check_reddit_api(self):
-        """Check Reddit API configuration"""
-        try:
-            if not REDDIT_CLIENT_ID or not REDDIT_CLIENT_SECRET:
-                return {"status": "not_configured", "message": "Credentials not set"}
-            
-            if scraper.reddit is None:
-                return {"status": "not_initialized", "message": "Client not initialized"}
-            
-            return {"status": "configured", "message": "Reddit API configured"}
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
-    
-    def _check_claude_api(self):
-        """Check Claude API configuration"""
-        try:
-            from claude_analyzer import ClaudeAnalyzer
-            claude_analyzer = ClaudeAnalyzer()
-            
-            if not hasattr(claude_analyzer, 'api_key') or not claude_analyzer.api_key:
-                return {"status": "not_configured", "message": "API key not set"}
-            
-            return {"status": "configured", "message": "Claude API configured"}
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
-    
-    def _check_openai_api(self):
-        """Check OpenAI API configuration"""
-        try:
-            if not OPENAI_API_KEY:
-                return {"status": "not_configured", "message": "API key not set"}
-            
-            if not openai_analyzer.client:
-                return {"status": "not_initialized", "message": "Client not initialized"}
-            
-            return {"status": "configured", "message": "OpenAI API configured"}
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
+            "message": "Analysis job started",
+            "job_id": str(job_id),
+            "product": product,
+        }, 200
 
-# Alias for GetAnthropicAnalysis (backward compatibility)
-GetClaudeAnalysis = GetAnthropicAnalysis
+class ResetScrapeStatus(CORSResource):
+    """API endpoint to reset scrape status"""
+    @token_required
+    def post(self, current_user):
+        """Reset scraping status"""
+        from app import data_store
+        username = current_user.get('username')
+        
+        # Clean up all jobs for this user
+        if username in data_store.user_scraping_jobs:
+            del data_store.user_scraping_jobs[username]
+        
+        data_store.scrape_in_progress = False
+        data_store.update_metadata(scrape_in_progress=False)
+        
+        return {"status": "success", "message": "Scrape status reset"}, 200
+
+# ============================================================================
+# User Management Endpoints
+# ============================================================================
 
 class GetUserProfile(CORSResource):
     """API endpoint to get user profile"""
     @token_required
     def get(self, current_user):
-        """
-        Get current user's profile information
-        
-        Returns:
-            JSON response with user profile data
-        """
-        logger.info("[USER PROFILE] ========== GET USER PROFILE REQUEST ==========")
+        """Get current user's profile"""
+        from app import data_store
         username = current_user.get('username')
-        logger.info(f"[USER PROFILE] Requested profile for username: {username}")
         
-        if not username:
-            logger.warning("[USER PROFILE] No username in token - invalid token")
-            return {"status": "error", "message": "Invalid token"}, 401
-        
-        if data_store.db is not None:
-            try:
-                logger.info("[USER PROFILE] Step 1: Querying database for user...")
-                user = data_store.db.users.find_one({"username": username})
-                
-                if user:
-                    logger.info(f"[USER PROFILE] Step 2: User found in database")
-                    logger.info(f"[USER PROFILE] User fields in database: {list(user.keys())}")
-                    
-                    # Extract user data (excluding password)
-                    user_data = {
-                        "username": user.get("username"),
-                        "email": user.get("email"),
-                        "full_name": user.get("full_name"),
-                        "preferred_name": user.get("preferred_name"),
-                        "birthday": user.get("birthday"),
-                        "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
-                        "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
-                        "credits": user.get("credits", 0)
-                    }
-                    
-                    logger.info(f"[USER PROFILE] Step 3: User data prepared:")
-                    logger.info(f"[USER PROFILE]   - username: {user_data.get('username')}")
-                    logger.info(f"[USER PROFILE]   - email: {user_data.get('email')}")
-                    logger.info(f"[USER PROFILE]   - full_name: {user_data.get('full_name')}")
-                    logger.info(f"[USER PROFILE]   - preferred_name: {user_data.get('preferred_name')}")
-                    logger.info(f"[USER PROFILE]   - birthday: {user_data.get('birthday')}")
-                    logger.info(f"[USER PROFILE]   - credits: {user_data.get('credits')}")
-                    logger.info(f"[USER PROFILE]   - created_at: {user_data.get('created_at')}")
-                    logger.info(f"[USER PROFILE]   - last_login: {user_data.get('last_login')}")
-                    logger.info("[USER PROFILE] ========== GET USER PROFILE SUCCESS ==========")
-                    
-                    return {
-                        "status": "success",
-                        "user": user_data
-                    }
-                else:
-                    logger.warning(f"[USER PROFILE] User not found in database: {username}")
-                    logger.error("[USER PROFILE] ========== GET USER PROFILE ERROR ==========")
-                    return {"status": "error", "message": "User not found"}, 404
-            except Exception as e:
-                logger.error("[USER PROFILE] ========== GET USER PROFILE ERROR ==========")
-                logger.error(f"[USER PROFILE] Error retrieving user profile: {str(e)}", exc_info=True)
-                return {"status": "error", "message": "Database error"}, 500
-        else:
-            logger.error("[USER PROFILE] ========== GET USER PROFILE ERROR ==========")
-            logger.error("[USER PROFILE] Database not available")
+        if data_store.db is None:
             return {"status": "error", "message": "Database not available"}, 500
+        
+        user = data_store.db.users.find_one({"username": username})
+        if not user:
+            return {"status": "error", "message": "User not found"}, 404
+        
+        # Remove sensitive data and serialize datetimes
+        user_data = {
+            'username': user.get('username'),
+            'email': user.get('email'),
+            'credits': user.get('credits', 0),
+            'created_at': user.get('created_at').isoformat() if user.get('created_at') else None,
+            'last_login': user.get('last_login').isoformat() if user.get('last_login') else None
+        }
+        
+        return {"status": "success", "user": user_data}, 200
 
 class UpdateUserCredits(CORSResource):
     """API endpoint to update user credits"""
     @token_required
     def post(self, current_user):
-        """
-        Update user credits
+        """Update user credits
         
-        POST parameters:
-        - credits (int): New credit amount (optional, for admin use)
-        - delta (int): Change in credits (add/subtract)
+        Request body:
+        - username (str, optional): Username to update (defaults to current user)
+        - credits (int, required): Amount of credits to add/set/deduct
+        - operation (str, required): 'add', 'deduct', or 'set'
         
         Returns:
-            JSON response with updated credit amount
+            JSON response with old_credits and new_credits
         """
-        username = current_user.get('username')
-        if not username:
-            return {"status": "error", "message": "Invalid token"}, 401
+        from app import data_store
+        from bson import ObjectId
         
-        data = request.get_json() or {}
-        credits = data.get('credits')
-        delta = data.get('delta', 0)
-        
-        if data_store.db is not None:
+        try:
+            # Get request data
+            data = request.get_json() or {}
+            
+            # Get username (default to current user)
+            target_username = data.get('username') or current_user.get('username')
+            credits_amount = data.get('credits')
+            operation = data.get('operation', 'add').lower()
+            
+            # Validate inputs
+            if credits_amount is None:
+                return {"status": "error", "message": "Credits amount is required"}, 400
+            
             try:
-                from pymongo import ReturnDocument
-                
-                if credits is not None:
-                    # Set absolute value (admin use only)
-                    # TODO: Add admin permission check
-                    result = data_store.db.users.find_one_and_update(
-                        {"username": username},
-                        {"$set": {"credits": int(credits)}},
-                        return_document=ReturnDocument.AFTER
-                    )
-                else:
-                    # CRITICAL FIX: Use atomic $inc operator to prevent race condition
-                    delta_value = int(delta)
-                    result = data_store.db.users.find_one_and_update(
-                        {"username": username},
-                        {"$inc": {"credits": delta_value}},
-                        return_document=ReturnDocument.AFTER
-                    )
-                
-                if not result:
-                    return {"status": "error", "message": "User not found"}, 404
-                
-                new_credits = result.get("credits", 0)
-                
-                # Prevent negative credits
-                if new_credits < 0:
-                    # Rollback by adding back the negative amount
-                    data_store.db.users.update_one(
-                        {"username": username},
-                        {"$set": {"credits": 0}}
-                    )
+                credits_amount = int(credits_amount)
+            except (ValueError, TypeError):
+                return {"status": "error", "message": "Credits must be a valid number"}, 400
+            
+            if credits_amount < 0:
+                return {"status": "error", "message": "Credits amount cannot be negative"}, 400
+            
+            if operation not in ['add', 'deduct', 'set']:
+                return {"status": "error", "message": "Operation must be 'add', 'deduct', or 'set'"}, 400
+            
+            # Check if user can update credits (must be updating own account or be admin)
+            current_username = current_user.get('username')
+            if target_username != current_username:
+                # In the future, you could add admin check here
+                # For now, only allow users to update their own credits
+                return {"status": "error", "message": "You can only update your own credits"}, 403
+            
+            if data_store.db is None:
+                return {"status": "error", "message": "Database not available"}, 500
+            
+            # Get current user to check existing credits
+            user = data_store.db.users.find_one({"username": target_username})
+            if not user:
+                return {"status": "error", "message": "User not found"}, 404
+            
+            old_credits = user.get('credits', 0)
+            
+            # Perform the operation
+            if operation == 'add':
+                update_operation = {"$inc": {"credits": credits_amount}}
+                new_credits = old_credits + credits_amount
+            elif operation == 'deduct':
+                # Check if user has enough credits
+                if old_credits < credits_amount:
                     return {
                         "status": "error",
-                        "message": "Insufficient credits",
-                        "credits": 0
+                        "message": f"Insufficient credits. Current: {old_credits}, Required: {credits_amount}"
                     }, 400
-                
-                return {
-                    "status": "success",
-                    "message": "Credits updated",
-                    "credits": new_credits
-                }
-            except Exception as e:
-                logger.error(f"Error updating user credits: {str(e)}")
-                return {"status": "error", "message": "Database error"}, 500
-        else:
-            return {"status": "error", "message": "Database not available"}, 500
+                update_operation = {"$inc": {"credits": -credits_amount}}
+                new_credits = old_credits - credits_amount
+            else:  # operation == 'set'
+                update_operation = {"$set": {"credits": credits_amount}}
+                new_credits = credits_amount
+            
+            # Update credits using atomic operation
+            result = data_store.db.users.find_one_and_update(
+                {"username": target_username},
+                update_operation,
+                return_document=True
+            )
+            
+            if not result:
+                return {"status": "error", "message": "Failed to update credits"}, 500
+            
+            logger.info(f"Updated credits for user {target_username}: {old_credits} -> {new_credits} (operation: {operation}, amount: {credits_amount})")
+            
+            return {
+                "status": "success",
+                "message": f"Credits {operation}ed successfully",
+                "old_credits": old_credits,
+                "new_credits": new_credits,
+                "operation": operation,
+                "amount": credits_amount
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error updating user credits: {str(e)}", exc_info=True)
+            return {"status": "error", "message": str(e)}, 500
 
 class DeleteAccount(CORSResource):
     """API endpoint to delete user account"""
     @token_required
     def delete(self, current_user):
-        """
-        Delete current user's account
-        
-        Returns:
-            JSON response confirming account deletion
-        """
-        username = current_user.get('username')
-        if not username:
-            return {"status": "error", "message": "Invalid token"}, 401
-        
-        if data_store.db is not None:
-            try:
-                result = data_store.db.users.delete_one({"username": username})
-                if result.deleted_count > 0:
-                    return {
-                        "status": "success",
-                        "message": "Account deleted successfully"
-                    }
-                else:
-                    return {"status": "error", "message": "User not found"}, 404
-            except Exception as e:
-                logger.error(f"Error deleting user account: {str(e)}")
-                return {"status": "error", "message": "Database error"}, 500
-        else:
-            return {"status": "error", "message": "Database not available"}, 500
+        """Delete user account"""
+        # Stub implementation
+        return {"status": "error", "message": "Not fully implemented"}, 501
 
-class RequestPasswordReset(Resource):
+class RequestPasswordReset(CORSResource):
     """API endpoint to request password reset"""
-    @rate_limit(max_requests=3, window=3600)  # 3 per hour
     def post(self):
-        """
-        Request password reset email
+        """Request password reset"""
+        # Stub implementation
+        return {"status": "error", "message": "Not fully implemented"}, 501
+
+class ResetPassword(CORSResource):
+    """API endpoint to reset password"""
+    def post(self):
+        """Reset password with token"""
+        # Stub implementation
+        return {"status": "error", "message": "Not fully implemented"}, 501
+
+class ChangePassword(CORSResource):
+    """API endpoint to change password"""
+    @token_required
+    def post(self, current_user):
+        """Change user password"""
+        # Stub implementation
+        return {"status": "error", "message": "Not fully implemented"}, 501
+
+# ============================================================================
+# Job Management Endpoints
+# ============================================================================
+
+class GetUserJobs(CORSResource):
+    """API endpoint to get user's jobs"""
+    @token_required
+    def get(self, current_user):
+        """Get all jobs for the current user"""
+        from app import data_store
+        username = current_user.get('username')
         
-        POST parameters:
-        - email (str): User email address
+        jobs = []
+        if data_store.db is not None:
+            jobs_raw = list(data_store.db.jobs.find({"user_id": username}).sort("created_at", -1))
+            for job in jobs_raw:
+                job['_id'] = str(job['_id'])
+                # Recursively serialize all datetime objects
+                job = serialize_datetime(job)
+                jobs.append(job)
         
-        Returns:
-            JSON response with reset token (in development only)
-        """
-        data = request.get_json() or {}
-        email = sanitize_input(data.get('email', ''))
+        return {"status": "success", "jobs": jobs}, 200
+
+class GetJobDetails(CORSResource):
+    """API endpoint to get job details"""
+    @token_required
+    def get(self, current_user, job_id=None):
+        """Get details of a specific job"""
+        from app import data_store
+        from bson import ObjectId
+        username = current_user.get('username')
         
-        if not email:
-            return {"status": "error", "message": "Email is required"}, 400
+        if not job_id:
+            return {"status": "error", "message": "Job ID required"}, 400
+        
+        try:
+            job_object_id = ObjectId(job_id)
+        except:
+            return {"status": "error", "message": "Invalid job ID"}, 400
         
         if data_store.db is None:
             return {"status": "error", "message": "Database not available"}, 500
         
-        try:
-            # Check if user exists
-            user = data_store.db.users.find_one({"email": email})
-            if not user:
-                # Don't reveal if email exists for security
-                return {"status": "success", "message": "If the email exists, a reset link has been sent"}, 200
-            
-            # Generate reset token
-            reset_token = secrets.token_urlsafe(32)
-            token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
-            
-            # Store token in database (expires in 1 hour)
-            data_store.db.password_resets.insert_one({
-                "email": email,
-                "token_hash": token_hash,
-                "expires_at": datetime.utcnow() + timedelta(hours=1),
-                "used": False,
-                "created_at": datetime.utcnow()
-            })
-            
-            # TODO: Send email with reset link
-            # For development, return token (REMOVE IN PRODUCTION!)
-            if os.getenv("FLASK_ENV") == "development":
-                return {
-                    "status": "success",
-                    "message": "Password reset email sent",
-                    "reset_token": reset_token  # Remove in production!
-                }, 200
-            else:
-                return {
-                    "status": "success",
-                    "message": "If the email exists, a reset link has been sent"
-                }, 200
-        except Exception as e:
-            logger.error(f"Error requesting password reset: {str(e)}", exc_info=True)
-            return {"status": "error", "message": "Failed to process reset request"}, 500
+        job = data_store.db.jobs.find_one({"_id": job_object_id})
+        if not job:
+            return {"status": "error", "message": "Job not found"}, 404
+        
+        # Verify ownership
+        if job.get('user_id') != username:
+            return {"status": "error", "message": "Access denied"}, 403
+        
+        job['_id'] = str(job['_id'])
+        # Recursively serialize all datetime objects
+        job = serialize_datetime(job)
+        
+        return {"status": "success", "job": job}, 200
 
-class ResetPassword(Resource):
-    """API endpoint to reset password with token"""
-    @rate_limit(max_requests=5, window=3600)  # 5 per hour
-    def post(self):
-        """
-        Reset password with token
-        
-        POST parameters:
-        - token (str): Reset token from email
-        - password (str): New password
-        
-        Returns:
-            JSON response confirming password reset
-        """
-        data = request.get_json() or {}
-        token = data.get('token')
-        new_password = data.get('password')
-        
-        if not token or not new_password:
-            return {"status": "error", "message": "Token and password required"}, 400
-        
-        if data_store.db is None:
-            return {"status": "error", "message": "Database not available"}, 500
-        
-        try:
-            # Validate password strength
-            is_strong, pwd_error = validate_password_strength(new_password)
-            if not is_strong:
-                return {"status": "error", "message": pwd_error}, 400
-            
-            # Verify token
-            token_hash = hashlib.sha256(token.encode()).hexdigest()
-            reset_record = data_store.db.password_resets.find_one({
-                "token_hash": token_hash,
-                "used": False,
-                "expires_at": {"$gt": datetime.utcnow()}
-            })
-            
-            if not reset_record:
-                return {"status": "error", "message": "Invalid or expired reset token"}, 400
-            
-            # Update password
-            salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), salt)
-            
-            data_store.db.users.update_one(
-                {"email": reset_record["email"]},
-                {"$set": {"password": hashed_password.decode('utf-8')}}
-            )
-            
-            # Mark token as used
-            data_store.db.password_resets.update_one(
-                {"_id": reset_record["_id"]},
-                {"$set": {"used": True}}
-            )
-            
-            logger.info(f"Password reset successful for email: {reset_record['email']}")
-            return {"status": "success", "message": "Password reset successfully"}, 200
-        except Exception as e:
-            logger.error(f"Error resetting password: {str(e)}", exc_info=True)
-            return {"status": "error", "message": "Failed to reset password"}, 500
-
-class ChangePassword(Resource):
-    """API endpoint to change user password"""
+class ScrapePosts(CORSResource):
+    """API endpoint to start Reddit scraping with intelligent subreddit discovery"""
+    
     @token_required
     def post(self, current_user):
         """
-        Change user password
+        Start a Reddit scraping job with intelligent subreddit discovery
         
-        POST parameters:
-        - current_password (str): Current password
-        - new_password (str): New password
+        Request body:
+        - topic (str, required): The topic or product to search for
+        - limit (int, optional): Maximum number of posts to retrieve (default: 100)
+        - time_filter (str, optional): Time filter ('hour', 'day', 'week', 'month', 'year', 'all') (default: 'month')
+        - is_custom (bool, optional): Whether this is a custom prompt (default: False)
+        - subreddits (list, optional): User-provided subreddits. If not provided, Claude will suggest them.
         
         Returns:
-            JSON response confirming password change
+            JSON response with job_id and status
         """
+        from app import data_store
+        from reddit_scraper import RedditScraper
+        from claude_analyzer import ClaudeAnalyzer
+        from bson import ObjectId
+        
         username = current_user.get('username')
-        if not username:
-            return {"status": "error", "message": "Invalid token"}, 401
-        
-        data = request.get_json() or {}
-        current_password = data.get('current_password')
-        new_password = data.get('new_password')
-        
-        if not current_password or not new_password:
-            return {"status": "error", "message": "Current and new password required"}, 400
-        
-        if data_store.db is None:
-            return {"status": "error", "message": "Database not available"}, 500
         
         try:
-            # Verify current password
+            # Get request data
+            data = request.get_json() or {}
+            
+            # Validate required fields
+            topic = data.get('topic', '').strip()
+            if not topic:
+                return {"status": "error", "message": "Topic is required"}, 400
+            
+            # Get optional parameters
+            limit = data.get('limit', 100)
+            time_filter = data.get('time_filter', 'month')
+            is_custom = data.get('is_custom', False)
+            user_subreddits = data.get('subreddits')  # Can be None or a list
+            
+            # Validate time_filter
+            valid_time_filters = ['hour', 'day', 'week', 'month', 'year', 'all']
+            if time_filter not in valid_time_filters:
+                return {"status": "error", "message": f"Invalid time_filter. Must be one of: {', '.join(valid_time_filters)}"}, 400
+            
+            # Clean up any dead threads for this user (allow multiple concurrent jobs)
+            if username in data_store.user_scraping_jobs:
+                user_jobs = data_store.user_scraping_jobs[username]
+                # Handle both old format (single dict/thread) and new format (list)
+                if isinstance(user_jobs, list):
+                    # New format: filter out dead threads
+                    alive_jobs = []
+                    for job_data in user_jobs:
+                        thread = job_data.get('thread') if isinstance(job_data, dict) else job_data
+                        if thread and thread.is_alive():
+                            alive_jobs.append(job_data)
+                    # Update the list (empty list means no active jobs)
+                    if alive_jobs:
+                        data_store.user_scraping_jobs[username] = alive_jobs
+                    else:
+                        del data_store.user_scraping_jobs[username]
+                else:
+                    # Old format: check if single thread is alive
+                    if isinstance(user_jobs, dict):
+                        active_thread = user_jobs.get('thread')
+                    else:
+                        active_thread = user_jobs
+                    if not active_thread or not active_thread.is_alive():
+                        # Clean up dead thread
+                        del data_store.user_scraping_jobs[username]
+            
+            # Determine subreddits to use
+            subreddits_to_use = None
+            claude_suggestions = None
+            
+            if user_subreddits:
+                # User provided subreddits - use them directly
+                if isinstance(user_subreddits, str):
+                    # Handle comma-separated string
+                    subreddits_to_use = [s.strip() for s in user_subreddits.split(',') if s.strip()]
+                elif isinstance(user_subreddits, list):
+                    subreddits_to_use = [s.strip() if isinstance(s, str) else str(s) for s in user_subreddits if s]
+                else:
+                    return {"status": "error", "message": "subreddits must be a list or comma-separated string"}, 400
+                
+                logger.info(f"User {username} provided subreddits: {subreddits_to_use}")
+            else:
+                # No user subreddits provided - use Claude to suggest them
+                try:
+                    logger.info(f"Requesting subreddit suggestions from Claude for topic: {topic}")
+                    analyzer = ClaudeAnalyzer()
+                    
+                    if not analyzer.api_key or not analyzer.client:
+                        # Fallback to generic subreddits if Claude API is not configured
+                        logger.warning("Claude API not configured, using generic subreddits")
+                        subreddits_to_use = ["technology", "software", "productivity", "business", "entrepreneur"]
+                    else:
+                        claude_suggestions = analyzer.suggest_subreddits(topic, is_custom_prompt=is_custom)
+                        
+                        if claude_suggestions.get('error'):
+                            # Claude API failed - use generic fallback
+                            logger.warning(f"Claude API error: {claude_suggestions.get('error')}, using generic subreddits")
+                            subreddits_to_use = ["technology", "software", "productivity", "business", "entrepreneur"]
+                        else:
+                            subreddits_to_use = claude_suggestions.get('subreddits', [])
+                            
+                            if not subreddits_to_use or len(subreddits_to_use) == 0:
+                                # Empty response - use generic fallback
+                                logger.warning("Claude returned empty subreddits, using generic subreddits")
+                                subreddits_to_use = ["technology", "software", "productivity", "business", "entrepreneur"]
+                            
+                            logger.info(f"Claude suggested subreddits for '{topic}': {subreddits_to_use}")
+                
+                except Exception as e:
+                    # Handle any errors in Claude API call
+                    logger.error(f"Error getting subreddit suggestions from Claude: {str(e)}", exc_info=True)
+                    # Fallback to generic subreddits
+                    subreddits_to_use = ["technology", "software", "productivity", "business", "entrepreneur"]
+                    claude_suggestions = None
+            
+            # Prepare job parameters
+            job_parameters = {
+                'topic': topic,
+                'limit': limit,
+                'time_filter': time_filter,
+                'is_custom': is_custom,
+                'subreddits': subreddits_to_use
+            }
+            
+            # Add Claude suggestions if available (for reference)
+            if claude_suggestions and 'search_queries' in claude_suggestions:
+                job_parameters['claude_search_queries'] = claude_suggestions['search_queries']
+            
+            # Create job in database
+            job_id = data_store.create_job(username, job_parameters)
+            
+            if not job_id:
+                return {"status": "error", "message": "Failed to create job"}, 500
+            
+            # Initialize Reddit scraper
+            scraper = RedditScraper()
+            reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
+            reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+            
+            if not reddit_client_id or not reddit_client_secret:
+                # Update job status to failed
+                data_store.update_job_status(
+                    job_id,
+                    'failed',
+                    error="Reddit API credentials not configured"
+                )
+                return {"status": "error", "message": "Reddit API credentials not configured"}, 500
+            
+            if not scraper.initialize_client(reddit_client_id, reddit_client_secret):
+                # Update job status to failed
+                data_store.update_job_status(
+                    job_id,
+                    'failed',
+                    error="Failed to initialize Reddit client"
+                )
+                return {"status": "error", "message": "Failed to initialize Reddit client"}, 500
+            
+            # Define background scraping function
+            def background_scrape():
+                """Background function to perform the actual scraping"""
+                job_start_time = datetime.now(timezone.utc)
+                try:
+                    # Update job status to in_progress
+                    if not data_store.update_job_status(job_id, 'in_progress'):
+                        logger.error(f"Failed to update job {job_id} to in_progress status")
+                    data_store.append_job_log(job_id, "subreddits", "Subreddits to search", subreddits_to_use)
+                    
+                    # Get search queries from Claude suggestions or use default
+                    search_queries = None
+                    if claude_suggestions and 'search_queries' in claude_suggestions:
+                        search_queries = claude_suggestions['search_queries']
+                    if search_queries:
+                        data_store.append_job_log(job_id, "search_queries", "Search queries", search_queries)
+                    else:
+                        data_store.append_job_log(job_id, "search_queries", "Using default product mention queries", None)
+                    
+                    data_store.append_job_log(job_id, "find_posts", f"Started Reddit search (pulling up to {limit} posts)", limit)
+                    # Perform scraping
+                    all_posts = []
+                    
+                    try:
+                        if search_queries:
+                            # Use Claude's suggested search queries
+                            per_query = limit // len(search_queries) if len(search_queries) > 0 else limit
+                            for query in search_queries:
+                                try:
+                                    posts = scraper.search_reddit(
+                                        query=query,
+                                        subreddits=subreddits_to_use,
+                                        limit=per_query,
+                                        time_filter=time_filter,
+                                        timeout_per_subreddit=300  # 5 minutes per subreddit
+                                    )
+                                    all_posts.extend(posts)
+                                    data_store.append_job_log(job_id, "find_posts", f"Pulled {len(posts)} posts for query \"{query[:40]}{'…' if len(query) > 40 else ''}\" (total so far: {len(all_posts)})", {"query": query, "batch": len(posts), "total": len(all_posts)})
+                                except TimeoutError as te:
+                                    logger.warning(f"Timeout while searching for query '{query}' in job {job_id}: {str(te)}")
+                                    # Continue with other queries
+                                except Exception as query_error:
+                                    logger.error(f"Error searching for query '{query}' in job {job_id}: {str(query_error)}", exc_info=True)
+                                    # Continue with other queries
+                        else:
+                            # Use default search queries
+                            try:
+                                posts = scraper.scrape_product_mentions(
+                                    product_name=topic,
+                                    limit=limit,
+                                    subreddits=subreddits_to_use,
+                                    time_filter=time_filter,
+                                    timeout_per_subreddit=300  # 5 minutes per subreddit
+                                )
+                                all_posts.extend(posts)
+                                data_store.append_job_log(job_id, "find_posts", f"Pulled {len(posts)} Reddit posts (target up to {limit})", {"batch": len(posts), "total": len(all_posts)})
+                            except TimeoutError as te:
+                                logger.warning(f"Timeout while scraping product mentions for job {job_id}: {str(te)}")
+                                # Job will complete with whatever posts were found (if any)
+                            except Exception as scrape_error:
+                                logger.error(f"Error scraping product mentions for job {job_id}: {str(scrape_error)}", exc_info=True)
+                                raise  # Re-raise to be caught by outer exception handler
+                    except TimeoutError as te:
+                        # If all scraping operations timed out, mark job as failed
+                        logger.error(f"All scraping operations timed out for job {job_id}: {str(te)}")
+                        raise  # Re-raise to be caught by outer exception handler
+                    
+                    data_store.append_job_log(job_id, "find_posts", f"Done. Found {len(all_posts)} posts.", len(all_posts))
+                    # Save posts to database with job topic as product so they appear in correct product tables
+                    posts_saved = 0
+                    for post in all_posts:
+                        if data_store.save_post(post, product=topic):
+                            posts_saved += 1
+                    data_store.append_job_log(job_id, "save_posts", f"Saved {posts_saved} posts to database.", posts_saved)
+                    
+                    # Calculate job duration
+                    job_duration = datetime.now(timezone.utc) - job_start_time
+                    duration_minutes = int(job_duration.total_seconds() / 60)
+                    
+                    # Log warning if job took longer than 15 minutes
+                    if duration_minutes > 15:
+                        logger.warning(f"Job {job_id} took {duration_minutes} minutes to complete (longer than expected)")
+                    
+                    # Update job status to completed
+                    results = {
+                        'posts_count': posts_saved,
+                        'total_posts_found': len(all_posts),
+                        'subreddits_used': subreddits_to_use,
+                        'topic': topic,
+                        'duration_minutes': duration_minutes
+                    }
+                    
+                    if not data_store.update_job_status(job_id, 'completed', results=results):
+                        logger.error(f"Failed to update job {job_id} to completed status")
+                    else:
+                        logger.info(f"Scraping job {job_id} completed successfully in {duration_minutes} minutes. Found {posts_saved} posts.")
+                    data_store.append_job_log(job_id, "completed", f"Job completed. {posts_saved} posts saved in {duration_minutes} minutes.", results)
+                    
+                except TimeoutError as te:
+                    # Handle timeout errors specifically
+                    job_duration = datetime.now(timezone.utc) - job_start_time
+                    duration_minutes = int(job_duration.total_seconds() / 60)
+                    error_msg = f"Job timed out after {duration_minutes} minutes: {str(te)}"
+                    logger.error(f"Timeout in background scraping for job {job_id}: {error_msg}")
+                    
+                    # Update job status to failed with timeout error
+                    data_store.append_job_log(job_id, "failed", error_msg, None)
+                    if not data_store.update_job_status(job_id, 'failed', error=error_msg):
+                        logger.error(f"Failed to update job {job_id} to failed status after timeout")
+                except Exception as e:
+                    # Handle all other exceptions
+                    job_duration = datetime.now(timezone.utc) - job_start_time
+                    duration_minutes = int(job_duration.total_seconds() / 60)
+                    error_msg = f"Error after {duration_minutes} minutes: {str(e)}"
+                    logger.error(f"Error in background scraping for job {job_id}: {error_msg}", exc_info=True)
+                    
+                    # Update job status to failed
+                    data_store.append_job_log(job_id, "failed", error_msg, None)
+                    if not data_store.update_job_status(job_id, 'failed', error=error_msg):
+                        logger.error(f"Failed to update job {job_id} to failed status after error")
+                finally:
+                    # Clean up thread tracking for this specific job
+                    if username in data_store.user_scraping_jobs:
+                        user_jobs = data_store.user_scraping_jobs[username]
+                        if isinstance(user_jobs, list):
+                            # New format: remove this specific job from the list
+                            data_store.user_scraping_jobs[username] = [
+                                job_data for job_data in user_jobs 
+                                if job_data.get('job_id') != job_id
+                            ]
+                            # Remove the key if list is empty
+                            if not data_store.user_scraping_jobs[username]:
+                                del data_store.user_scraping_jobs[username]
+                        else:
+                            # Old format: check if this is the job we're cleaning up
+                            if isinstance(user_jobs, dict) and user_jobs.get('job_id') == job_id:
+                                del data_store.user_scraping_jobs[username]
+                            elif not isinstance(user_jobs, dict):
+                                # Legacy format - just remove it
+                                del data_store.user_scraping_jobs[username]
+            
+            # Start background thread
+            thread = Thread(target=background_scrape, daemon=True)
+            thread.start()
+            
+            # Track the thread with start time and job_id for health monitoring
+            job_data = {
+                'thread': thread,
+                'start_time': datetime.now(timezone.utc),
+                'job_id': job_id
+            }
+            
+            # Add to list of jobs for this user (support multiple concurrent jobs)
+            if username not in data_store.user_scraping_jobs:
+                data_store.user_scraping_jobs[username] = []
+            elif not isinstance(data_store.user_scraping_jobs[username], list):
+                # Convert old format to new format
+                old_job = data_store.user_scraping_jobs[username]
+                data_store.user_scraping_jobs[username] = [old_job] if old_job else []
+            
+            data_store.user_scraping_jobs[username].append(job_data)
+            
+            return {
+                "status": "success",
+                "message": "Scraping job started",
+                "job_id": str(job_id),
+                "topic": topic,
+                "subreddits": subreddits_to_use
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error starting scrape job: {str(e)}", exc_info=True)
+            return {"status": "error", "message": str(e)}, 500
+
+
+class GetAnalytics(CORSResource):
+    """API endpoint to get analytics data for the Status page"""
+    @token_required
+    def get(self, current_user):
+        """
+        Get analytics data including active jobs, posts viewed, and statistics
+        
+        Returns:
+            JSON response with analytics information
+        """
+        from app import data_store  # Lazy import to avoid circular dependencies
+        
+        username = current_user.get('username')
+        
+        try:
+            # Get active jobs (pending or in_progress)
+            active_jobs = []
+            if data_store.db is not None:
+                active_jobs = list(data_store.db.jobs.find({
+                    "user_id": username,
+                    "status": {"$in": ["pending", "in_progress"]}
+                }).sort("created_at", -1))
+                
+                # Convert ObjectId to string and serialize datetimes
+                serialized_active_jobs = []
+                for job in active_jobs:
+                    job['_id'] = str(job['_id'])
+                    job = serialize_datetime(job)
+                    serialized_active_jobs.append(job)
+                active_jobs = serialized_active_jobs
+            
+            # Get job statistics
+            total_jobs = 0
+            completed_jobs = 0
+            failed_jobs = 0
+            if data_store.db is not None:
+                total_jobs = data_store.db.jobs.count_documents({"user_id": username})
+                completed_jobs = data_store.db.jobs.count_documents({
+                    "user_id": username,
+                    "status": "completed"
+                })
+                failed_jobs = data_store.db.jobs.count_documents({
+                    "user_id": username,
+                    "status": "failed"
+                })
+            
+            # Get posts statistics
+            total_posts = 0
+            analyzed_posts = 0
+            pain_points_count = 0
+            if data_store.db is not None:
+                total_posts = data_store.db.posts.count_documents({})
+                analyzed_posts = data_store.db.posts.count_documents({"sentiment": {"$exists": True}})
+                pain_points_count = data_store.db.pain_points.count_documents({})
+            
+            # Get recent activity (last 7 days of jobs)
+            recent_activity = []
+            if data_store.db is not None:
+                from datetime import datetime, timedelta, timezone
+                seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+                recent_activity = list(data_store.db.jobs.find({
+                    "user_id": username,
+                    "created_at": {"$gte": seven_days_ago}
+                }).sort("created_at", -1).limit(10))
+                
+                # Convert ObjectId to string and format dates
+                serialized_activity = []
+                for job in recent_activity:
+                    job['_id'] = str(job['_id'])
+                    job = serialize_datetime(job)
+                    serialized_activity.append(job)
+                recent_activity = serialized_activity
+            
+            return {
+                "status": "success",
+                "active_jobs": active_jobs,
+                "active_jobs_count": len(active_jobs),
+                "job_stats": {
+                    "total": total_jobs,
+                    "completed": completed_jobs,
+                    "failed": failed_jobs,
+                    "pending": len([j for j in active_jobs if j.get('status') == 'pending']),
+                    "in_progress": len([j for j in active_jobs if j.get('status') == 'in_progress'])
+                },
+                "posts_stats": {
+                    "total": total_posts,
+                    "analyzed": analyzed_posts,
+                    "pain_points": pain_points_count
+                },
+                "recent_activity": recent_activity
+            }
+        except Exception as e:
+            logger.error(f"Error fetching analytics: {str(e)}", exc_info=True)
+            return {"status": "error", "message": str(e)}, 500
+
+
+class CancelJob(CORSResource):
+    """API endpoint to cancel a job and refund 1 credit"""
+    @token_required
+    def post(self, current_user, job_id=None):
+        """
+        Cancel a job and refund 1 credit to the user
+        
+        Args:
+            current_user: Authenticated user (from token_required decorator)
+            job_id: Job ID to cancel
+        
+        Returns:
+            JSON response with cancellation status
+        """
+        from app import data_store  # Lazy import to avoid circular dependencies
+        from bson import ObjectId
+        from datetime import datetime, timezone
+        
+        username = current_user.get('username')
+        
+        if not job_id:
+            return {"status": "error", "message": "Job ID is required"}, 400
+        
+        try:
+            # Convert job_id to ObjectId
+            try:
+                job_object_id = ObjectId(job_id)
+            except:
+                return {"status": "error", "message": "Invalid job ID"}, 400
+            
+            # Get the job
+            if data_store.db is None:
+                return {"status": "error", "message": "Database not available"}, 500
+            
+            job = data_store.db.jobs.find_one({"_id": job_object_id})
+            
+            if not job:
+                return {"status": "error", "message": "Job not found"}, 404
+            
+            # Verify ownership
+            if job.get('user_id') != username:
+                return {"status": "error", "message": "Access denied"}, 403
+            
+            # Check if job can be cancelled (only pending or in_progress)
+            if job.get('status') not in ['pending', 'in_progress']:
+                return {
+                    "status": "error", 
+                    "message": f"Cannot cancel job with status: {job.get('status')}"
+                }, 400
+            
+            # Update job status to cancelled
+            update_result = data_store.update_job_status(
+                job_object_id,
+                'cancelled',
+                completed_at=datetime.now(timezone.utc),
+                error="Job cancelled by user"
+            )
+            
+            if not update_result:
+                return {"status": "error", "message": "Failed to update job status"}, 500
+            
+            # Refund 1 credit to the user
+            # Get current user credits
             user = data_store.db.users.find_one({"username": username})
             if not user:
                 return {"status": "error", "message": "User not found"}, 404
             
-            if not bcrypt.checkpw(current_password.encode('utf-8'), user['password'].encode('utf-8')):
-                return {"status": "error", "message": "Current password is incorrect"}, 401
-            
-            # Validate new password strength
-            is_strong, pwd_error = validate_password_strength(new_password)
-            if not is_strong:
-                return {"status": "error", "message": pwd_error}, 400
-            
-            # Update password
-            salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), salt)
-            
-            data_store.db.users.update_one(
+            # Add 1 credit using atomic operation
+            refund_result = data_store.db.users.find_one_and_update(
                 {"username": username},
-                {"$set": {"password": hashed_password.decode('utf-8')}}
+                {"$inc": {"credits": 1}},
+                return_document=True
             )
             
-            logger.info(f"Password changed successfully for user: {username}")
-            return {"status": "success", "message": "Password changed successfully"}, 200
+            if not refund_result:
+                logger.warning(f"Failed to refund credit for user {username}, but job was cancelled")
+                # Job is already cancelled, so we'll return success but log the warning
+            
+            logger.info(f"Job {job_id} cancelled by user {username}, 1 credit refunded")
+            
+            return {
+                "status": "success",
+                "message": "Job cancelled successfully. 1 credit has been refunded.",
+                "job_id": job_id,
+                "new_credits": refund_result.get('credits') if refund_result else None
+            }
+            
         except Exception as e:
-            logger.error(f"Error changing password: {str(e)}", exc_info=True)
-            return {"status": "error", "message": "Failed to change password"}, 500
-
+            logger.error(f"Error cancelling job: {str(e)}", exc_info=True)
+            return {"status": "error", "message": str(e)}, 500
