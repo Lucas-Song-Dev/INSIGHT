@@ -153,49 +153,67 @@ class OpenAIAnalyzer:
             }
 
             
-    def generate_recommendations(self, pain_points, product_name):
+    def generate_recommendations(self, pain_points, product_name, recommendation_type="improve_product", context=None):
         """
-        Generate recommendations for addressing the identified pain points
-        
+        Generate recommendations for addressing the identified pain points.
+
         Args:
             pain_points (list): List of pain point dictionaries
             product_name (str): Name of the product
-            
+            recommendation_type (str): improve_product, new_feature, or competing_product
+            context (str|None): Optional user direction (max 500 chars), included in prompt
+
         Returns:
-            dict: Recommendations for product improvements
+            dict: Recommendations with recommendations list and summary
         """
         # Try to initialize client if it's not already initialized
         if not self.client and self.api_key:
             self.initialize_client(self.api_key)
-            
+
         if not self.api_key or not self.client:
             logger.error("OpenAI API key not configured. Cannot generate recommendations.")
             return {
                 "error": "OpenAI API key not configured",
                 "recommendations": []
             }
-            
+
         if not pain_points:
             return {
                 "recommendations": [],
                 "summary": "No pain points to analyze"
             }
-            
-        # Create a prompt for OpenAI
+
+        type_val = (recommendation_type or "improve_product").strip().lower()
+        if type_val not in ("improve_product", "new_feature", "competing_product"):
+            type_val = "improve_product"
+
+        if type_val == "improve_product":
+            instruction = "Generate actionable recommendations for **improving the existing product** (e.g. UX, reliability, support, pricing, onboarding). Do not suggest building browser extensions or separate tools; focus on changes to the product itself. Do not frame recommendations as new feature requests; focus on improvements to current experience and operations."
+        elif type_val == "new_feature":
+            instruction = "Given these pain points, recommend **new features** (discrete, shippable feature requests) that would address them. Focus on specific feature ideas, not general product improvements or a new product."
+        else:
+            instruction = "Given these pain points, describe a **competing product** concept that could win users by solving these problems. Include product concept, key differentiators, and how it addresses each pain point."
+
+        context_line = ""
+        if context and isinstance(context, str):
+            ctx = context.strip()[:500]
+            if ctx:
+                context_line = f"\n\nAdditional direction from the user: {ctx}"
+
         prompt = f"""
         Based on the following pain points identified for {product_name}:
-        
+
         {json.dumps(pain_points, indent=2)}
-        
-        Generate actionable recommendations for how these issues could be addressed through a browser extension or similar product.
-        
+
+        {instruction}{context_line}
+
         For each recommendation, provide:
         1. A concise title
         2. Detailed description of the solution
         3. Implementation complexity (high, medium, low)
         4. Potential impact on user experience (high, medium, low)
-        5. Date of the last user post containg this issue (YYYY-MM-DD)
-        
+        5. Date of the last user post containing this issue (YYYY-MM-DD)
+
         Respond with valid JSON in this exact format:
         {{
             "recommendations": [

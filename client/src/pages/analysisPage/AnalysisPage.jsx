@@ -1,15 +1,17 @@
 // AnalysisPage.jsx
 import React, { useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { fetchClaudeAnalysis, fetchAllProducts } from "@/api/api";
 import "./analysisPage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import SearchBar from "@/components/SearchBar/SearchBar";
 import FilterControls from "@/components/FilterControls/FilterControls";
 import LoadingState from "@/components/LoadingState/LoadingState";
+import DetailCard from "@/components/DetailCard/DetailCard";
 
-const AnalysisPage = ({ productData = null }) => {
-  // View state: 'list' or 'detail'
-  const [view, setView] = useState(productData ? 'detail' : 'list');
+const AnalysisPage = ({ productData = null, embedded = false, onRegenerate = null, isRegenerating = false }) => {
+  // When embedded (e.g. in ProductDetailPage), only show detail content; no list, no back button
+  const [view, setView] = useState(productData ? "detail" : "list");
   const [selectedProduct, setSelectedProduct] = useState(null);
   
   // Product list state
@@ -29,17 +31,14 @@ const AnalysisPage = ({ productData = null }) => {
   const [expandedPainPoints, setExpandedPainPoints] = useState({});
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch all products (with posts, whether analyzed or not)
+  // Fetch all products (API returns names from posts + recommendations; show all)
   const fetchProducts = async () => {
     setProductsLoading(true);
     setProductsError(null);
     try {
       const data = await fetchAllProducts();
-      // Extract product names and filter to only show products with analysis
-      const productsWithAnalysis = (data.products || [])
-        .filter(p => typeof p === 'object' ? p.has_analysis : false)
-        .map(p => typeof p === 'object' ? p.name : p);
-      setProducts(productsWithAnalysis);
+      const names = (data.products || []).map((p) => (typeof p === "object" ? p.name ?? p : p)).filter(Boolean);
+      setProducts(names);
     } catch (err) {
       console.error("Error fetching products:", err);
       setProductsError("Failed to fetch products");
@@ -53,7 +52,7 @@ const AnalysisPage = ({ productData = null }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchOpenAIAnalysis({
+      const data = await fetchClaudeAnalysis({
         product: [productName],
       });
       
@@ -261,17 +260,21 @@ const AnalysisPage = ({ productData = null }) => {
     );
   }
 
-  // Render detail view
+  // Render detail view (when embedded, no back button or duplicate header)
   return (
-    <div className="analysis-container">
-      <PageHeader 
-        title={selectedProduct ? `Analysis: ${selectedProduct}` : "Analysis"}
-        description="Detailed pain points and insights"
-      />
-
-      <button onClick={handleBackToList} className="back-button">
-        ← Back to Products
-      </button>
+    <div className="analysis-container" data-testid={embedded ? "analysis-embedded" : "analysis-detail"}>
+      {!embedded && (
+        <>
+          <PageHeader
+            title={selectedProduct ? `Analysis: ${selectedProduct}` : "Analysis"}
+            description="Detailed pain points and insights"
+          />
+          <button onClick={handleBackToList} className="back-button">
+            <ArrowLeft size={18} aria-hidden />
+            Back to Products
+          </button>
+        </>
+      )}
 
       {/* Search */}
       <div className="search-section">
@@ -360,16 +363,14 @@ const AnalysisPage = ({ productData = null }) => {
 
           {/* Analysis Results */}
           <div className="analysis-results">
-            <div className="analysis-card">
-              <div className="analysis-card-header">
-                <h3>{filteredAnalysis.product || selectedProduct}</h3>
-              </div>
-
-              <div className="analysis-summary">
-                <h4>Analysis Summary</h4>
-                <p>{filteredAnalysis.analysis_summary || "No summary available"}</p>
-              </div>
-
+            <DetailCard
+              embedded={embedded}
+              productName={filteredAnalysis.product || selectedProduct}
+              onRegenerate={onRegenerate}
+              isRegenerating={isRegenerating}
+              summaryTitle="Analysis Summary"
+              summary={filteredAnalysis.analysis_summary}
+            >
               <div className="pain-points-section">
                 <h4>Common Pain Points</h4>
                 {filteredAnalysis.common_pain_points?.length > 0 ? (
@@ -448,7 +449,7 @@ const AnalysisPage = ({ productData = null }) => {
                   </div>
                 )}
               </div>
-            </div>
+            </DetailCard>
           </div>
         </>
       ) : (

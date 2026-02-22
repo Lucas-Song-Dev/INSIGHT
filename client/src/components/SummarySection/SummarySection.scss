@@ -1,0 +1,36 @@
+@use "../../styles/variables" as *;
+
+.summary-section {
+  padding: 25px;
+  border-bottom: 1px solid $terminal-border;
+
+  h4 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 15px 0;
+    color: $dark-text;
+    display: inline-block;
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: -5px;
+      left: 0;
+      width: 30px;
+      height: 2px;
+      background: $accent-color;
+      transition: width 0.3s;
+    }
+
+    &:hover::after {
+      width: 100%;
+    }
+  }
+
+  p {
+    margin: 0;
+    line-height: 1.6;
+    color: $medium-text;
+  }
+}

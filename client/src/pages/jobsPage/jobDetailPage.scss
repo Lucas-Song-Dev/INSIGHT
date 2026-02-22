@@ -1,0 +1,282 @@
+@use "../../styles/variables" as *;
+
+$papyrus-border: rgba(139, 119, 101, 0.2) !default;
+
+.job-detail-page {
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: $papyrus-bg;
+  min-height: 100%;
+
+  .job-detail-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+
+    .breadcrumb-link {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: var(--primary-color, $primary-indigo);
+      font-size: inherit;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    .breadcrumb-sep {
+      color: var(--text-secondary, $text-secondary);
+      user-select: none;
+    }
+
+    .breadcrumb-current {
+      color: var(--text-secondary, $text-secondary);
+    }
+  }
+
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--border-color, $border-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-primary, $text-primary);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--hover-bg, $bg-hover);
+      border-color: var(--primary-color, $primary-indigo);
+      color: var(--primary-color, $primary-indigo);
+    }
+  }
+
+  .error-message {
+    background: $error-bg;
+    color: $error-text;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    border-left: 4px solid $error-border;
+  }
+
+  .job-detail-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+
+    .detail-section {
+      background: var(--card-bg, $bg-card);
+      border: 1px solid var(--border-color, $papyrus-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: $shadow-sm;
+
+      .section-title {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--text-primary, $text-primary);
+        border-bottom: 2px solid var(--border-color, $border-color);
+        padding-bottom: 0.75rem;
+      }
+
+      .status-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .status-badge {
+          padding: 0.5rem 1rem;
+          border-radius: 12px;
+          font-size: 1rem;
+          font-weight: 600;
+          text-transform: capitalize;
+
+          &.pending {
+            background: $status-pending-bg;
+            color: $status-pending-text;
+          }
+
+          &.in-progress {
+            background: $status-in-progress-bg;
+            color: $status-in-progress-text;
+          }
+
+          &.completed {
+            background: $status-completed-bg;
+            color: $status-completed-text;
+          }
+
+          &.failed {
+            background: $status-failed-bg;
+            color: $status-failed-text;
+          }
+        }
+
+        .duration {
+          color: var(--text-secondary, $text-secondary);
+          font-size: 0.95rem;
+        }
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+
+        .info-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+
+          &.full-width {
+            grid-column: 1 / -1;
+          }
+
+          .info-label {
+            color: var(--text-secondary, $text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+          }
+
+          .info-value {
+            color: var(--text-primary, $text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+          }
+
+          .products-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+
+            .product-tag {
+              background: var(--primary-color, $primary-indigo);
+              color: $text-lightest;
+              padding: 0.35rem 0.75rem;
+              border-radius: 12px;
+              font-size: 0.85rem;
+              font-weight: 500;
+            }
+          }
+        }
+      }
+
+      .view-results-button {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 1.5rem;
+        background: var(--primary-color, $primary-indigo);
+        color: $text-lightest;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: var(--primary-hover, $primary-indigo-dark);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px $matte-blue-30;
+        }
+      }
+
+      &.error-section {
+        border-color: $error-border;
+        background: $error-bg;
+
+        .error-content {
+          background: $bg-card;
+          padding: 1rem;
+          border-radius: 4px;
+          color: $status-failed-text;
+          font-family: monospace;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+      }
+
+      &.pipeline-logs-section {
+        .pipeline-logs {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .log-entry {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 1rem;
+          border: 1px solid var(--border-color, $papyrus-border);
+          border-radius: 6px;
+          background: var(--card-bg, $bg-card);
+
+          .info-label {
+            color: var(--text-secondary, $text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+          }
+
+          .info-value {
+            color: var(--text-primary, $text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+          }
+
+          .log-timestamp {
+            color: var(--text-secondary, $text-secondary);
+            font-size: 0.9rem;
+          }
+
+          .log-details {
+            margin-top: 0.25rem;
+            color: var(--text-secondary, $text-secondary);
+            font-size: 0.9rem;
+            line-height: $line-height-relaxed;
+            word-break: break-word;
+          }
+        }
+
+        .no-logs {
+          color: var(--text-secondary, $text-secondary);
+          font-size: 0.95rem;
+          margin: 0;
+        }
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .job-detail-page {
+    padding: 1rem;
+
+    .job-detail-container {
+      gap: 1.5rem;
+
+      .detail-section {
+        padding: 1rem;
+
+        .info-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    }
+  }
+}
+

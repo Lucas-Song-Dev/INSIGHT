@@ -57,8 +57,8 @@ body {
   }
 
   .welcome-banner {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-    border: 2px solid rgba(99, 102, 241, 0.3);
+    background: linear-gradient(135deg, $matte-blue-10 0%, $matte-blue-10 100%);
+    border: 2px solid $matte-blue-30;
     border-radius: $border-radius-xl;
     padding: $spacing-xl;
     margin-bottom: $spacing-xl;
@@ -101,7 +101,7 @@ body {
         transition: all $transition-speed $transition-ease;
         
         &:hover {
-          background: darken($accent-color, 10%);
+          background: $accent-hover;
           transform: translateX(4px);
         }
       }
@@ -180,7 +180,7 @@ body {
       &:hover {
         transform: translateY(-2px);
         box-shadow: $shadow-md;
-        border-color: rgba(99, 102, 241, 0.5);
+        border-color: $matte-blue-50;
       }
 
       &.clickable {
@@ -192,7 +192,7 @@ body {
         text-align: left;
 
         &:hover {
-          background: rgba(99, 102, 241, 0.1);
+          background: $matte-blue-10;
           transform: translateY(-3px);
           box-shadow: $shadow-lg;
         }
@@ -262,8 +262,8 @@ body {
     text-align: center;
 
     .insights-button {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: linear-gradient(135deg, $primary-indigo 0%, $primary-indigo-dark 100%);
+      color: $text-lightest;
       border: none;
       padding: 1rem 2rem;
       border-radius: 12px;
@@ -277,7 +277,7 @@ body {
 
       &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 10px 25px $matte-blue-30;
       }
 
       &:focus {

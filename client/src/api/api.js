@@ -341,22 +341,20 @@ export const logoutUser = async () => {
  * Get saved recommendations without generating new ones
  * @param {{
  *   products?: string[]
+ *   recommendationType?: 'improve_product' | 'new_feature' | 'competing_product'
  * }} options
  */
-export const fetchSavedRecommendations = async ({ products }) => {
+export const fetchSavedRecommendations = async ({ products, recommendationType }) => {
   try {
     const abortController = createAbortController();
-    let params = {};
+    const params = {};
     if (Array.isArray(products) && products.length > 0) {
-      // Convert array to products[] format for query params
-      products.forEach((product) => {
-        params["products[]"] = params["products[]"] || [];
-        params["products[]"].push(product);
-      });
+      params.product = products[0];
     }
+    params.recommendation_type = recommendationType || "improve_product";
 
     const res = await apiClient.get('/recommendations', {
-      params: params,
+      params,
       signal: abortController.signal,
     });
     return res.data;
@@ -372,17 +370,27 @@ export const fetchSavedRecommendations = async ({ products }) => {
 };
 
 /**
- * Generate new recommendations using OpenAI
+ * Generate or regenerate recommendations
  * @param {{
- *   products?: string[]
+ *   products: string[]
+ *   recommendationType: 'improve_product' | 'new_feature' | 'competing_product'
+ *   context?: string (max 500 chars)
+ *   regenerate?: boolean
  * }} options
  */
-export const generateRecommendations = async ({ products }) => {
+export const generateRecommendations = async ({ products, recommendationType, context, regenerate }) => {
   try {
     const abortController = createAbortController();
     const requestData = {
       products: Array.isArray(products) ? products : [],
+      recommendation_type: recommendationType || "improve_product",
     };
+    if (context != null && String(context).trim()) {
+      requestData.context = String(context).trim().slice(0, 500);
+    }
+    if (regenerate === true) {
+      requestData.regenerate = true;
+    }
 
     const res = await apiClient.post('/recommendations', requestData, {
       signal: abortController.signal,
@@ -541,15 +549,20 @@ export const fetchAllProducts = async () => {
 };
 
 /**
- * Run OpenAI analysis for a specific product
- * @param {{ product: string }} options
+ * Run analysis for a product (creates a job, runs in background).
+ * @param {{ product: string, max_posts?: number, skip_recommendations?: boolean }} options
+ * - product: required
+ * - max_posts: optional, 1–1000, default 500
+ * - skip_recommendations: optional; if true, only pain-point analysis is run
+ * - regenerate: optional; if true, clears existing analysis, costs 1 credit, then runs analysis
  */
-export const runAnalysis = async ({ product }) => {
+export const runAnalysis = async ({ product, max_posts, skip_recommendations, regenerate }) => {
   try {
-    const res = await apiClient.post(
-      '/run-analysis',
-      { product }
-    );
+    const body = { product };
+    if (max_posts != null) body.max_posts = max_posts;
+    if (skip_recommendations != null) body.skip_recommendations = !!skip_recommendations;
+    if (regenerate != null) body.regenerate = !!regenerate;
+    const res = await apiClient.post('/run-analysis', body);
     return res.data;
   } catch (err) {
     if (err.response?.data) {
@@ -726,5 +739,79 @@ export const deleteAccount = async () => {
     }
     const errorInfo = handleApiError(err);
     throw new Error(errorInfo.message || "Failed to delete account");
+  }
+};
+
+/**
+ * Get user's jobs
+ * @param {string} [status] - Optional status filter (pending, in_progress, completed, failed)
+ * @returns {Promise<Object>}
+ */
+export const fetchUserJobs = async (status = null) => {
+  try {
+    const abortController = createAbortController();
+    const params = {};
+    if (status) {
+      params.status = status;
+    }
+    const res = await apiClient.get('/jobs', {
+      params,
+      signal: abortController.signal,
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
+    if (err.response?.data) {
+      throw new Error(err.response.data.message || "Failed to fetch jobs");
+    }
+    throw err;
+  }
+};
+
+/**
+ * Get detailed information about a specific job
+ * @param {string} jobId - Job ID
+ * @returns {Promise<Object>}
+ */
+export const fetchJobDetails = async (jobId) => {
+  try {
+    const abortController = createAbortController();
+    const res = await apiClient.get(`/jobs/${jobId}`, {
+      signal: abortController.signal,
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
+    if (err.response?.data) {
+      throw new Error(err.response.data.message || "Failed to fetch job details");
+    }
+    throw err;
+  }
+};
+
+/**
+ * Cancel a job and refund 1 credit
+ * @param {string} jobId - Job ID to cancel
+ * @returns {Promise<Object>}
+ */
+export const cancelJob = async (jobId) => {
+  try {
+    const abortController = createAbortController();
+    const res = await apiClient.post(`/jobs/${jobId}/cancel`, {}, {
+      signal: abortController.signal,
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelledError(err)) {
+      throw new Error("Request cancelled");
+    }
+    if (err.response?.data) {
+      throw new Error(err.response.data.message || "Failed to cancel job");
+    }
+    throw err;
   }
 };

@@ -1,3 +1,4 @@
+import { Target, Lightbulb, BarChart3, Activity } from "lucide-react";
 import "./aboutPage.scss";
 
 const AboutPage = () => {
@@ -108,7 +109,7 @@ const AboutPage = () => {
           </div>
 
           <div className="feature-item">
-            <h3>🎯 Pain Point Detection</h3>
+            <h3><Target size={20} aria-hidden style={{ marginRight: "8px", verticalAlign: "middle" }} />Pain Point Detection</h3>
             <p>
               Automated identification of common pain points, issues, and user frustrations. 
               Categorizes problems by type and severity to help prioritize improvements.
@@ -116,7 +117,7 @@ const AboutPage = () => {
           </div>
 
           <div className="feature-item">
-            <h3>💡 AI-Powered Recommendations</h3>
+            <h3><Lightbulb size={20} aria-hidden style={{ marginRight: "8px", verticalAlign: "middle" }} />AI-Powered Recommendations</h3>
             <p>
               Generate actionable recommendations using Claude AI. Provides 
               specific, implementable suggestions for addressing identified pain points.
@@ -125,9 +126,7 @@ const AboutPage = () => {
 
           <div className="feature-item">
             <h3>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: '8px'}}>
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-              </svg>
+              <Activity size={20} aria-hidden style={{ marginRight: "8px", verticalAlign: "middle" }} />
               Data Visualization
             </h3>
             <p>
@@ -169,11 +168,7 @@ const AboutPage = () => {
           </div>
           <div className="workflow-step">
             <div className="workflow-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
+              <BarChart3 size={24} aria-hidden />
             </div>
             <div className="workflow-content">
               <h4>3. Topic Detail View</h4>
@@ -186,7 +181,9 @@ const AboutPage = () => {
             </div>
           </div>
           <div className="workflow-step">
-            <div className="workflow-icon">🎯</div>
+            <div className="workflow-icon">
+              <Target size={24} aria-hidden />
+            </div>
             <div className="workflow-content">
               <h4>4. Take Action</h4>
               <p>

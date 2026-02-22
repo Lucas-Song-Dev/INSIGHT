@@ -113,13 +113,19 @@
   }
   
   .action-badge {
+    display: inline-flex;
+    align-items: center;
     background: $terminal-bg-dark;
     border: 1px solid $terminal-border-dim;
     color: $terminal-text-dim;
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 12px;
-    
+
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+
     &.success {
       background: $matte-green-10;
       border-color: $matte-green-50;
@@ -142,5 +148,11 @@
   background: $terminal-panel;
   border: 1px solid $terminal-border;
   border-radius: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 

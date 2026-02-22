@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { triggerScrape, fetchStatus } from "@/api/api.js";
+import { triggerScrape, fetchUserProfile } from "@/api/api.js";
 import { useNotification } from "@/context/NotificationContext";
 import "./scrapePage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
@@ -25,7 +25,7 @@ const calculateEstimatedCost = (timeFilter) => {
 const ScrapePage = () => {
   const [insightType, setInsightType] = useState("product");
   const [loading, setLoading] = useState(false);
-  const [scrapeInProgress, setScrapeInProgress] = useState(false);
+  const [userCredits, setUserCredits] = useState(null);
   const { showNotification } = useNotification();
   const [errors, setErrors] = useState({});
   
@@ -47,32 +47,6 @@ const ScrapePage = () => {
       insightType: "product", // 'product' or 'custom'
     };
   });
-
-  // Periodically check scrape status
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const status = await fetchStatus();
-        setScrapeInProgress(status.scrape_in_progress);
-
-        // If insight discovery was in progress but now completed, show notification
-        if (scrapeInProgress && !status.scrape_in_progress) {
-          showNotification("Insights discovered!", "success");
-          setScrapeInProgress(false);
-        }
-      } catch (err) {
-        console.error("Error fetching status:", err);
-      }
-    };
-
-    // Check immediately
-    checkStatus();
-
-    // Then set up interval
-    const intervalId = setInterval(checkStatus, 10000); // Check every 10 seconds
-
-    return () => clearInterval(intervalId);
-  }, [scrapeInProgress, showNotification]);
 
   // Save form data to localStorage whenever it changes
   useEffect(() => {
@@ -105,6 +79,18 @@ const ScrapePage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Fetch user credits
+  const loadUserCredits = async () => {
+    try {
+      const response = await fetchUserProfile();
+      if (response.status === 'success') {
+        setUserCredits(response.user.credits);
+      }
+    } catch (err) {
+      console.error('Failed to load user credits:', err);
+    }
+  };
+
   const handleScrape = async () => {
     // Validate form before submitting
     if (!validateForm()) {
@@ -121,7 +107,9 @@ const ScrapePage = () => {
         time_filter: formData.time_filter,
         is_custom: insightType === "custom",
       });
-      setScrapeInProgress(true);
+      
+      // Refresh credits after successful scrape initiation
+      await loadUserCredits();
 
       // Create a formatted message for the notification
       const notificationMessage = `Discovering insights for "${formData.topic}"...`;
@@ -154,11 +142,22 @@ const ScrapePage = () => {
     // Update localStorage with defaults
     localStorage.setItem("scrape_form_data", JSON.stringify(defaultData));
   };
-  
+
+  useEffect(() => {
+    loadUserCredits();
+    // Refresh credits every 30 seconds
+    const interval = setInterval(loadUserCredits, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Calculate cost for the current mode
   const estimatedCost = useMemo(() => {
     return calculateEstimatedCost(formData.time_filter);
   }, [formData.time_filter]);
+
+  // Check if user has enough credits
+  const hasEnoughCredits = userCredits !== null && userCredits >= estimatedCost;
+  const insufficientCredits = userCredits !== null && userCredits < estimatedCost;
 
   return (
     <div className="scrape-page">
@@ -202,6 +201,7 @@ const ScrapePage = () => {
               onChange={handleInputChange}
               placeholder="e.g., VS Code, React, Docker, Notion, Cursor..."
               className="custom-input topic-input"
+              aria-label="Topic or Product"
             />
           </div>
         </div>
@@ -217,17 +217,23 @@ const ScrapePage = () => {
           >
             Clear All
           </button>
-          <button
-            onClick={handleScrape}
-            disabled={loading || scrapeInProgress}
-            className="scrape-button"
-          >
-            {loading
-              ? "Starting..."
-              : scrapeInProgress
-              ? "Discovering Insights..."
-              : `Find Insights (-${estimatedCost} credits)`}
-          </button>
+          <div className="button-with-tooltip">
+            <button
+              onClick={handleScrape}
+              disabled={loading || insufficientCredits}
+              className={`scrape-button ${insufficientCredits ? 'insufficient-credits' : ''}`}
+              title={insufficientCredits ? 'Please purchase more credits' : ''}
+            >
+              {loading
+                ? "Starting..."
+                : `Find Insights (-${estimatedCost} credits)`}
+            </button>
+            {insufficientCredits && (
+              <div className="tooltip">
+                Please purchase more credits
+              </div>
+            )}
+          </div>
         </div>
       </div>
       ) : (
@@ -235,7 +241,7 @@ const ScrapePage = () => {
           <div className="card">
             <h2 className="card-title">Custom Insights Prompt</h2>
             <p className="card-description">
-              Describe what you want to discover. Claude AI will recommend the best subreddits and search strategy.
+              Describe what you want to discover. Our AI will recommend the best search strategy.
             </p>
             {errors.topic && (
               <div className="error-message">{errors.topic}</div>
@@ -248,6 +254,7 @@ const ScrapePage = () => {
                 placeholder="e.g., Find market gaps in productivity tools, discover pain points with remote work software, identify opportunities in developer tools..."
                 className="custom-input topic-textarea"
                 rows={6}
+                aria-label="Custom Insights Prompt"
               />
             </div>
           </div>
@@ -259,17 +266,23 @@ const ScrapePage = () => {
             >
               Clear
             </button>
-            <button
-              onClick={handleScrape}
-              disabled={loading || scrapeInProgress}
-              className="scrape-button"
-            >
-              {loading
-                ? "Starting..."
-                : scrapeInProgress
-                ? "Discovering Insights..."
-                : `Generate Custom Insights (-${estimatedCost} credits)`}
-            </button>
+            <div className="button-with-tooltip">
+              <button
+                onClick={handleScrape}
+                disabled={loading || insufficientCredits}
+                className={`scrape-button ${insufficientCredits ? 'insufficient-credits' : ''}`}
+                title={insufficientCredits ? 'Please purchase more credits' : ''}
+              >
+                {loading
+                  ? "Starting..."
+                  : `Generate Custom Insights (-${estimatedCost} credits)`}
+              </button>
+              {insufficientCredits && (
+                <div className="tooltip">
+                  Please purchase more credits
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

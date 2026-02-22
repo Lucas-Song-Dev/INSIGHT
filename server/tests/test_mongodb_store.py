@@ -122,13 +122,96 @@ class TestMongoDBStore:
         """Test that store works in-memory when MongoDB is not available"""
         store = MongoDBStore(None)
         assert store.db is None
-        
+
         # Should still be able to store in memory
         mock_post = MagicMock()
         mock_post.id = 'test_id'
         # This should not raise an error
         store.raw_posts.append(mock_post)
         assert len(store.raw_posts) > 0
+
+    def test_delete_anthropic_analysis(self, store):
+        """Oracle 3: Delete analysis for a product (for regenerate)."""
+        if store.db is None:
+            store.db = MagicMock()
+        store.db.anthropic_analysis = MagicMock()
+        store.db.anthropic_analysis.delete_one = MagicMock(return_value=MagicMock(deleted_count=1))
+        store.anthropic_analyses["TestProduct"] = {}
+
+        result = store.delete_anthropic_analysis("TestProduct")
+
+        assert result is True
+        store.db.anthropic_analysis.delete_one.assert_called_once()
+        call_arg = store.db.anthropic_analysis.delete_one.call_args[0][0]
+        assert call_arg["_id"] == "testproduct"
+        assert "TestProduct" not in store.anthropic_analyses
+
+    def test_delete_pain_points_by_product(self, store):
+        """Oracle 3: Delete pain points for a product (for regenerate)."""
+        if store.db is None:
+            store.db = MagicMock()
+        store.db.pain_points = MagicMock()
+        store.db.pain_points.delete_many = MagicMock(return_value=MagicMock(deleted_count=3))
+
+        result = store.delete_pain_points_by_product("HubSpot")
+
+        assert result is True
+        store.db.pain_points.delete_many.assert_called_once_with({"product": "hubspot"})
+
+    def test_delete_recommendations_by_product(self, store):
+        """Delete all recommendation docs for a product (all types)."""
+        if store.db is None:
+            store.db = MagicMock()
+        store.db.recommendations = MagicMock()
+        store.db.recommendations.delete_many = MagicMock(return_value=MagicMock(deleted_count=2))
+
+        result = store.delete_recommendations_by_product("VS Code")
+
+        assert result is True
+        store.db.recommendations.delete_many.assert_called_once_with({"product": "vs code"})
+
+    def test_save_recommendations_stores_by_type(self, store):
+        """Saving improve_product and new_feature for the same product creates separate docs (different _id)."""
+        if store.db is None:
+            store.db = MagicMock()
+        store.db.recommendations = MagicMock()
+        store.db.recommendations.update_one = MagicMock(return_value=MagicMock(modified_count=1, upserted_id=None))
+
+        store.save_recommendations("Hubspot", [{"title": "Improve A"}], user_id="alice", recommendation_type="improve_product")
+        store.save_recommendations("Hubspot", [{"title": "New feature B"}], user_id="alice", recommendation_type="new_feature")
+
+        assert store.db.recommendations.update_one.call_count == 2
+        first_id = store.db.recommendations.update_one.call_args_list[0][0][0].get("_id")
+        second_id = store.db.recommendations.update_one.call_args_list[1][0][0].get("_id")
+        assert first_id == "alice:hubspot:improve_product"
+        assert second_id == "alice:hubspot:new_feature"
+        first_type = store.db.recommendations.update_one.call_args_list[0][0][1]["$set"].get("recommendation_type")
+        second_type = store.db.recommendations.update_one.call_args_list[1][0][1]["$set"].get("recommendation_type")
+        assert first_type == "improve_product"
+        assert second_type == "new_feature"
+
+    def test_create_indexes_includes_posts_product_subreddit_compound(self, store):
+        """Oracle 9: Posts collection has compound index (product, subreddit) for analysis queries."""
+        if store.db is None:
+            store.db = MagicMock()
+        store.db.posts.create_index = MagicMock()
+        store.db.pain_points.create_index = MagicMock()
+        store.db.users.create_index = MagicMock()
+        store.db.anthropic_analysis.create_index = MagicMock()
+        store.db.recommendations.create_index = MagicMock()
+        store.db.jobs.create_index = MagicMock()
+
+        store.create_indexes()
+
+        compound_calls = [
+            c for c in store.db.posts.create_index.call_args_list
+            if c[0] and isinstance(c[0][0], list) and len(c[0][0]) >= 2
+            and any(idx[0] == "product" for idx in c[0][0])
+            and any(idx[0] == "subreddit" for idx in c[0][0])
+        ]
+        assert len(compound_calls) >= 1, "Expected compound index (product, subreddit) on posts"
+
+
 
 
 

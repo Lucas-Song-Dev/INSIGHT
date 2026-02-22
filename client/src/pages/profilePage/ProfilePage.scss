@@ -107,6 +107,35 @@
       cursor: not-allowed;
     }
   }
+
+  .credits-field-container {
+    display: flex;
+    gap: $spacing-md;
+    align-items: stretch;
+
+    .form-input {
+      flex: 1;
+    }
+
+    .add-credits-button {
+      @include button-base;
+      background: $accent-color;
+      color: $text-lightest;
+      border: 1px solid $accent-color;
+      white-space: nowrap;
+      padding: $spacing-sm $spacing-lg;
+      
+      &:hover:not(:disabled) {
+        background: $accent-hover;
+        border-color: $accent-hover;
+      }
+      
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
 }
 
 .danger-zone {

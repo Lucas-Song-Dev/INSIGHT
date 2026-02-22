@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
+// Mock API so App's polling (fetchPosts, fetchAllProducts, fetchClaudeAnalysis) never hits the network in CI
+vi.mock('../api/api', () => ({
+  fetchPosts: vi.fn().mockResolvedValue({ status: 'success', posts: [], total: 0 }),
+  fetchAllProducts: vi.fn().mockResolvedValue({ status: 'success', products: [] }),
+  fetchClaudeAnalysis: vi.fn().mockResolvedValue({ status: 'success', analyses: [] }),
+  logoutUser: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock the AuthContext (no top-level refs in factory so hoisting works in CI)
 vi.mock('../context/AuthContext', () => ({
   useAuth: vi.fn(),

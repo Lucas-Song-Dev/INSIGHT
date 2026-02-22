@@ -1,4 +1,4 @@
-from app import app
+from app import app, socketio
 
 if __name__ == "__main__":
     # CRITICAL FIX: Use environment variable for debug mode, default to False for security
@@ -12,4 +12,4 @@ if __name__ == "__main__":
         print("This is a security risk. Set FLASK_DEBUG=False in production.")
         debug_mode = False  # Force disable in production
     
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=debug_mode)

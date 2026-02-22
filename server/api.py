@@ -262,29 +262,219 @@ class GetPainPoints(CORSResource):
         return {"status": "success", "pain_points": pain_points}, 200
 
 class Recommendations(CORSResource):
-    """API endpoint for recommendations (user-scoped when user_id is stored)."""
+    """API endpoint for recommendations (user-scoped). GET returns product-level doc(s). POST generates with type and credits."""
     @token_required
     def get(self, current_user):
-        """Get recommendations for current user and product."""
+        """Get recommendations for current user and product. Accepts product or products[], and recommendation_type."""
         from app import data_store
 
-        product = request.args.get('product')
+        product = request.args.get("product")
+        if not product:
+            product = request.args.get("products[]") or request.args.get("products")
+        if not product and (request.args.getlist("products[]") or request.args.getlist("products")):
+            product = (request.args.getlist("products[]") or request.args.getlist("products"))[0]
         if not product:
             return {"status": "success", "recommendations": []}, 200
 
-        recommendations = []
-        if data_store.db is not None:
-            username = current_user.get('username')
-            product_key = product.strip().lower()
-            rec = data_store.db.recommendations.find_one({"user_id": username, "product": product_key})
-            if not rec:
-                rec = data_store.db.recommendations.find_one({"_id": product_key})
-            if not rec and username:
-                rec = data_store.db.recommendations.find_one({"_id": f"{username}:{product_key}"})
-            if rec:
-                recommendations = rec.get('recommendations', [])
+        if isinstance(product, list):
+            product = product[0] if product else None
+        if not product:
+            return {"status": "success", "recommendations": []}, 200
 
-        return {"status": "success", "recommendations": recommendations}, 200
+        recommendation_type = (request.args.get("recommendation_type") or "improve_product").strip().lower()
+        if recommendation_type not in ("improve_product", "new_feature", "competing_product"):
+            recommendation_type = "improve_product"
+
+        username = current_user.get("username")
+        product_key = product.strip().lower()
+        doc = None
+        if data_store.db is not None:
+            doc_id_typed = f"{username}:{product_key}:{recommendation_type}" if username else f"{product_key}:{recommendation_type}"
+            doc = data_store.db.recommendations.find_one({"_id": doc_id_typed})
+            if not doc and recommendation_type == "improve_product":
+                legacy_doc = data_store.db.recommendations.find_one({"_id": f"{username}:{product_key}"} if username else {"_id": product_key})
+                if legacy_doc:
+                    doc = legacy_doc
+            if doc:
+                # Never return a doc that was stored under a different type (e.g. wrong collection state)
+                stored_type = (doc.get("recommendation_type") or "improve_product").strip().lower()
+                if stored_type != recommendation_type:
+                    doc = None
+                else:
+                    doc = serialize_datetime(doc)
+                    doc.setdefault("recommendation_type", recommendation_type)
+                    doc.pop("_id", None)
+
+        out = [doc] if doc else []
+        return {"status": "success", "recommendations": out}, 200
+
+    @token_required
+    def post(self, current_user):
+        """Start a recommendations job: returns job_id immediately; generation runs in background (same flow as analysis)."""
+        from app import data_store
+
+        data = request.get_json() or {}
+        products = data.get("products") or []
+        if isinstance(products, str):
+            products = [products] if products.strip() else []
+        if not products or not isinstance(products, list):
+            return {"status": "error", "message": "products array is required"}, 400
+
+        product = (products[0] or "").strip() if products else ""
+        if not product:
+            return {"status": "error", "message": "At least one product is required"}, 400
+
+        recommendation_type = (data.get("recommendation_type") or "improve_product").strip().lower()
+        if recommendation_type not in ("improve_product", "new_feature", "competing_product"):
+            return {"status": "error", "message": "recommendation_type must be improve_product, new_feature, or competing_product"}, 400
+
+        context = data.get("context")
+        if context is not None and isinstance(context, str) and len(context) > 500:
+            return {"status": "error", "message": "context must be at most 500 characters"}, 400
+        context = (context or "").strip()[:500] if context else None
+
+        regenerate = bool(data.get("regenerate", False))
+        username = current_user.get("username")
+        product_key = product.strip().lower()
+
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
+
+        # Check pain points exist (required for generation)
+        pain_points_cursor = data_store.db.pain_points.find({"product": product_key, "user_id": username})
+        pain_points = list(pain_points_cursor)
+        if not pain_points:
+            return {"status": "error", "message": "Run analysis first to generate pain points"}, 400
+
+        # Decide first-time vs regenerate for credit cost
+        doc_id_typed = f"{username}:{product_key}:{recommendation_type}"
+        existing = data_store.db.recommendations.find_one({"_id": doc_id_typed})
+        is_regenerate = existing is not None and regenerate
+        required_credits = 1 if is_regenerate else 2
+
+        user_doc = data_store.db.users.find_one({"username": username})
+        available = (user_doc or {}).get("credits", 0)
+        if available < required_credits:
+            return {
+                "status": "error",
+                "message": f"Insufficient credits. Required: {required_credits}, available: {available}",
+                "required_credits": required_credits,
+                "available_credits": available,
+            }, 402
+
+        # Deduct credits before creating job (same as RunAnalysis)
+        result = data_store.db.users.find_one_and_update(
+            {"username": username, "credits": {"$gte": required_credits}},
+            {"$inc": {"credits": -required_credits}},
+            return_document=True,
+        )
+        if not result:
+            return {
+                "status": "error",
+                "message": "Insufficient credits",
+                "required_credits": required_credits,
+                "available_credits": available,
+            }, 402
+
+        job_parameters = {
+            "type": "recommendations",
+            "product": product,
+            "recommendation_type": recommendation_type,
+            "regenerate": regenerate,
+        }
+        if context:
+            job_parameters["context"] = context
+        job_id = data_store.create_job(username, job_parameters)
+        if not job_id:
+            data_store.db.users.find_one_and_update(
+                {"username": username},
+                {"$inc": {"credits": required_credits}},
+            )
+            return {"status": "error", "message": "Failed to create job"}, 500
+
+        def background_recommendations():
+            try:
+                # Use type and product from the job document so we always save to the correct slot (improve vs new_feature vs competing_product)
+                job_doc = data_store.get_job(job_id)
+                params = (job_doc or {}).get("parameters") or {}
+                job_recommendation_type = (params.get("recommendation_type") or "improve_product").strip().lower()
+                if job_recommendation_type not in ("improve_product", "new_feature", "competing_product"):
+                    job_recommendation_type = "improve_product"
+                job_product = (params.get("product") or product or "").strip() or product
+                job_context = params.get("context") if params.get("context") else context
+
+                data_store.update_job_status(job_id, "in_progress")
+                data_store.append_job_log(job_id, "load_pain_points", f"Loaded {len(pain_points)} pain points for {job_product}", len(pain_points))
+
+                pain_list = []
+                for pp in pain_points:
+                    pain_list.append({
+                        "name": pp.get("topic") or pp.get("name") or "Unnamed",
+                        "description": pp.get("description") or "",
+                        "severity": pp.get("severity") or "medium",
+                    })
+
+                data_store.append_job_log(job_id, "generate", f"Generating {job_recommendation_type} recommendations with Claude", None)
+                from claude_analyzer import ClaudeAnalyzer
+                analyzer = ClaudeAnalyzer()
+                rec_result = analyzer.generate_recommendations(
+                    pain_list, job_product, recommendation_type=job_recommendation_type, context=job_context
+                )
+
+                if rec_result.get("error"):
+                    err_msg = rec_result.get("error", "Recommendation generation failed")
+                    data_store.append_job_log(job_id, "failed", err_msg, None)
+                    data_store.update_job_status(job_id, "failed", error=err_msg, credits_used=required_credits)
+                    data_store.db.users.find_one_and_update(
+                        {"username": username},
+                        {"$inc": {"credits": required_credits}},
+                    )
+                    logger.info(f"Refunded {required_credits} credit(s) to {username} after recommendations job {job_id} failed")
+                    return
+
+                recommendations = rec_result.get("recommendations") or []
+                summary = rec_result.get("summary") or ""
+                ts = rec_result.get("timestamp")
+                if not data_store.save_recommendations(
+                    job_product, recommendations, user_id=username, recommendation_type=job_recommendation_type,
+                    summary=summary, timestamp=ts
+                ):
+                    data_store.append_job_log(job_id, "failed", "Failed to save recommendations", None)
+                    data_store.update_job_status(job_id, "failed", error="Failed to save recommendations", credits_used=required_credits)
+                    data_store.db.users.find_one_and_update(
+                        {"username": username},
+                        {"$inc": {"credits": required_credits}},
+                    )
+                    return
+
+                results = {
+                    "product": job_product,
+                    "recommendation_type": job_recommendation_type,
+                    "recommendations_count": len(recommendations),
+                }
+                data_store.append_job_log(job_id, "completed", f"Saved {len(recommendations)} recommendations (type={job_recommendation_type})", results)
+                data_store.update_job_status(job_id, "completed", results=results, credits_used=required_credits)
+            except Exception as e:
+                err_msg = str(e)
+                logger.exception("Recommendations job %s failed: %s", job_id, err_msg)
+                data_store.append_job_log(job_id, "failed", err_msg, None)
+                data_store.update_job_status(job_id, "failed", error=err_msg, credits_used=required_credits)
+                data_store.db.users.find_one_and_update(
+                    {"username": username},
+                    {"$inc": {"credits": required_credits}},
+                )
+                logger.info(f"Refunded {required_credits} credit(s) to {username} after recommendations job {job_id} failed")
+
+        thread = Thread(target=background_recommendations, daemon=True)
+        thread.start()
+
+        return {
+            "status": "success",
+            "message": "Recommendations job started",
+            "job_id": str(job_id),
+            "product": product,
+            "recommendation_type": recommendation_type,
+        }, 200
 
 class GetClaudeAnalysis(CORSResource):
     """API endpoint to get Claude analysis results (user-scoped). Accepts product or products[]."""
@@ -493,13 +683,13 @@ class RunAnalysis(CORSResource):
                 if skip_recommendations:
                     data_store.append_job_log(job_id, "recommendations", "Skipped (skip_recommendations=true)", None)
                 else:
-                    rec_result = analyzer.generate_recommendations(common_pain_points, product)
+                    rec_result = analyzer.generate_recommendations(common_pain_points, product, recommendation_type="improve_product")
                     if rec_result.get("error"):
                         logger.warning("Recommendation generation failed for %s: %s", product, rec_result.get("error"))
                         data_store.append_job_log(job_id, "recommendations", "Recommendations skipped (Claude error)", None)
                     else:
                         recommendations = rec_result.get("recommendations") or []
-                        if data_store.save_recommendations(product, recommendations, user_id=username):
+                        if data_store.save_recommendations(product, recommendations, user_id=username, recommendation_type="improve_product"):
                             recommendations_count = len(recommendations)
                         data_store.append_job_log(job_id, "recommendations", f"Saved {recommendations_count} recommendations", recommendations_count)
 

@@ -1,5 +1,6 @@
 // components/Navbar.jsx
 import { useState, useEffect } from "react";
+import { Home, Search, ClipboardList, Info, User, LogOut } from "lucide-react";
 import { fetchUserProfile } from "../../api/api";
 import UserProfile from "../UserProfile/UserProfile";
 import "./navBar.scss";
@@ -79,7 +80,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
             onClick={() => setActivePage("home")}
             title="Home"
           >
-            <span className="menu-icon">🏠</span>
+            <span className="menu-icon"><Home size={18} aria-hidden /></span>
             {!isCollapsed && <span className="menu-text">Home</span>}
           </li>
           <li
@@ -87,12 +88,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
             onClick={() => setActivePage("scrapepage")}
             title="Find Insights"
           >
-            <span className="menu-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="M21 21l-4.35-4.35"/>
-              </svg>
-            </span>
+            <span className="menu-icon"><Search size={18} aria-hidden /></span>
             {!isCollapsed && <span className="menu-text">Find Insights</span>}
           </li>
           <li
@@ -100,7 +96,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
             onClick={() => setActivePage("results")}
             title="Results"
           >
-            <span className="menu-icon">📋</span>
+            <span className="menu-icon"><ClipboardList size={18} aria-hidden /></span>
             {!isCollapsed && <span className="menu-text">Results</span>}
           </li>
           <li
@@ -108,7 +104,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
             onClick={() => setActivePage("about")}
             title="About"
           >
-            <span className="menu-icon">ℹ️</span>
+            <span className="menu-icon"><Info size={18} aria-hidden /></span>
             {!isCollapsed && <span className="menu-text">About</span>}
           </li>
           {/* User Profile and Credits */}
@@ -117,7 +113,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
             onClick={() => setShowProfile(true)} 
             title="User Profile"
           >
-            <span className="menu-icon">👤</span>
+            <span className="menu-icon"><User size={18} aria-hidden /></span>
             {!isCollapsed && (
               <div className="profile-info">
                 <span className="menu-text">Profile</span>
@@ -130,7 +126,7 @@ const Navbar = ({ activePage, setActivePage, handleLogout }) => {
           
           {/* Logout button at the bottom of sidebar */}
           <li className="logout-item" onClick={handleLogout} title="Logout">
-            <span className="menu-icon">🚪</span>
+            <span className="menu-icon"><LogOut size={18} aria-hidden /></span>
             {!isCollapsed && <span className="menu-text">Logout</span>}
           </li>
         </ul>

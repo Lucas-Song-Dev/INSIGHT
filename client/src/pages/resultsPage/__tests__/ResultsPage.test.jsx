@@ -99,10 +99,10 @@ describe('ResultsPage - Comprehensive Tests', () => {
         expect(screen.getByText('react')).toBeInTheDocument();
       });
 
-      // Verify analysis badges
-      expect(screen.getByText(/✓ Analysis/i)).toBeInTheDocument();
-      expect(screen.getByText(/✓ Recommendations/i)).toBeInTheDocument();
-      expect(screen.getByText(/⏳ Analysis/i)).toBeInTheDocument();
+      // Verify analysis badges (icons + text) - multiple product cards each have these labels
+      expect(screen.getAllByText("Analysis").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("Recommendations").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("Posts").length).toBeGreaterThanOrEqual(1);
     });
 
     it('should handle empty products array', async () => {

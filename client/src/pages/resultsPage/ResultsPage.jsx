@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FileText, Check, Loader2 } from "lucide-react";
 import { fetchAllProducts } from "@/api/api";
 import "./resultsPage.scss";
 import PageHeader from "@/components/PageHeader/PageHeader";
@@ -163,16 +164,31 @@ const ResultsPage = () => {
                         <h3>{productName}</h3>
                         <p>Click to view details</p>
                         <div className="product-actions">
-                          <span className="action-badge">📝 Posts</span>
+                          <span className="action-badge">
+                            <FileText size={14} aria-hidden style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                            Posts
+                          </span>
                           {hasAnalysis ? (
-                            <span className="action-badge success">✓ Analysis</span>
+                            <span className="action-badge success">
+                              <Check size={14} aria-hidden style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                              Analysis
+                            </span>
                           ) : (
-                            <span className="action-badge pending">⏳ Analysis</span>
+                            <span className="action-badge pending">
+                              <Loader2 size={14} aria-hidden className="spin" style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                              Analysis
+                            </span>
                           )}
                           {hasRecommendations ? (
-                            <span className="action-badge success">✓ Recommendations</span>
+                            <span className="action-badge success">
+                              <Check size={14} aria-hidden style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                              Recommendations
+                            </span>
                           ) : (
-                            <span className="action-badge pending">⏳ Recommendations</span>
+                            <span className="action-badge pending">
+                              <Loader2 size={14} aria-hidden className="spin" style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                              Recommendations
+                            </span>
                           )}
                         </div>
                       </div>
