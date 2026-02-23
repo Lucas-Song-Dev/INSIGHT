@@ -48,16 +48,17 @@ const RegisterForm = ({ onRegisterSuccess, onCancel }) => {
       return;
     }
 
-    if (!preferredName.trim()) {
-      console.warn('[REGISTER FORM] Validation failed: preferred name is required');
-      setError("Preferred name is required");
-      return;
-    }
+    // Preferred name is optional; default to full name when empty
+    const preferredNameToSend = preferredName.trim() || fullName.trim();
 
-    if (!birthday) {
-      console.warn('[REGISTER FORM] Validation failed: birthday is required');
-      setError("Birthday is required");
-      return;
+    // Email is optional; if provided, must be valid format
+    const emailTrimmed = email.trim();
+    if (emailTrimmed) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailTrimmed)) {
+        setError("Please enter a valid email address.");
+        return;
+      }
     }
 
     console.log('[REGISTER FORM] Step 1: All validations passed');
@@ -69,10 +70,10 @@ const RegisterForm = ({ onRegisterSuccess, onCancel }) => {
       const response = await registerUser({
         username,
         password,
-        email: email || undefined, // Only include if provided
+        email: emailTrimmed || undefined,
         full_name: fullName.trim(),
-        preferred_name: preferredName.trim(),
-        birthday: birthday
+        preferred_name: preferredNameToSend,
+        birthday: birthday?.trim() || undefined // optional
       });
       console.log('[REGISTER FORM] Step 4: Registration response received:', {
         status: response?.status,
@@ -145,25 +146,25 @@ const RegisterForm = ({ onRegisterSuccess, onCancel }) => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="register-preferred-name">What should we call you?</label>
+          <label htmlFor="register-preferred-name">What should we call you? (optional)</label>
           <input
             id="register-preferred-name"
             type="text"
             value={preferredName}
             onChange={(e) => setPreferredName(e.target.value)}
-            placeholder="Enter your preferred name"
-            required
+            placeholder="Defaults to your full name if left blank"
+            aria-label="What should we call you? (optional)"
           />
         </div>
 
         <div className="form-group">
-          <label htmlFor="register-birthday">Birthday</label>
+          <label htmlFor="register-birthday">Birthday (optional)</label>
           <input
             id="register-birthday"
             type="date"
             value={birthday}
             onChange={(e) => setBirthday(e.target.value)}
-            required
+            aria-label="Birthday (optional)"
           />
         </div>
 

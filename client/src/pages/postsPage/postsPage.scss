@@ -684,13 +684,13 @@
   
   .product-tag {
     background: rgba(107, 114, 128, 0.1); // Matte gray
-    color: #6b7280; // Matte gray
+    color: $primary-indigo; // Matte gray
     border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   
   .topic-tag {
     background: rgba(107, 114, 128, 0.1); // Matte gray (replacing green)
-    color: #6b7280; // Matte gray
+    color: $primary-indigo; // Matte gray
     border: 1px solid rgba(107, 114, 128, 0.2); // Matte gray
   }
   

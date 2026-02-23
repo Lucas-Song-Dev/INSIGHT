@@ -56,7 +56,7 @@
     transition: background-color $transition-speed $transition-ease;
 
     &:hover {
-      background: rgba(99, 102, 241, 0.1);
+      background: $matte-blue-10;
     }
 
     &:focus {

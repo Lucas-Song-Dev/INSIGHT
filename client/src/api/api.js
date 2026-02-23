@@ -254,13 +254,14 @@ export const loginUser = async (credentials) => {
     // Store token in localStorage for Authorization headers
     console.log('[API] Step 3: Checking for token in response...');
     console.log('[API] Response data keys:', Object.keys(res.data));
-    console.log('[API] Response data.token exists:', !!res.data.token);
+    console.log('[API] Response access_token/token exists:', !!(res.data.access_token || res.data.token));
 
-    if (res.data.token) {
+    const token = res.data.access_token || res.data.token;
+    if (token) {
       console.log('[API] Token found! Storing in localStorage');
-      localStorage.setItem('access_token', res.data.token);
-      console.log('[API] Token stored successfully, length:', res.data.token.length);
-      console.log('[API] Token preview:', res.data.token.substring(0, 20) + '...');
+      localStorage.setItem('access_token', token);
+      console.log('[API] Token stored successfully, length:', token.length);
+      console.log('[API] Token preview:', token.substring(0, 20) + '...');
       console.log('[API] localStorage now contains:', localStorage.getItem('access_token') ? 'token' : 'nothing');
     } else {
       console.warn('[API] CRITICAL: No token received in login response!');

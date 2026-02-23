@@ -83,25 +83,56 @@ class Register(CORSResource):
     """API endpoint for user registration"""
     def post(self):
         """Register a new user"""
+        import re
+        import bcrypt
         from app import data_store
         data = request.get_json() or {}
         
         username = data.get('username', '').strip()
         password = data.get('password', '')
-        email = data.get('email', '').strip()
+        email = (data.get('email') or '').strip()
+        birthday = (data.get('birthday') or '').strip()
+        full_name = (data.get('full_name') or '').strip()
+        preferred_name = (data.get('preferred_name') or '').strip()
         
-        if not username or not password or not email:
-            return {"status": "error", "message": "Username, password, and email are required"}, 400
+        if not username or not password:
+            return {"status": "error", "message": "Username and password are required"}, 400
         
-        # Check if user already exists
-        if data_store.db is not None:
-            existing_user = data_store.db.users.find_one({"username": username})
-            if existing_user:
-                return {"status": "error", "message": "Username already exists"}, 409
+        if not full_name:
+            return {"status": "error", "message": "Full name is required"}, 400
         
-        # Create user (implementation would hash password, etc.)
-        # This is a stub - actual implementation would be more complete
-        return {"status": "error", "message": "Registration not fully implemented"}, 501
+        if len(password) < 8:
+            return {"status": "error", "message": "Password must be at least 8 characters long"}, 400
+        
+        if email and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            return {"status": "error", "message": "Please enter a valid email address."}, 400
+        
+        # Preferred name optional; default to full name
+        preferred_name = preferred_name or full_name
+        
+        if data_store.db is None:
+            return {"status": "error", "message": "Database not available"}, 500
+        
+        existing_user = data_store.db.users.find_one({"username": username})
+        if existing_user:
+            return {"status": "error", "message": "Username already exists"}, 409
+        
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        user_doc = {
+            "username": username,
+            "password": hashed.decode('utf-8'),
+            "credits": 5,
+            "created_at": datetime.utcnow(),
+        }
+        user_doc["full_name"] = full_name
+        user_doc["preferred_name"] = preferred_name
+        if email:
+            user_doc["email"] = email
+        if birthday:
+            user_doc["birthday"] = birthday
+        
+        data_store.db.users.insert_one(user_doc)
+        return {"status": "success", "message": "User registered successfully"}, 201
 
 class Login(CORSResource):
     """API endpoint for user login"""

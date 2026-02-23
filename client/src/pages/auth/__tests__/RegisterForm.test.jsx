@@ -155,38 +155,68 @@ describe('RegisterForm', () => {
       expect(api.registerUser).not.toHaveBeenCalled();
     });
 
-    it('should show error when preferred name is missing', async () => {
-      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+    it('should default preferred name to full name when not provided', async () => {
+      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
-      await user.type(screen.getByLabelText(/full name/i), 'Test User');
-      await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
+      await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText('Password'), 'password123');
       await user.type(screen.getByLabelText('Confirm Password'), 'password123');
-      fireEvent.submit(container.querySelector('form'));
+      await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/preferred name is required/i)).toBeInTheDocument();
+        expect(api.registerUser).toHaveBeenCalledWith(
+          expect.objectContaining({
+            username: 'testuser',
+            full_name: 'Test User Full Name',
+            preferred_name: 'Test User Full Name',
+          })
+        );
       });
-      expect(api.registerUser).not.toHaveBeenCalled();
     });
 
-    it('should show error when birthday is missing', async () => {
+    it('should show error when email is provided but invalid format', async () => {
       const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
       await user.type(screen.getByLabelText(/full name/i), 'Test User');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test');
+      await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
+      await user.type(screen.getByLabelText(/email/i), 'invalid-email');
       await user.type(screen.getByLabelText('Password'), 'password123');
       await user.type(screen.getByLabelText('Confirm Password'), 'password123');
       fireEvent.submit(container.querySelector('form'));
 
       await waitFor(() => {
-        expect(screen.getByText(/birthday is required/i)).toBeInTheDocument();
+        expect(screen.getByText(/please enter a valid email address/i)).toBeInTheDocument();
       });
       expect(api.registerUser).not.toHaveBeenCalled();
+    });
+
+    it('should allow submission without birthday (birthday optional)', async () => {
+      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText(/username/i), 'testuser');
+      await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
+      await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(api.registerUser).toHaveBeenCalledWith({
+          username: 'testuser',
+          password: 'password123',
+          email: 'test@example.com',
+          full_name: 'Test User Full Name',
+          preferred_name: 'Test Preferred Name',
+          birthday: undefined,
+        });
+      });
     });
   });
 
@@ -236,6 +266,29 @@ describe('RegisterForm', () => {
           full_name: 'Test User Full Name',
           preferred_name: 'Test Preferred Name',
           birthday: '1990-01-01',
+        });
+      });
+    });
+
+    it('should call registerUser without email and without birthday when both omitted', async () => {
+      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText(/username/i), 'testuser');
+      await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
+      await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
+      await user.type(screen.getByLabelText('Password'), 'password123');
+      await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(api.registerUser).toHaveBeenCalledWith({
+          username: 'testuser',
+          password: 'password123',
+          email: undefined,
+          full_name: 'Test User Full Name',
+          preferred_name: 'Test Preferred Name',
+          birthday: undefined,
         });
       });
     });
@@ -305,26 +358,25 @@ describe('RegisterForm', () => {
       api.registerUser.mockRejectedValueOnce({
         response: {
           status: 400,
-          data: { message: 'Invalid email format' },
+          data: { message: 'Username already taken' },
         },
         message: 'Request failed',
       });
 
-      const { container } = renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
+      renderWithProviders({ onRegisterSuccess: mockOnRegisterSuccess, onCancel: mockOnCancel });
       const user = userEvent.setup();
 
       await user.type(screen.getByLabelText(/username/i), 'testuser');
       await user.type(screen.getByLabelText(/full name/i), 'Test User Full Name');
       await user.type(screen.getByLabelText(/what should we call you/i), 'Test Preferred Name');
       await user.type(screen.getByLabelText(/birthday/i), '1990-01-01');
-      await user.type(screen.getByLabelText(/email/i), 'invalid-email');
+      await user.type(screen.getByLabelText(/email/i), 'valid@example.com');
       await user.type(screen.getByLabelText('Password'), 'password123');
       await user.type(screen.getByLabelText('Confirm Password'), 'password123');
-      fireEvent.submit(container.querySelector('form'));
+      await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
-        // Form shows err.message ('Request failed') or response message
-        expect(screen.getByText(/invalid email format|request failed/i)).toBeInTheDocument();
+        expect(screen.getByText(/username already taken|request failed/i)).toBeInTheDocument();
       });
     });
 

@@ -44,8 +44,11 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 cors_origins = [
     "https://iinsightss.com",
     "https://www.iinsightss.com",
-    "https://reddit-painpoint-4nx9b.ondigitalocean.app",
-    "http://localhost:5173"
+    "https://iinsightss-cwb24.ondigitalocean.app",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
 ]
 
 logger.info(f"Setting up CORS for origins: {cors_origins}")
