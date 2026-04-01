@@ -14,7 +14,6 @@ export const AuthProvider = ({ children }) => {
     // Use fetchUserProfile which requires authentication (not fetchStatus which is public)
     const checkAuth = async () => {
       console.log('[AUTH] checkAuth called - checking authentication status');
-      console.log('[AUTH] Current cookies:', document.cookie || 'No cookies found');
       try {
         // Use fetchUserProfile to check authentication - this endpoint requires auth
         // If it succeeds, user is authenticated; if it fails with 401/403, user is not authenticated
@@ -106,10 +105,7 @@ export const AuthProvider = ({ children }) => {
     const waitEndTime = Date.now();
     console.log(`[AUTH] Wait completed in ${waitEndTime - waitStartTime}ms`);
     
-    // Log cookie information (note: httpOnly cookies won't show in document.cookie)
-    console.log('[AUTH] Step 3: Checking cookies (httpOnly cookies may not be visible):', document.cookie || 'No cookies found');
-    console.log('[AUTH] Step 3: Cookie count:', document.cookie ? document.cookie.split(';').length : 0);
-    console.log('[AUTH] Step 3: Note - httpOnly cookies are not accessible via document.cookie, but should be sent automatically with requests');
+    // Avoid logging cookie/token values in the browser console.
     console.log('[AUTH] Step 3: Current URL:', window.location.href);
     console.log('[AUTH] Step 3: Document domain:', document.domain);
     

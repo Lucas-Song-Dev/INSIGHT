@@ -19,7 +19,6 @@ apiClient.interceptors.request.use((config) => {
   if (import.meta.env.DEV) {
     console.log(`[AXIOS] ${config.method?.toUpperCase()} ${config.url}`);
     console.log(`[AXIOS] withCredentials: ${config.withCredentials}`);
-    console.log(`[AXIOS] Current cookies in document:`, document.cookie || 'None');
     console.log(`[AXIOS] Token in localStorage:`, localStorage.getItem('access_token') ? 'YES' : 'NO');
   }
   return config;
@@ -31,13 +30,12 @@ apiClient.interceptors.request.use((config) => {
   if (import.meta.env.DEV) {
     console.log(`[API] INTERCEPTOR: ${config.method?.toUpperCase()} ${config.url}`);
     console.log(`[API] INTERCEPTOR: Token in localStorage: ${token ? 'YES (' + token.length + ' chars)' : 'NO'}`);
-    console.log(`[API] INTERCEPTOR: Current localStorage keys:`, Object.keys(localStorage));
   }
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     if (import.meta.env.DEV) {
-      console.log(`[API] INTERCEPTOR: Added Authorization header: Bearer ${token.substring(0, 20)}...`);
+      console.log(`[API] INTERCEPTOR: Added Authorization header`);
     }
   } else {
     if (import.meta.env.DEV) {
@@ -143,7 +141,6 @@ export const fetchPosts = async (filters = {}) => {
    console.log('[API] Email:', userData.email || 'Not provided');
    console.log('[API] API Base URL:', API_BASE);
    console.log('[API] Register endpoint:', `${API_BASE}/register`);
-   console.log('[API] Cookies before request:', document.cookie || 'No cookies found');
    
    try {
      const abortController = createAbortController();
@@ -172,9 +169,6 @@ export const fetchPosts = async (filters = {}) => {
        username: res.data?.user?.username
      });
      
-     // Note: httpOnly cookies won't appear in document.cookie
-     console.log('[API] Step 3: Checking cookies after response (httpOnly cookies not visible):', document.cookie || 'No cookies found');
-     console.log('[API] Note: httpOnly cookies are set by the browser and sent automatically with subsequent requests');
      console.log('[API] ========== REGISTER USER API SUCCESS ==========');
      
      return res.data;
@@ -223,7 +217,6 @@ export const loginUser = async (credentials) => {
   console.log('[API] Has password:', !!credentials.password);
   console.log('[API] API Base URL:', API_BASE);
   console.log('[API] Login endpoint:', `${API_BASE}/login`);
-  console.log('[API] Cookies before request:', document.cookie || 'No cookies found');
   
   try {
     console.log('[API] Step 1: Sending POST request to login endpoint...');
@@ -247,13 +240,11 @@ export const loginUser = async (credentials) => {
       message: res.data?.message,
       hasUser: !!res.data?.user,
       username: res.data?.user?.username,
-      hasToken: !!res.data?.token,
-      tokenLength: res.data?.token?.length || 0
+      hasToken: !!res.data?.token
     });
 
     // Store token in localStorage for Authorization headers
     console.log('[API] Step 3: Checking for token in response...');
-    console.log('[API] Response data keys:', Object.keys(res.data));
     console.log('[API] Response access_token/token exists:', !!(res.data.access_token || res.data.token));
 
     const token = res.data.access_token || res.data.token;
@@ -261,11 +252,9 @@ export const loginUser = async (credentials) => {
       console.log('[API] Token found! Storing in localStorage');
       localStorage.setItem('access_token', token);
       console.log('[API] Token stored successfully, length:', token.length);
-      console.log('[API] Token preview:', token.substring(0, 20) + '...');
-      console.log('[API] localStorage now contains:', localStorage.getItem('access_token') ? 'token' : 'nothing');
     } else {
       console.warn('[API] CRITICAL: No token received in login response!');
-      console.warn('[API] Full response data:', JSON.stringify(res.data, null, 2));
+      console.warn('[API] Login response missing token payload');
 
       // Try to get token from a different endpoint
       console.log('[API] Attempting fallback: fetching token from /api/status endpoint...');
@@ -277,9 +266,6 @@ export const loginUser = async (credentials) => {
       }
     }
 
-    // Note: httpOnly cookies won't appear in document.cookie
-    console.log('[API] Step 4: Checking cookies after response (httpOnly cookies not visible):', document.cookie || 'No cookies found');
-    console.log('[API] Note: httpOnly cookies are set by the browser and sent automatically with subsequent requests');
     console.log('[API] ========== LOGIN USER API SUCCESS ==========');
 
     return res.data;
@@ -467,8 +453,6 @@ export const fetchAllProducts = async () => {
   console.log('[API] ========== FETCH ALL PRODUCTS API CALL ==========');
   console.log('[API] API Base URL:', API_BASE);
   console.log('[API] Products endpoint:', `${API_BASE}/all-products`);
-  console.log('[API] Cookies (httpOnly not visible):', document.cookie || 'No cookies found');
-  console.log('[API] Note: httpOnly cookies are sent automatically with withCredentials: true');
   
   try {
     const abortController = createAbortController();
@@ -506,7 +490,7 @@ export const fetchAllProducts = async () => {
       hasResponse: !!err.response,
       requestUrl: err.config?.url,
       requestMethod: err.config?.method,
-      cookies: document.cookie || 'No cookies found'
+      authArtifactsPresent: !!localStorage.getItem('access_token')
     });
     
     if (err.response) {
@@ -578,7 +562,6 @@ export const runAnalysis = async ({ product, max_posts, skip_recommendations, re
  */
 export const fetchStatus = async () => {
   console.log('[AUTH] fetchStatus called');
-  console.log('[AUTH] Current cookies:', document.cookie || 'No cookies found');
   try {
     const abortController = createAbortController();
     console.log('[AUTH] Sending status request to:', `${API_BASE}/status`);
@@ -597,7 +580,7 @@ export const fetchStatus = async () => {
       responseStatus: err.response?.status,
       responseData: err.response?.data,
       hasResponse: !!err.response,
-      cookies: document.cookie || 'No cookies found'
+      authArtifactsPresent: !!localStorage.getItem('access_token')
     });
     if (isCancelledError(err)) {
       throw new Error("Request cancelled");
@@ -621,8 +604,6 @@ export const fetchUserProfile = async () => {
   console.log('[API] ========== FETCH USER PROFILE API CALL ==========');
   console.log('[API] API Base URL:', API_BASE);
   console.log('[API] Profile endpoint:', `${API_BASE}/user/profile`);
-  console.log('[API] Cookies (httpOnly not visible):', document.cookie || 'No cookies found');
-  console.log('[API] Note: httpOnly cookies are sent automatically with withCredentials: true');
   
   try {
     const abortController = createAbortController();
@@ -662,7 +643,7 @@ export const fetchUserProfile = async () => {
       hasResponse: !!err.response,
       requestUrl: err.config?.url,
       requestMethod: err.config?.method,
-      cookies: document.cookie || 'No cookies found'
+      authArtifactsPresent: !!localStorage.getItem('access_token')
     });
     
     if (err.response) {
