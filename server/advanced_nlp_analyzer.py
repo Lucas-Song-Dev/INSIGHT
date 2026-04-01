@@ -30,6 +30,11 @@ except LookupError:
     nltk.download('punkt', quiet=True)
 
 try:
+    nltk.data.find('tokenizers/punkt_tab/english')
+except LookupError:
+    nltk.download('punkt_tab', quiet=True)
+
+try:
     nltk.data.find('vader_lexicon')
 except LookupError:
     nltk.download('vader_lexicon', quiet=True)
@@ -325,6 +330,8 @@ class AdvancedNLPAnalyzer:
         for post in posts:
             text = f"{getattr(post, 'title', '')} {getattr(post, 'content', '')}".lower()
             sentiment = getattr(post, 'sentiment', 0)
+            if sentiment is None:
+                sentiment = 0.0
             
             # Check for pain indicators
             for severity, indicators in self.pain_indicators.items():
