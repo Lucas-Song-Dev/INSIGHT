@@ -22,7 +22,7 @@ def generate_report():
         return
     
     data_store = MongoDBStore(mongodb_uri)
-    if not data_store.db:
+    if data_store.db is None:
         return
     
     # Get latest analysis

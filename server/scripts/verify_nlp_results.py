@@ -27,7 +27,7 @@ def verify_results():
         return False
     
     data_store = MongoDBStore(mongodb_uri)
-    if not data_store.db:
+    if data_store.db is None:
         print("❌ Failed to connect to MongoDB")
         return False
     

@@ -38,7 +38,7 @@ def run_nlp_pipeline():
         return False
     
     data_store = MongoDBStore(mongodb_uri)
-    if not data_store.db:
+    if data_store.db is None:
         logger.error("Failed to connect to MongoDB")
         return False
     

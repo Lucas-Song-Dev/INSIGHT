@@ -88,6 +88,16 @@ class MongoDBStore:
                 self.db.recommendations.drop_index("user_id_1_product_1")
             except Exception:
                 pass
+            # If an existing non-unique index has the same auto-generated name,
+            # drop it before creating the unique variant to avoid name conflicts.
+            try:
+                existing_indexes = self.db.recommendations.index_information()
+                idx_name = "user_id_1_product_1_recommendation_type_1"
+                idx_meta = existing_indexes.get(idx_name)
+                if idx_meta is not None and not idx_meta.get("unique", False):
+                    self.db.recommendations.drop_index(idx_name)
+            except Exception:
+                pass
             self.db.recommendations.create_index(
                 [("user_id", 1), ("product", 1), ("recommendation_type", 1)],
                 unique=True,

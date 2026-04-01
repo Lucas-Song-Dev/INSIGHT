@@ -36,34 +36,32 @@ jobs:
         python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('vader_lexicon'); nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('averaged_perceptron_tagger')"
     
     - name: Run NLP Pipeline Tests
-      env:
-        MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       run: |
+        export MONGODB_URI="${{ secrets.MONGODB_URI }}"
+        export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
         cd server
         python -m pytest tests/test_nlp_pipeline.py -v
     
     - name: Process NLP Analysis
-      env:
-        MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       run: |
+        export MONGODB_URI="${{ secrets.MONGODB_URI }}"
+        export REDDIT_CLIENT_ID="${{ secrets.REDDIT_CLIENT_ID }}"
+        export REDDIT_CLIENT_SECRET="${{ secrets.REDDIT_CLIENT_SECRET }}"
+        export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
+        export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
         cd server
         python scripts/run_nlp_pipeline.py
     
     - name: Verify Results
-      env:
-        MONGODB_URI: ${{ secrets.MONGODB_URI }}
       run: |
+        export MONGODB_URI="${{ secrets.MONGODB_URI }}"
         cd server
         python scripts/verify_nlp_results.py
     
     - name: Generate Report
       if: always()
       run: |
+        export MONGODB_URI="${{ secrets.MONGODB_URI }}"
         cd server
         python scripts/generate_nlp_report.py > nlp_report.txt
         cat nlp_report.txt
